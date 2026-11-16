@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>แฟ้มสะสมผลงานครู</title>
+  <meta name="description" content="แฟ้มสะสมผลงาน งานที่รับผิดชอบ เกียรติบัตร และการพัฒนาตนเอง">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="menu-btn" id="menuBtn" aria-label="เปิดเมนู" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <span class="topbar-title" id="topbarTitle">แฟ้มสะสมผลงาน</span>
+  </header>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="side-profile">
+      <div class="avatar" id="sideAvatar"></div>
+      <div>
+        <div class="side-name" id="sideName">กำลังโหลด…</div>
+        <div class="side-role" id="sideRole"></div>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <a href="#/" data-route="">หน้าแรก</a>
+      <a href="#/responsibilities" data-route="responsibilities">งานที่รับผิดชอบ</a>
+      <a href="#/schedule" data-route="schedule">ตารางสอน</a>
+      <a href="#/certificates" data-route="certificates">เกียรติบัตรและรางวัล</a>
+      <a href="#/trainings" data-route="trainings">การพัฒนาตนเอง</a>
+      <a href="#/works" data-route="works">ผลงานเด่น</a>
+      <a href="#/reports" data-route="reports">SAR / PA</a>
+    </nav>
+    <div class="side-foot">มุมมองผู้เข้าชมทั่วไป</div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <main class="main" id="main" tabindex="-1">
+    <div class="loading">กำลังโหลด…</div>
+  </main>
+
+  <dialog class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose" aria-label="ปิด">×</button>
+    <img id="lightboxImg" alt="">
+    <p id="lightboxCaption"></p>
+  </dialog>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
