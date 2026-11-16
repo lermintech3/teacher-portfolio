@@ -32,6 +32,7 @@ export const COLLECTIONS = [
   "responsibilities", "certificates", "trainings", "works", "reports", "evidence",
   "plans", "reflections", "supervision", "activities", "projects",
   "todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps",
+  "albums", "videos", "surveys",
 ];
 // เมนูที่เป็นส่วนตัวเสมอ ตั้งเป็นสาธารณะไม่ได้ (PDPA และข้อมูลส่วนตัว)
 export const PRIVATE_ONLY = new Set(["todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps"]);
@@ -90,6 +91,10 @@ export async function ensureSchema(db) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (site, key))`),
     db.prepare(`CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT PRIMARY KEY, fails INTEGER NOT NULL, last INTEGER NOT NULL)`),
     // รหัสผ่านที่ครูเปลี่ยนเองจากหน้าเว็บ (เก็บแบบ PBKDF2 ไม่เก็บรหัสจริง)
+    // คำตอบแบบประเมินความพึงพอใจ (ส่งจากหน้าสาธารณะ ไม่เก็บ IP จริง เก็บแค่ค่าแฮชไว้กันส่งซ้ำ)
+    db.prepare(`CREATE TABLE IF NOT EXISTS survey_responses (id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, survey_id INTEGER NOT NULL,
+      answers TEXT NOT NULL, comment TEXT NOT NULL DEFAULT '', ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL)`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_survey ON survey_responses (site, survey_id)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS auth (site TEXT PRIMARY KEY, salt TEXT NOT NULL, hash TEXT NOT NULL, env_fp TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
   ]);
   // ย้ายตารางรุ่นแรก (ยังไม่มีช่อง site) ข้อมูลเดิมเป็นของคนแรก
@@ -320,3 +325,12 @@ export async function callDrive(url, init = {}) {
   if (data.error) throw new HttpError(502, `Google Drive: ${data.error}`);
   return data;
 }
+
+// ---------- แบบประเมินความพึงพอใจ ----------
+export const surveyQuestions = (data) => String(data.questions || "").split("\n").map((q) => q.trim()).filter(Boolean).slice(0, 20);
+export async function publicSurvey(db, site, id) {
+  const row = await db.prepare(`SELECT data FROM items WHERE id = ? AND site = ? AND collection = 'surveys' AND vis = 'public'`).bind(id, site).first();
+  if (!row) throw new HttpError(404, "แบบประเมินนี้ปิดรับคำตอบแล้ว หรือไม่มีอยู่");
+  return JSON.parse(row.data);
+}
+export const ipHash = (request, salt) => hmac(`ip:${salt}`, clientIp(request));

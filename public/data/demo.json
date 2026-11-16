@@ -297,7 +297,7 @@
    "unit": "หน่วยที่ 2 ฟังก์ชัน",
    "title": "ใบงานที่ 2.3 อ่านค่าจากกราฟ",
    "type": "ใบงาน",
-   "link": "",
+   "link": "https://drive.google.com/",
    "vis": "public"
   },
   {
@@ -305,7 +305,7 @@
    "unit": "หน่วยที่ 1 ลำดับ",
    "title": "สื่อ GeoGebra ลำดับเลขคณิต",
    "type": "สื่อ",
-   "link": "",
+   "link": "https://drive.google.com/",
    "vis": "public"
   },
   {
@@ -767,5 +767,79 @@
   "strengths": "(ตัวอย่าง) ใช้สื่อเทคโนโลยีกระตุ้นการเรียนรู้ นักเรียนมีส่วนร่วมสูง",
   "improve": "(ตัวอย่าง) การวัดผลระหว่างเรียนให้หลากหลายมากขึ้น",
   "plan": "(ตัวอย่าง) พัฒนาแบบประเมินทักษะการคิดและทำวิจัยในชั้นเรียนต่อเนื่อง"
- }
+ },
+ "albums": [
+  {
+   "title": "(ตัวอย่าง) ค่ายคณิตศาสตร์สนุกคิด",
+   "date": "2026-10-10",
+   "description": "กิจกรรมฐานการเรียนรู้ 5 ฐาน นักเรียน ป.4–6 เข้าร่วม 85 คน",
+   "photos": [
+    {
+     "img": "https://picsum.photos/seed/camp0/1200/800",
+     "url": "https://picsum.photos/seed/camp0/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/camp1/1200/800",
+     "url": "https://picsum.photos/seed/camp1/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/camp2/1200/800",
+     "url": "https://picsum.photos/seed/camp2/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/camp3/1200/800",
+     "url": "https://picsum.photos/seed/camp3/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/camp4/1200/800",
+     "url": "https://picsum.photos/seed/camp4/1200/800",
+     "caption": ""
+    }
+   ],
+   "slideshow": "แสดง",
+   "vis": "public"
+  },
+  {
+   "title": "(ตัวอย่าง) วันไหว้ครู 2569",
+   "date": "2026-06-12",
+   "description": "",
+   "photos": [
+    {
+     "img": "https://picsum.photos/seed/waikru0/1200/800",
+     "url": "https://picsum.photos/seed/waikru0/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/waikru1/1200/800",
+     "url": "https://picsum.photos/seed/waikru1/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/waikru2/1200/800",
+     "url": "https://picsum.photos/seed/waikru2/1200/800",
+     "caption": ""
+    },
+    {
+     "img": "https://picsum.photos/seed/waikru3/1200/800",
+     "url": "https://picsum.photos/seed/waikru3/1200/800",
+     "caption": ""
+    }
+   ],
+   "slideshow": "แสดง",
+   "vis": "public"
+  }
+ ],
+ "videos": [],
+ "surveys": [
+  {
+   "title": "(ตัวอย่าง) แบบประเมินความพึงพอใจต่อการจัดการเรียนรู้ คณิตศาสตร์ ป.5",
+   "target": "นักเรียน",
+   "questions": "ครูอธิบายเนื้อหาเข้าใจง่าย\nกิจกรรมการเรียนสนุกและน่าสนใจ\nครูเปิดโอกาสให้ซักถามและแสดงความคิดเห็น\nสื่อและอุปกรณ์การเรียนเหมาะสม\nความพึงพอใจโดยรวมต่อการสอน",
+   "vis": "public"
+  }
+ ]
 }

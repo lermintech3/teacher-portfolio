@@ -177,6 +177,7 @@
   // options ≤ 4 สั้นๆ → Segmented | 5–6 → Radio | มากกว่านั้น → Wheel
   const kindOf = (f) => {
     if (f.type === "file") return "file";
+    if (f.type === "gallery") return "gallery";
     if (f.toggle) return "toggle";
     if (f.type === "check") return "check";
     if (f.options) {
@@ -236,6 +237,8 @@
         return `<label class="ios-cell ios-row" for="${id}">${head(f)}<input id="${id}" name="${f.key}" type="color" value="${e(v || "#6c4cf1")}" class="ios-color"></label>`;
       case "file":
         return `<div class="ios-cell">${fileField(f, id, v)}</div>`;
+      case "gallery":
+        return `<div class="ios-cell">${window.galleryField(f, id, v)}</div>`;
       default: {
         const t = f.type === "number" ? "text" : f.type || "text";
         const mode = f.type === "number" ? 'inputmode="decimal" pattern="[0-9.,]*"' : f.type === "email" ? 'inputmode="email" autocapitalize="off"' : f.type === "url" ? 'inputmode="url" autocapitalize="off"' : "";

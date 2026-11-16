@@ -23,6 +23,9 @@ App.NAV = {
     { route: "certificates", label: "เกียรติบัตรและรางวัล", c: C.gold },
     { route: "trainings", label: "การพัฒนาตนเอง", c: C.mint },
     { route: "works", label: "ผลงานเด่น", c: C.pink },
+    { route: "albums", label: "อัลบั้มภาพกิจกรรม", c: C.orange },
+    { route: "videos", label: "วิดีโอการสอน", c: C.coral },
+    { route: "media", label: "คลังสื่อการสอน", c: C.teal },
     { route: "pa", label: "หลักฐานตามตัวชี้วัด PA", c: C.indigo },
     { route: "reports", label: "SAR / PA", c: C.indigo },
   ] }],
@@ -50,11 +53,14 @@ App.NAV = {
       { route: "admin/trainings", label: "อบรม / PLC", c: C.mint },
       { route: "admin/certificates", label: "เกียรติบัตรและรางวัล", c: C.gold },
       { route: "admin/works", label: "ผลงาน วิจัย นวัตกรรม", c: C.pink },
+      { route: "admin/albums", label: "อัลบั้มภาพกิจกรรม", c: C.orange },
+      { route: "admin/videos", label: "วิดีโอการสอน", c: C.coral },
     ] },
     { group: "ประเมิน", items: [
       { route: "admin/evidence", label: "คลังหลักฐาน", c: C.indigo },
       { route: "admin/pa", label: "PA ข้อตกลงพัฒนางาน", c: C.indigo },
       { route: "admin/sar", label: "SAR ประเมินตนเอง", c: C.indigo },
+      { route: "admin/surveys", label: "แบบประเมินความพึงพอใจ", c: C.indigo },
     ] },
     { group: "ส่วนตัวและตั้งค่า", items: [
       { route: "admin/leaves", label: "การลา", c: C.pink },
@@ -161,7 +167,8 @@ const openForm = (title, fields, onSave) => {
   const okBtn = form.querySelector("button[value=ok]");
   okBtn.disabled = false;
   iOS.wire(form);
-  form.querySelectorAll(".drop").forEach((z) => wireDrop(z, okBtn));
+  form.querySelectorAll(".drop:not([data-multi])").forEach((z) => wireDrop(z, okBtn));
+  App.wireExtras?.(form, okBtn);
   form.onsubmit = async (e) => {
     if (e.submitter?.value !== "ok") return;
     e.preventDefault();
@@ -171,6 +178,7 @@ const openForm = (title, fields, onSave) => {
     const fd = new FormData(form);
     const rec = Object.fromEntries(fields.map((f) => {
       const raw = String(fd.get(f.key) ?? "").trim();
+      if (f.type === "gallery") { try { return [f.key, JSON.parse(raw || "[]")]; } catch { return [f.key, []]; } }
       return [f.key, f.type === "number" ? Number(raw.replace(/,/g, "")) || 0 : f.type === "check" ? raw === "1" : raw];
     }));
     okBtn.disabled = true;
@@ -317,8 +325,9 @@ App.pages[""] = () => {
   const p = App.DATA.profile || {};
   const hours = list("trainings").reduce((s, t) => s + (Number(t.hours) || 0), 0);
   const photo = safeUrl(p.photo);
+  const hs = App.heroStyle ? App.heroStyle() : { cls: "", style: "", slogan: "" };
   return `
-    <header class="band hero">
+    <header class="band hero ${hs.cls}" style="${hs.style}">
       <div class="hero-photo ${photo ? "photo" : ""}" style="${photo ? `background-image:url('${esc(photo)}')` : ""}">${photo ? "" : esc(initials(p.name))}</div>
       <div>
         <h1>${esc(p.name)}</h1>
@@ -326,8 +335,10 @@ App.pages[""] = () => {
         <div class="chips">
           ${[p.learningArea, ...(p.subjects || []), p.homeroom].filter(Boolean).map((s) => `<span class="tag solid">${esc(s)}</span>`).join("")}
         </div>
+        ${hs.slogan ? `<p class="slogan">${esc(hs.slogan)}</p>` : ""}
       </div>
     </header>
+    ${App.slideshowHTML ? App.slideshowHTML() : ""}
     ${p.philosophy ? `<blockquote class="quote"><b>ปรัชญาการสอน</b>${esc(p.philosophy)}</blockquote>` : ""}
     <div class="stats">
       <a class="stat" style="--sc:${C.coral}" href="#/responsibilities"><b>${list("responsibilities").length}</b><span>งานที่รับผิดชอบ</span></a>
@@ -335,6 +346,7 @@ App.pages[""] = () => {
       <a class="stat" style="--sc:${C.mint}" href="#/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
       <a class="stat" style="--sc:${C.pink}" href="#/works"><b>${list("works").length}</b><span>ผลงานเด่น</span></a>
     </div>
+    ${App.badgesHTML ? App.badgesHTML(true) : ""}
     ${(p.education || []).length ? `
       <h2>ประวัติการศึกษา</h2>
       <div class="stack">${p.education.map((e) => `
@@ -474,6 +486,7 @@ function render() {
   document.body.style.setProperty("--c", COLOR(route));
   const page = pageFor(route);
   main.innerHTML = (App.banner ? App.banner() : "") + (page ? page({ q, route }) : empty("ไม่พบหน้านี้"));
+  App.wireSlideshow?.();
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   const label = navItem(route)?.label || "";
   $("#topbarTitle").textContent = label;

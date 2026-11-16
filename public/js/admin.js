@@ -255,11 +255,13 @@ App.pages.admin = () => {
           <span>${esc(t.title)}</span><span class="meta">${t.due ? thDate(t.due) : ""}</span>${tools("todos", t)}</div>`).join("")}</div>` : empty("ไม่มีงานค้าง")}
       </section>
     </div>
+    ${App.dashCharts ? App.dashCharts() : ""}
     <section class="panel" style="--c:${C.indigo}">
       <h2 class="row-head">กำหนดส่งสำคัญ <button class="btn ghost small" data-add="deadlines">+ เพิ่ม</button></h2>
       ${deadlines.length ? `<div class="deadlines">${deadlines.map(({ d, left }) => `
         <div class="deadline ${left <= 30 ? "soon" : ""}"><b>${left >= 0 ? `อีก ${left} วัน` : "เลยกำหนด"}</b><span>${esc(d.title)}</span><span class="meta">${thDate(d.date)}</span>${tools("deadlines", d)}</div>`).join("")}</div>` : empty("ยังไม่มีกำหนดส่ง")}
-    </section>`;
+    </section>
+    ${App.badgesHTML ? App.badgesHTML(false) : ""}`;
 };
 App.actions.todo = async (el) => {
   const t = findItem("todos", el.dataset.id);
@@ -401,9 +403,10 @@ App.actions.editTerm = () => {
 };
 
 App.pages["admin/plans"] = listPage({
-  key: "plans", title: "แผนการสอนและสื่อ", sub: (r) => `${r.length} รายการ แยกตามวิชาและหน่วย`, filter: "type",
+  key: "plans", title: "แผนการสอนและสื่อ", sub: (r) => `${r.length} รายการ รายการที่เป็นสาธารณะและมีไฟล์ จะอยู่ใน "คลังสื่อการสอน" ให้คนอื่นดาวน์โหลด`, filter: "type",
   cols: [{ label: "วิชา", key: "subject", cls: "nowrap" }, { label: "หน่วย", key: "unit" },
-    { label: "ชื่อ", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) }, tagCol("ประเภท", "type")],
+    { label: "ชื่อ", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) }, tagCol("ประเภท", "type"),
+    { label: "ดาวน์โหลด", cls: "num", render: (r) => (r.vis === "public" && safeUrl(r.link) ? (Number(r.downloads) || 0).toLocaleString("th-TH") : `<span class="meta">-</span>`) }],
 });
 
 App.pages["admin/reflections"] = () => {
@@ -692,8 +695,9 @@ App.pages["admin/sharing"] = () => {
         <p class="meta">ลิงก์: <a href="${esc(site)}/" target="_blank" rel="noopener">${esc(site)}/</a></p>
         <a class="btn ghost" href="/${esc(SITE)}/" target="_blank" rel="noopener">เปิดหน้าสาธารณะ</a></section>
       <section class="panel"><h2>QR Code</h2>
-        <div class="qr-ph">QR Code<br><span class="meta">สร้างอัตโนมัติในระยะ 6</span></div>
-        <p class="meta">ใช้ติดหน้าแฟ้มหรือสไลด์นำเสนอ สแกนแล้วเปิดหน้าสาธารณะ</p></section>
+        <div class="qr-inline">${window.qrSVG ? window.qrSVG(`${site}/`, { size: 150, color: "#16142e" }) : ""}</div>
+        <p class="meta">ใช้ติดหน้าแฟ้มหรือสไลด์นำเสนอ สแกนแล้วเปิดแฟ้มผลงาน</p>
+        <button class="btn ghost small" data-act="qr" data-url="${esc(site)}/" data-title="แฟ้มผลงาน ${esc(App.DATA.profile?.name || "")}">ขยาย / ดาวน์โหลด QR</button></section>
     </div>
     <h2>รายงาน SAR / PA ที่เผยแพร่</h2>` +
     table([{ label: "รายงาน", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) },
@@ -822,7 +826,7 @@ const menuRows = () => Object.entries(App.navBase()).flatMap(([mode, groups]) =>
 
 const SET_TABS = ["ทั่วไป", "เมนู", "ตัวเลือกฟอร์ม", "บัญชี"];
 const SET_HINT = {
-  "ทั่วไป": "ชื่อเว็บและตัวชี้วัด PA",
+  "ทั่วไป": "แบนเนอร์และสไลด์โชว์หน้าแรก ชื่อเว็บ และตัวชี้วัด PA",
   "เมนู": "เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ",
   "ตัวเลือกฟอร์ม": "เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน",
   "บัญชี": "รหัสผ่านและการคืนค่าตั้งต้น",
@@ -858,7 +862,7 @@ App.pages["admin/settings"] = ({ q } = {}) => {
   };
 
   const body = {
-    "ทั่วไป": () => `<div class="cols">
+    "ทั่วไป": () => `${App.settingsExtras ? App.settingsExtras() : ""}<div class="cols">
       <section class="panel set-card"><h2 class="row-head">ชื่อเว็บ <button class="btn ghost small" data-act="setTitle">แก้ไข</button></h2>
         <p>${esc(st.siteTitle || "") || `<span class="meta">ยังไม่ได้ตั้ง (ใช้ชื่อครูแทน)</span>`}</p>
         <p class="meta">แสดงบนแท็บเบราว์เซอร์และตอนแชร์ลิงก์</p></section>
@@ -874,7 +878,7 @@ App.pages["admin/settings"] = ({ q } = {}) => {
         <p>ล้างการตั้งค่าทั้งหมดในหน้านี้ (ชื่อเว็บ เมนู ตัวเลือก PA) ข้อมูลอื่นไม่หาย</p></section></div>`,
   }[tab]();
 
-  return head("ตั้งค่าเว็บ", "ปรับชื่อเว็บ เมนู สี ตัวเลือกในฟอร์ม และตัวชี้วัด PA ได้เอง การตั้งค่าบันทึกทันที") +
+  return head("ตั้งค่าเว็บ", "ปรับแบนเนอร์ ชื่อเว็บ เมนู สี ตัวเลือกในฟอร์ม และตัวชี้วัด PA ได้เอง การตั้งค่าบันทึกทันที") +
     tabs + `<p class="meta set-hint">${SET_HINT[tab]}</p>` + body;
 };
 App.actions.setTitle = () => editKV("ชื่อเว็บ", "settings", [{ key: "siteTitle", label: "ชื่อเว็บ", hint: "เช่น แฟ้มสะสมผลงาน ครูสมศรี" }],
