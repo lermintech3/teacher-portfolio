@@ -33,7 +33,8 @@ const list = (key) => (Array.isArray(DATA?.[key]) ? DATA[key] : []);
 const byDateDesc = (a, b) => String(b.date || "").localeCompare(String(a.date || ""));
 const empty = (msg = "ยังไม่มีข้อมูล") => `<p class="empty">${msg}</p>`;
 
-const head = (title, sub = "") => `<div class="page-head"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div>`;
+const head = (title, sub = "") => `<header class="band"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</header>`;
+const COLOR = (route) => document.querySelector(`.nav a[data-route="${route}"]`)?.style.getPropertyValue("--c") || "#6c4cf1";
 
 const filterBar = (values, current, attr) =>
   values.length < 2
@@ -49,25 +50,25 @@ const pages = {
     const hours = list("trainings").reduce((s, t) => s + (Number(t.hours) || 0), 0);
     const photo = safeUrl(p.photo);
     return `
-      <section class="hero">
-        <div class="hero-photo" style="${photo ? `background-image:url('${esc(photo)}')` : ""}">${photo ? "" : esc(initials(p.name))}</div>
+      <header class="band hero">
+        <div class="hero-photo ${photo ? "photo" : ""}" style="${photo ? `background-image:url('${esc(photo)}')` : ""}">${photo ? "" : esc(initials(p.name))}</div>
         <div>
           <h1>${esc(p.name)}</h1>
-          <div class="meta">${esc([p.position, p.academicStanding].filter(Boolean).join(" · "))}<br>${esc(p.school)}${p.office ? `<br>${esc(p.office)}` : ""}</div>
+          <div class="who">${esc([p.position, p.academicStanding].filter(Boolean).join(" "))}<br>${esc(p.school)}${p.office ? `<br><span class="meta">${esc(p.office)}</span>` : ""}</div>
           <div class="chips">
-            ${p.learningArea ? `<span class="tag">${esc(p.learningArea)}</span>` : ""}
-            ${(p.subjects || []).map((s) => `<span class="tag accent">${esc(s)}</span>`).join("")}
-            ${p.homeroom ? `<span class="tag">${esc(p.homeroom)}</span>` : ""}
+            ${p.learningArea ? `<span class="tag solid">${esc(p.learningArea)}</span>` : ""}
+            ${(p.subjects || []).map((s) => `<span class="tag solid">${esc(s)}</span>`).join("")}
+            ${p.homeroom ? `<span class="tag solid">${esc(p.homeroom)}</span>` : ""}
           </div>
         </div>
-      </section>
-      ${p.philosophy ? `<blockquote class="quote"><b>ปรัชญาการสอน</b><br>${esc(p.philosophy)}</blockquote>` : ""}
+      </header>
+      ${p.philosophy ? `<blockquote class="quote"><b>ปรัชญาการสอน</b>${esc(p.philosophy)}</blockquote>` : ""}
 
       <div class="stats">
-        <a class="stat" href="#/responsibilities"><b>${list("responsibilities").length}</b><span>งานที่รับผิดชอบ</span></a>
-        <a class="stat" href="#/certificates"><b>${list("certificates").length}</b><span>เกียรติบัตรและรางวัล</span></a>
-        <a class="stat" href="#/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
-        <a class="stat" href="#/works"><b>${list("works").length}</b><span>ผลงานเด่น</span></a>
+        <a class="stat" style="--sc:${COLOR("responsibilities")}" href="#/responsibilities"><b>${list("responsibilities").length}</b><span>งานที่รับผิดชอบ</span></a>
+        <a class="stat" style="--sc:${COLOR("certificates")}" href="#/certificates"><b>${list("certificates").length}</b><span>เกียรติบัตรและรางวัล</span></a>
+        <a class="stat" style="--sc:${COLOR("trainings")}" href="#/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
+        <a class="stat" style="--sc:${COLOR("works")}" href="#/works"><b>${list("works").length}</b><span>ผลงานเด่น</span></a>
       </div>
 
       ${(p.education || []).length ? `
@@ -104,7 +105,7 @@ const pages = {
         ? `<td class="has">${c.map((x) => `<b>${esc(x.subject)}</b>${esc(x.room)}`).join("<br>")}</td>`
         : "<td></td>";
     };
-    return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term)} · สอน ${classes.length} คาบต่อสัปดาห์`) + `
+    return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term)} สอน ${classes.length} คาบต่อสัปดาห์`) + `
       <div class="table-wrap"><table class="sched">
         <thead><tr><th>วัน</th>${periods.map((p) => `<th>คาบ ${esc(p.no)}<small>${esc(p.time)}</small></th>`).join("")}</tr></thead>
         <tbody>${DAYS.map((d) => `<tr><th>${d}</th>${periods.map((p) => cell(d, Number(p.no))).join("")}</tr>`).join("")}</tbody>
@@ -124,8 +125,8 @@ const pages = {
             const img = safeUrl(i.image);
             return `<div class="card cert">
               <button class="cert-img ${img ? "has-img" : ""}" ${img ? `data-img="${esc(img)}" data-cap="${esc(i.title)}" style="background-image:url('${esc(img)}')"` : "disabled"} aria-label="ดูภาพ ${esc(i.title)}">${img ? "" : "ยังไม่มีภาพ"}</button>
-              <div class="cert-body"><span class="tag ${i.type === "รางวัล" ? "accent" : ""}">${esc(i.type)}</span>${i.level ? ` <span class="tag">${esc(i.level)}</span>` : ""}
-              <h3 style="margin-top:8px">${esc(i.title)}</h3><div class="meta">${esc(i.issuer)}<br>${thDate(i.date)}</div></div></div>`;
+              <div class="cert-body"><span class="tag">${esc(i.type)}</span>${i.level ? ` <span class="tag solid">${esc(i.level)}</span>` : ""}
+              <h3>${esc(i.title)}</h3><div class="meta">${esc(i.issuer)}<br>${thDate(i.date)}</div></div></div>`;
           }).join("")}</div>`
         : empty());
   },
@@ -136,13 +137,13 @@ const pages = {
     const cy = q.year || "ทั้งหมด";
     const shown = items.filter((i) => cy === "ทั้งหมด" || academicYear(i.date) === cy);
     const hours = shown.reduce((s, t) => s + (Number(t.hours) || 0), 0);
-    return head("การพัฒนาตนเอง", `${shown.length} รายการ · รวม ${hours} ชั่วโมง${cy !== "ทั้งหมด" ? ` (ปีการศึกษา ${esc(cy)})` : ""}`) +
+    return head("การพัฒนาตนเอง", `${shown.length} รายการ รวม ${hours} ชั่วโมง${cy !== "ทั้งหมด" ? ` (ปีการศึกษา ${esc(cy)})` : ""}`) +
       filterBar(years, cy, "year") +
       (shown.length
         ? `<div class="stack">${shown.map((i) => {
             const cert = safeUrl(i.certificate);
             return `<div class="card item"><div class="item-body"><h3>${esc(i.title)}</h3>
-              <div class="meta">${esc(i.organizer)} · ${thDate(i.date)}${i.format ? ` · ${esc(i.format)}` : ""}</div>
+              <div class="meta">${esc(i.organizer)}<br>${thDate(i.date)}${i.format ? `, ${esc(i.format)}` : ""}</div>
               ${cert ? `<a href="${esc(cert)}" target="_blank" rel="noopener">ดูเกียรติบัตร</a>` : ""}</div>
               <div class="item-side"><div class="hours">${esc(i.hours)} ชม.</div></div></div>`;
           }).join("")}</div>`
@@ -155,7 +156,7 @@ const pages = {
       (items.length
         ? `<div class="grid">${items.map((i) => {
             const link = safeUrl(i.link);
-            return `<div class="card"><span class="tag accent">${esc(i.type)}</span> <span class="meta">ปีการศึกษา ${esc(i.year)}</span>
+            return `<div class="card"><span class="tag">${esc(i.type)}</span> <span class="meta">ปีการศึกษา ${esc(i.year)}</span>
               <h3 style="margin-top:8px">${esc(i.title)}</h3>${i.description ? `<p class="meta">${esc(i.description)}</p>` : ""}
               ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">ดูผลงาน</a>` : ""}</div>`;
           }).join("")}</div>`
@@ -185,6 +186,7 @@ function parseHash() {
 function render() {
   if (!DATA) return;
   const { route, q } = parseHash();
+  document.body.style.setProperty("--c", COLOR(route));
   main.innerHTML = pages[route](q);
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   const label = document.querySelector(`.nav a[data-route="${route}"]`)?.textContent || "";
@@ -232,10 +234,10 @@ fetch(DATA_URL, { cache: "no-cache" })
     DATA = data;
     const p = data.profile || {};
     $("#sideName").textContent = p.name || "";
-    $("#sideRole").textContent = [p.position, p.academicStanding].filter(Boolean).join(" · ");
+    $("#sideRole").textContent = [p.position, p.academicStanding].filter(Boolean).join(" ");
     const photo = safeUrl(p.photo);
     const av = $("#sideAvatar");
-    if (photo) av.style.backgroundImage = `url('${photo}')`; else av.textContent = initials(p.name);
+    if (photo) { av.classList.add("photo"); av.style.backgroundImage = `url('${photo}')`; } else av.textContent = initials(p.name);
     render();
   })
   .catch(() => { main.innerHTML = `<p class="empty">โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</p>`; });
