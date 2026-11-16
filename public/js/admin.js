@@ -753,6 +753,8 @@ App.pages["admin/settings"] = () => {
     `<section class="panel" style="margin-top:20px"><h2 class="row-head">ตัวชี้วัด PA <button class="btn ghost small" data-act="setPA">แก้ไข</button></h2>
       <p>${PA === DEFAULT_PA ? "ใช้ค่าตั้งต้นตาม ว 9/2564 (15 ตัวชี้วัด)" : `กำหนดเอง ${PA_CODES.length} ตัวชี้วัด`}</p>
       <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section>` +
+    `<section class="panel"><h2 class="row-head">รหัสผ่าน <button class="btn ghost small" data-act="changePw">เปลี่ยนรหัสผ่าน</button></h2>
+      <p class="meta">เปลี่ยนแล้วเครื่องอื่นที่เคยเข้าสู่ระบบไว้จะต้องเข้าใหม่ ถ้าลืมรหัส ให้ตั้งรหัสใหม่ใน Cloudflare แล้ว deploy ใหม่</p></section>` +
     `<section class="panel"><h2>คืนค่าตั้งต้น</h2><p>ล้างการตั้งค่าทั้งหมดในหน้านี้ ข้อมูลอื่นไม่หาย</p>
       <button class="btn ghost danger" data-act="resetSettings">คืนค่าตั้งต้นทั้งหมด</button></section>`;
 };
@@ -812,6 +814,15 @@ App.actions.setPA = () => openForm("ตัวชี้วัด PA", [
   const parsed = paFromText(r.pa);
   if (parsed.length && r.pa.trim() !== paToText(DEFAULT_PA).trim()) st.paText = r.pa; else delete st.paText;
 }));
+App.actions.changePw = () => openForm("เปลี่ยนรหัสผ่าน", [
+  { key: "current", label: "รหัสผ่านปัจจุบัน", type: "password", required: true, autocomplete: "current-password" },
+  { key: "next", label: "รหัสผ่านใหม่", type: "password", required: true, autocomplete: "new-password", hint: "อย่างน้อย 8 ตัวอักษร" },
+  { key: "again", label: "พิมพ์รหัสผ่านใหม่อีกครั้ง", type: "password", required: true, autocomplete: "new-password" },
+], async (r) => {
+  if (r.next !== r.again) throw new Error("รหัสผ่านใหม่ 2 ช่องไม่ตรงกัน");
+  await api("POST", "/api/admin/password", { current: r.current, next: r.next });
+  setTimeout(() => toast("เปลี่ยนรหัสผ่านแล้ว ครั้งหน้าใช้รหัสใหม่เข้าสู่ระบบ"), 400);
+});
 App.actions.resetSettings = async () => {
   if (!confirm("คืนค่าตั้งต้นของชื่อเว็บ เมนู ตัวเลือก และตัวชี้วัด PA ทั้งหมดใช่ไหม?")) return;
   try { await saveSettings((st) => { for (const k of Object.keys(st)) delete st[k]; }); toast("คืนค่าตั้งต้นแล้ว"); render(); } catch (e) { toast(e.message); }

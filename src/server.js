@@ -89,6 +89,8 @@ export async function ensureSchema(db) {
       site TEXT NOT NULL DEFAULT '${DEFAULT_SITE}', key TEXT NOT NULL, value TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (site, key))`),
     db.prepare(`CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT PRIMARY KEY, fails INTEGER NOT NULL, last INTEGER NOT NULL)`),
+    // รหัสผ่านที่ครูเปลี่ยนเองจากหน้าเว็บ (เก็บแบบ PBKDF2 ไม่เก็บรหัสจริง)
+    db.prepare(`CREATE TABLE IF NOT EXISTS auth (site TEXT PRIMARY KEY, salt TEXT NOT NULL, hash TEXT NOT NULL, env_fp TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
   ]);
   // ย้ายตารางรุ่นแรก (ยังไม่มีช่อง site) ข้อมูลเดิมเป็นของคนแรก
   if (!(await columns(db, "items")).includes("site")) {
@@ -181,33 +183,73 @@ function safeEqual(a, b) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
-// รหัสผ่านบอกว่าเป็นใคร: เทียบกับรหัสของทุกคน (ผ่าน HMAC ใช้เวลาคงที่)
-export async function siteForPassword(env, given) {
-  const configured = SITES.filter((s) => passwordOf(env, s));
-  if (!configured.length) throw new HttpError(500, "ยังไม่ได้ตั้งรหัสผ่านใน Cloudflare (Settings → Variables and Secrets)");
-  const g = await hmac("pw-check", String(given ?? ""));
+// ---------- รหัสผ่าน ----------
+// ตั้งต้นจาก Cloudflare (ADMIN_PASSWORD / PASSWORD_<SLUG>) ครูเปลี่ยนเองได้จากหน้าเว็บ (เก็บในตาราง auth)
+// ลืมรหัส: เปลี่ยนค่าใน Cloudflare แล้ว deploy ใหม่ → รหัสที่ตั้งเองถูกยกเลิก กลับไปใช้ค่าใน Cloudflare
+const PBKDF2_ITER = 5000; // พอสำหรับเว็บนี้ และไม่เกินเวลา CPU ของ Workers แพ็กเกจฟรี
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+async function pbkdf2(password, saltHex) {
+  const key = await crypto.subtle.importKey("raw", enc.encode(String(password)), "PBKDF2", false, ["deriveBits"]);
+  const salt = new Uint8Array(saltHex.match(/../g).map((h) => parseInt(h, 16)));
+  return hex(await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: PBKDF2_ITER, hash: "SHA-256" }, key, 256));
+}
+const envFingerprint = async (env, site) => hmac("env-fp", passwordOf(env, site) || "");
+
+// คืน { custom, key } ของครูคนนั้น: key ใช้ลงชื่อคุกกี้
+async function authOf(env, db, site) {
+  const envPw = passwordOf(env, site);
+  const row = db ? await db.prepare(`SELECT salt, hash, env_fp FROM auth WHERE site = ?`).bind(site.slug).first() : null;
+  if (row && row.env_fp === (await envFingerprint(env, site))) return { custom: row, key: `db:${row.hash}` };
+  return envPw ? { custom: null, key: envPw } : null;
+}
+async function matchesPassword(env, db, site, given) {
+  const a = await authOf(env, db, site);
+  if (!a) return false;
+  if (a.custom) return safeEqual(await pbkdf2(given, a.custom.salt), a.custom.hash);
+  return safeEqual(await hmac("pw-check", String(given ?? "")), await hmac("pw-check", passwordOf(env, site)));
+}
+
+// รหัสผ่านบอกว่าเป็นใคร
+export async function siteForPassword(env, given, db) {
+  if (!SITES.some((s) => passwordOf(env, s))) throw new HttpError(500, "ยังไม่ได้ตั้งรหัสผ่านใน Cloudflare (Settings → Variables and Secrets)");
   const matches = [];
-  for (const s of configured) if (safeEqual(g, await hmac("pw-check", passwordOf(env, s)))) matches.push(s);
+  for (const s of SITES) if (await matchesPassword(env, db, s, given)) matches.push(s);
   if (matches.length > 1) throw new HttpError(500, "รหัสผ่านของสองบัญชีซ้ำกัน ตั้งใน Cloudflare ให้ต่างกัน");
   return matches[0]?.slug || null;
 }
 
-export async function sessionCookie(env, slug) {
+export async function sessionCookie(env, slug, db) {
   const exp = Date.now() + SESSION_DAYS * 864e5;
-  const sig = await hmac(passwordOf(env, siteBySlug(slug)), `session:${slug}:${exp}`);
+  const { key } = await authOf(env, db, siteBySlug(slug));
+  const sig = await hmac(key, `session:${slug}:${exp}`);
   return `${COOKIE}=${slug}.${exp}.${sig}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DAYS * 86400}`;
 }
 export const clearCookie = () => `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
 
-// คืนชื่อเจ้าของ (slug) ถ้าคุกกี้ถูกต้อง  เปลี่ยนรหัสผ่านใน Cloudflare = เครื่องเดิมต้องล็อกอินใหม่
-export async function sessionSite(request, env) {
+// คืนชื่อเจ้าของ (slug) ถ้าคุกกี้ถูกต้อง  เปลี่ยนรหัสผ่าน = เครื่องอื่นต้องล็อกอินใหม่
+export async function sessionSite(request, env, db) {
   const m = (request.headers.get("cookie") || "").match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
   if (!m) return null;
   const [slug, exp, sig] = m[1].split(".");
   const site = siteBySlug(slug);
-  const pw = site && passwordOf(env, site);
-  if (!pw || !exp || !sig || Number(exp) < Date.now()) return null;
-  return safeEqual(sig, await hmac(pw, `session:${slug}:${exp}`)) ? slug : null;
+  if (!site || !exp || !sig || Number(exp) < Date.now()) return null;
+  const a = await authOf(env, db, site);
+  return a && safeEqual(sig, await hmac(a.key, `session:${slug}:${exp}`)) ? slug : null;
+}
+
+// ครูเปลี่ยนรหัสผ่านของตัวเอง
+export async function changePassword(env, db, slug, current, next) {
+  const site = siteBySlug(slug);
+  if (!(await matchesPassword(env, db, site, current))) throw new HttpError(400, "รหัสผ่านปัจจุบันไม่ถูกต้อง");
+  next = String(next || "");
+  if (next.length < 8) throw new HttpError(400, "รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัวอักษร");
+  if (next === String(current)) throw new HttpError(400, "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม");
+  for (const other of SITES) {
+    if (other.slug !== slug && (await matchesPassword(env, db, other, next))) throw new HttpError(400, "ใช้รหัสนี้ไม่ได้ ลองตั้งรหัสอื่น");
+  }
+  const salt = hex(crypto.getRandomValues(new Uint8Array(16)));
+  await db.prepare(`INSERT OR REPLACE INTO auth (site, salt, hash, env_fp, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`)
+    .bind(slug, salt, await pbkdf2(next, salt), await envFingerprint(env, site)).run();
 }
 
 export async function checkLock(db, ip) {

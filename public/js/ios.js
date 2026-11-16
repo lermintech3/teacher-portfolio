@@ -240,7 +240,7 @@
         const t = f.type === "number" ? "text" : f.type || "text";
         const mode = f.type === "number" ? 'inputmode="decimal" pattern="[0-9.,]*"' : f.type === "email" ? 'inputmode="email" autocapitalize="off"' : f.type === "url" ? 'inputmode="url" autocapitalize="off"' : "";
         return `<label class="ios-cell ios-text" for="${id}">${head(f)}<span class="ios-input-wrap">
-          <input id="${id}" name="${f.key}" type="${t}" ${mode} ${f.required ? "required" : ""} value="${e(v)}" placeholder="${e(f.placeholder || "")}" autocomplete="off">
+          <input id="${id}" name="${f.key}" type="${t}" ${mode} ${f.required ? "required" : ""} value="${e(v)}" placeholder="${e(f.placeholder || "")}" autocomplete="${e(f.autocomplete || "off")}">
           <button type="button" class="ios-clear" data-clear="${id}" aria-label="ล้างข้อความ" ${v === "" ? "hidden" : ""}>×</button></span></label>`;
       }
     }

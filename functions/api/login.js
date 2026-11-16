@@ -5,11 +5,11 @@ export const onRequestPost = handle(async ({ request, env }) => {
   const ip = clientIp(request);
   const prev = await checkLock(env.DB, ip);
   const { password } = await readJson(request);
-  const site = await siteForPassword(env, password);
+  const site = await siteForPassword(env, password, env.DB);
   if (!site) {
     const n = await recordFail(env.DB, ip, prev);
     return fail(401, n >= MAX_FAILS ? "ใส่รหัสผิดหลายครั้ง ลองใหม่ได้ในอีก 15 นาที" : `รหัสผ่านไม่ถูกต้อง (เหลืออีก ${MAX_FAILS - n} ครั้ง)`);
   }
   await clearFails(env.DB, ip);
-  return json({ ok: true, site }, 200, { "set-cookie": await sessionCookie(env, site) });
+  return json({ ok: true, site }, 200, { "set-cookie": await sessionCookie(env, site, env.DB) });
 });
