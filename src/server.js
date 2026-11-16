@@ -32,7 +32,7 @@ export const COLLECTIONS = [
   "responsibilities", "certificates", "trainings", "works", "reports", "evidence",
   "plans", "reflections", "supervision", "activities", "projects",
   "todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps",
-  "albums", "videos", "surveys",
+  "albums", "videos", "surveys", "fbposts",
 ];
 // เมนูที่เป็นส่วนตัวเสมอ ตั้งเป็นสาธารณะไม่ได้ (PDPA และข้อมูลส่วนตัว)
 export const PRIVATE_ONLY = new Set(["todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps"]);

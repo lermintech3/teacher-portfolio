@@ -25,6 +25,7 @@ App.NAV = {
     { route: "works", label: "ผลงานเด่น", c: C.pink },
     { route: "albums", label: "อัลบั้มภาพกิจกรรม", c: C.orange },
     { route: "videos", label: "วิดีโอการสอน", c: C.coral },
+    { route: "facebook", label: "กิจกรรมจาก Facebook", c: C.sky },
     { route: "media", label: "คลังสื่อการสอน", c: C.teal },
     { route: "pa", label: "หลักฐานตามตัวชี้วัด PA", c: C.indigo },
     { route: "reports", label: "SAR / PA", c: C.indigo },
@@ -55,6 +56,7 @@ App.NAV = {
       { route: "admin/works", label: "ผลงาน วิจัย นวัตกรรม", c: C.pink },
       { route: "admin/albums", label: "อัลบั้มภาพกิจกรรม", c: C.orange },
       { route: "admin/videos", label: "วิดีโอการสอน", c: C.coral },
+      { route: "admin/facebook", label: "กิจกรรมจาก Facebook", c: C.sky },
     ] },
     { group: "ประเมิน", items: [
       { route: "admin/evidence", label: "คลังหลักฐาน", c: C.indigo },

@@ -164,3 +164,14 @@
 .qr-url { word-break: break-all; color: var(--muted); font-size: .85rem; }
 .qr-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .qr-inline svg { width: 150px; height: 150px; display: block; margin: 8px 0; }
+
+/* ---------- กิจกรรมจาก Facebook ---------- */
+.fb-feed { columns: 2 340px; column-gap: 18px; }
+.fb-card { break-inside: avoid; background: var(--surface); border-radius: 20px; padding: 14px; margin: 0 0 18px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.fb-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 2px 4px 10px; }
+.fb-head h3 { margin: 0; flex: 1; }
+.fb-head .acts { margin: 0; }
+.fb-card .fb-post, .fb-card .fb-video { width: 100%; }
+.fb-card iframe { max-width: 100% !important; }
+.fb-wait { text-align: center; padding: 24px 0; }
+.fb-help { background: var(--paper); border-radius: 12px; padding: 10px 12px; }

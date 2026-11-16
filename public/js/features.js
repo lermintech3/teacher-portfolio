@@ -21,7 +21,13 @@ FORMS.surveys = { name: "แบบประเมินความพึงพ�
   { key: "target", label: "ผู้ประเมิน", options: ["นักเรียน", "ผู้ปกครอง", "เพื่อนครู", "อื่นๆ"] },
   { key: "questions", label: "หัวข้อประเมิน", type: "textarea", rows: 6, value: DEFAULT_SURVEY_Q, hint: "บรรทัดละข้อ ให้คะแนน 1–5 ดาว (แก้คำถามภายหลัง คำตอบเดิมจะไม่นับ)" },
   { key: "vis", label: "เปิดรับคำตอบ", hint: "เปิด = ทุกคนที่มีลิงก์หรือ QR ตอบได้", toggle: { on: "สาธารณะ", off: "ส่วนตัว" }, value: "สาธารณะ" }] };
-for (const k of ["albums", "videos", "surveys"]) App.adders[k] = () => App.editItem(k);
+FORMS.fbposts = { name: "โพสต์ Facebook", fields: [
+  { key: "url", label: "ลิงก์โพสต์ Facebook", type: "url", required: true, placeholder: "https://www.facebook.com/.../posts/...",
+    hint: "บนโพสต์กด ⋯ → ฝัง (Embed) หรือคัดลอกลิงก์ โพสต์ต้องตั้งเป็นสาธารณะ" },
+  { key: "title", label: "หัวข้อ (ไม่บังคับ)", placeholder: "เช่น กิจกรรมวันวิทยาศาสตร์" },
+  { key: "date", label: "วันที่", type: "date", value: "today" },
+  { ...visField, value: "สาธารณะ" }] };
+for (const k of ["albums", "videos", "surveys", "fbposts"]) App.adders[k] = () => App.editItem(k);
 
 // ---------- ช่องรูปหลายรูป (Gallery field) ----------
 window.galleryField = (f, id, val) => {
@@ -435,3 +441,46 @@ App.actions.setBanner = () => editKV("แบนเนอร์หน้าแร
   { key: "image", label: "รูปแบนเนอร์ (ไม่บังคับ)", type: "file", category: "banner", store: "img", accept: "image/*", hint: "แนะนำรูปแนวนอน ระบบใส่เงาให้อ่านตัวอักษรได้", get: (o) => o.banner?.image || "" },
   { key: "slogan", label: "คำขวัญ / คำคม (ไม่บังคับ)", placeholder: "เช่น สอนด้วยใจ ให้ด้วยรัก", get: (o) => o.banner?.slogan || "" },
 ], (o, r) => { o.banner = { theme: r.theme, image: r.image, slogan: r.slogan }; });
+
+
+// ---------- กิจกรรมจาก Facebook (ฝังโพสต์ ไม่เก็บรูปในเว็บ) ----------
+// ใช้ Facebook SDK แสดงโพสต์สาธารณะ โหลดเฉพาะตอนเปิดหน้านี้
+const fbKind = (url) => (/\/(videos|reel|watch)\b|fb\.watch/i.test(url) ? "fb-video" : "fb-post");
+const fbUrlOk = (url) => /^https:\/\/(www\.|m\.|web\.)?(facebook\.com|fb\.watch)\//i.test(url || "");
+let fbLoading = null;
+const loadFbSdk = () => fbLoading || (fbLoading = new Promise((resolve) => {
+  if (window.FB) return resolve(window.FB);
+  window.fbAsyncInit = () => { window.FB.init({ xfbml: false, version: "v21.0" }); resolve(window.FB); };
+  if (!$("#fb-root")) document.body.insertAdjacentHTML("afterbegin", '<div id="fb-root"></div>');
+  const sc = document.createElement("script");
+  sc.async = true; sc.defer = true; sc.crossOrigin = "anonymous";
+  sc.src = "https://connect.facebook.net/th_TH/sdk.js";
+  sc.onerror = () => resolve(null);
+  document.head.appendChild(sc);
+}));
+App.pages.facebook = () => {
+  const items = [...list("fbposts")].sort(byDateDesc);
+  const isAdmin = App.mode === "admin";
+  setTimeout(async () => {
+    const box = $("#fbFeed");
+    if (!box || !items.length) return;
+    const FB = await loadFbSdk();
+    if (!FB) { box.querySelectorAll(".fb-wait").forEach((w) => (w.textContent = "โหลด Facebook ไม่สำเร็จ (อาจถูกบล็อกโดยเบราว์เซอร์)")); return; }
+    FB.XFBML.parse(box, () => box.querySelectorAll(".fb-wait").forEach((w) => w.remove()));
+    // ถ้าโพสต์ไม่ขึ้นภายใน 6 วินาที (มักเป็นโพสต์ไม่สาธารณะ) บอกวิธีแก้
+    setTimeout(() => box.querySelectorAll(".fb-card").forEach((c) => {
+      if (!c.querySelector("iframe")) c.querySelector(".fb-help")?.removeAttribute("hidden");
+    }), 6000);
+  }, 0);
+  return head("กิจกรรมจาก Facebook", "แสดงโพสต์จาก Facebook โดยตรง รูปไม่ได้เก็บในเว็บ", isAdmin ? addBtn("fbposts", "เพิ่มโพสต์") : "") +
+    (items.length ? `<div class="fb-feed" id="fbFeed">${items.map((p) => {
+      const ok = fbUrlOk(p.url);
+      return `<article class="fb-card">
+        ${p.title || isAdmin ? `<div class="fb-head">${p.title ? `<h3>${esc(p.title)}</h3>` : ""}<span class="meta">${thDate(p.date)}</span>${tools("fbposts", p)}</div>` : ""}
+        ${ok ? `<div class="${fbKind(p.url)}" data-href="${esc(p.url)}" data-width="auto" data-show-text="true" data-lazy="true"></div><p class="fb-wait meta">กำลังโหลดโพสต์…</p>`
+          : `<p class="private-note">ลิงก์นี้ไม่ใช่ลิงก์ Facebook</p>`}
+        <p class="fb-help meta" hidden>โพสต์ไม่แสดง? ตรวจว่าโพสต์ตั้งเป็น <b>สาธารณะ</b> และใช้ลิงก์โพสต์โดยตรง (ลิงก์แบบ facebook.com/share/... บางครั้งฝังไม่ได้)
+          ${ok ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">เปิดใน Facebook</a>` : ""}</p>
+      </article>`;
+    }).join("")}</div>` : empty(isAdmin ? "ยังไม่มีโพสต์ กด \"เพิ่มโพสต์\" แล้ววางลิงก์โพสต์ Facebook ที่เป็นสาธารณะ" : "ยังไม่มีโพสต์"));
+};
