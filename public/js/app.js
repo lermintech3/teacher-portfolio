@@ -1,7 +1,9 @@
-// แฟ้มสะสมผลงานครู — 2 มุมมอง: หน้าสาธารณะ (/) และหน้าครู (/admin/ ต้องใส่รหัสผ่าน)
+// แฟ้มสะสมผลงานครู — หน้าสาธารณะของแต่ละคน (/<slug>/) และหน้าครู (/admin/ ต้องใส่รหัสผ่าน)
 // แกนหลัก: เมนู, router, ส่วนประกอบที่ใช้ร่วมกัน, หน้าสาธารณะ
-// ข้อมูลมาจาก API (Cloudflare D1)  ถ้าฐานข้อมูลยังว่าง หน้าสาธารณะจะแสดงข้อมูลตัวอย่างจาก /data/demo.json
+// ข้อมูลมาจาก API (Cloudflare D1)
 const IS_ADMIN = !!window.IS_ADMIN;
+// หน้าสาธารณะ: เจ้าของดูจากโฟลเดอร์ เช่น /waraporn/  หน้าครู: รู้จากการล็อกอิน
+let SITE = IS_ADMIN ? "" : location.pathname.split("/")[1];
 const DEMO_URL = "/data/demo.json";
 const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
 
@@ -108,7 +110,7 @@ const academicYear = (iso) => {
   return String(d.getMonth() < 4 || (d.getMonth() === 4 && d.getDate() < 16) ? y - 1 : y);
 };
 
-const initials = (name) => (name || "?").trim().charAt(0);
+const initials = (name) => String(name || "?").trim().replace(/^[เแโใไ]/, "").charAt(0) || "?"; // ข้ามสระหน้า
 const byDateDesc = (a, b) => String(b.date || "").localeCompare(String(a.date || ""));
 const empty = (msg = "ยังไม่มีข้อมูล") => `<p class="empty">${msg}</p>`;
 
@@ -429,20 +431,21 @@ App.setData = (data) => {
   av.textContent = photo ? "" : initials(p.name);
 };
 
-// หน้าสาธารณะ: ดึงจาก API ถ้าฐานข้อมูลยังไม่มีโปรไฟล์หรือ API ใช้ไม่ได้ ใช้ข้อมูลตัวอย่างแทน
-App.loadPublic = async () => {
-  let data = null;
-  try { data = await api("GET", "/api/public"); } catch { /* ใช้ข้อมูลตัวอย่าง */ }
-  if (!data || !data.profile) data = await (await fetch(DEMO_URL, { cache: "no-cache" })).json();
-  return data;
-};
+// หน้าสาธารณะของครูคนหนึ่ง ถ้ายังไม่ได้กรอกโปรไฟล์ แสดงข้อความ "กำลังจัดทำ"
+App.loadPublic = () => api("GET", `/api/public?site=${encodeURIComponent(SITE)}`);
 
 App.boot = async () => {
   try {
     if (IS_ADMIN) return App.bootAdmin();
-    App.setData(await App.loadPublic());
+    const data = await App.loadPublic();
+    if (!data.profile?.name) {
+      document.body.dataset.auth = "out";
+      main.innerHTML = `<div class="auth-wrap"><div class="auth-card"><h1>กำลังจัดทำ</h1><p>แฟ้มสะสมผลงานนี้ยังไม่ได้เผยแพร่</p><a class="btn" href="/">กลับหน้าแรก</a></div></div>`;
+      return;
+    }
+    App.setData(data);
     render();
-  } catch {
-    main.innerHTML = `<p class="empty">โหลดข้อมูลไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้านี้</p>`;
+  } catch (e) {
+    main.innerHTML = `<p class="empty">${e.status === 404 ? "ไม่พบแฟ้มผลงานนี้ <a href=\"/\">กลับหน้าแรก</a>" : "โหลดข้อมูลไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้านี้"}</p>`;
   }
 };

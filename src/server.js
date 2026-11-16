@@ -1,6 +1,20 @@
 // โค้ดฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน (Cloudflare Pages Functions + D1)
 // ต้องมี binding: DB (D1) และ secret: ADMIN_PASSWORD
 
+// ---------- เจ้าของเว็บ (แต่ละคนมีข้อมูลและรหัสผ่านแยกกัน) ----------
+// เพิ่มคนใหม่: เพิ่มแถวที่นี่ + ตั้ง Secret PASSWORD_<SLUG> ใน Cloudflare + สร้างโฟลเดอร์ public/<slug>/
+export const SITES = [
+  { slug: "chalermphon", name: "เฉลิมพล จันทร์แดง", passwordVars: ["PASSWORD_CHALERMPHON", "ADMIN_PASSWORD"] },
+  { slug: "waraporn", name: "วราภรณ์ สุขหยอม", passwordVars: ["PASSWORD_WARAPORN"] },
+];
+const DEFAULT_SITE = SITES[0].slug; // ข้อมูลเดิมก่อนแยกสองคนเป็นของคนแรก
+export const siteBySlug = (slug) => SITES.find((s) => s.slug === slug);
+export const requireSite = (slug) => {
+  if (!siteBySlug(slug)) throw new HttpError(404, "ไม่พบเจ้าของเว็บนี้");
+  return slug;
+};
+const passwordOf = (env, site) => site.passwordVars.map((v) => env[v]).find(Boolean);
+
 // ---------- ชนิดข้อมูล ----------
 // รายการแบบหลายแถว (เก็บในตาราง items)
 export const COLLECTIONS = [
@@ -47,6 +61,8 @@ export const handle = (fn) => async (ctx) => {
 
 // ---------- ฐานข้อมูล: สร้างตารางอัตโนมัติครั้งแรก ----------
 let schemaReady = false;
+const columns = async (db, table) => ((await db.prepare(`PRAGMA table_info(${table})`).all()).results || []).map((c) => c.name);
+
 export async function ensureSchema(db) {
   if (schemaReady) return;
   await db.batch([
@@ -56,28 +72,44 @@ export async function ensureSchema(db) {
       vis TEXT NOT NULL DEFAULT 'private',
       data TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
-    db.prepare(`CREATE INDEX IF NOT EXISTS idx_items_collection ON items (collection, vis)`),
-    db.prepare(`CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      site TEXT NOT NULL DEFAULT '${DEFAULT_SITE}')`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS kv (
+      site TEXT NOT NULL DEFAULT '${DEFAULT_SITE}', key TEXT NOT NULL, value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (site, key))`),
     db.prepare(`CREATE TABLE IF NOT EXISTS login_attempts (ip TEXT PRIMARY KEY, fails INTEGER NOT NULL, last INTEGER NOT NULL)`),
   ]);
+  // ย้ายตารางรุ่นแรก (ยังไม่มีช่อง site) ข้อมูลเดิมเป็นของคนแรก
+  if (!(await columns(db, "items")).includes("site")) {
+    await db.prepare(`ALTER TABLE items ADD COLUMN site TEXT NOT NULL DEFAULT '${DEFAULT_SITE}'`).run();
+  }
+  if (!(await columns(db, "kv")).includes("site")) {
+    await db.batch([
+      db.prepare(`CREATE TABLE kv_new (site TEXT NOT NULL DEFAULT '${DEFAULT_SITE}', key TEXT NOT NULL, value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (site, key))`),
+      db.prepare(`INSERT INTO kv_new (site, key, value, updated_at) SELECT '${DEFAULT_SITE}', key, value, updated_at FROM kv`),
+      db.prepare(`DROP TABLE kv`),
+      db.prepare(`ALTER TABLE kv_new RENAME TO kv`),
+    ]);
+  }
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_items_site ON items (site, collection, vis)`).run();
   schemaReady = true;
 }
 
 const rowToItem = (r) => ({ ...JSON.parse(r.data), id: r.id, vis: r.vis });
 
-export async function loadAll(db, { publicOnly = false } = {}) {
+export async function loadAll(db, site, { publicOnly = false } = {}) {
   const out = {};
   const items = publicOnly
-    ? await db.prepare(`SELECT id, collection, vis, data FROM items WHERE vis = 'public' ORDER BY id DESC`).all()
-    : await db.prepare(`SELECT id, collection, vis, data FROM items ORDER BY id DESC`).all();
+    ? await db.prepare(`SELECT id, collection, vis, data FROM items WHERE site = ? AND vis = 'public' ORDER BY id DESC`).bind(site).all()
+    : await db.prepare(`SELECT id, collection, vis, data FROM items WHERE site = ? ORDER BY id DESC`).bind(site).all();
   for (const c of COLLECTIONS) out[c] = [];
   for (const r of items.results || []) {
     if (!out[r.collection]) continue;
     if (publicOnly && PRIVATE_ONLY.has(r.collection)) continue; // กันพลาดสองชั้น
     out[r.collection].push(rowToItem(r));
   }
-  const kv = await db.prepare(`SELECT key, value FROM kv`).all();
+  const kv = await db.prepare(`SELECT key, value FROM kv WHERE site = ?`).bind(site).all();
   for (const r of kv.results || []) {
     if (publicOnly && !PUBLIC_KV.includes(r.key)) continue;
     out[r.key] = JSON.parse(r.value);
@@ -94,27 +126,27 @@ export function cleanItem(collection, body) {
   return { vis: v, data: JSON.stringify(data) };
 }
 
-export async function getItem(db, id) {
-  const r = await db.prepare(`SELECT id, collection, vis, data FROM items WHERE id = ?`).bind(id).first();
+export async function getItem(db, site, id) {
+  const r = await db.prepare(`SELECT id, collection, vis, data FROM items WHERE id = ? AND site = ?`).bind(id, site).first();
   if (!r) throw new HttpError(404, "ไม่พบรายการนี้");
   return r;
 }
 
 // นำเข้าข้อมูลรูปแบบเดียวกับ demo.json / ไฟล์สำรอง
-export async function importAll(db, src, { replace = false } = {}) {
-  const count = await db.prepare(`SELECT COUNT(*) AS n FROM items`).first();
+export async function importAll(db, site, src, { replace = false } = {}) {
+  const count = await db.prepare(`SELECT (SELECT COUNT(*) FROM items WHERE site = ?1) + (SELECT COUNT(*) FROM kv WHERE site = ?1) AS n`).bind(site).first();
   if (count.n > 0 && !replace) throw new HttpError(409, "มีข้อมูลอยู่แล้ว ต้องเลือกแทนที่ข้อมูลเดิม");
   const stmts = [];
-  if (replace) stmts.push(db.prepare(`DELETE FROM items`), db.prepare(`DELETE FROM kv`));
+  if (replace) stmts.push(db.prepare(`DELETE FROM items WHERE site = ?`).bind(site), db.prepare(`DELETE FROM kv WHERE site = ?`).bind(site));
   for (const c of COLLECTIONS) {
     const arr = Array.isArray(src[c]) ? [...src[c]].reverse() : []; // เก็บลำดับเดิม (แสดงใหม่สุดก่อน)
     for (const it of arr) {
       const { vis, data } = cleanItem(c, it);
-      stmts.push(db.prepare(`INSERT INTO items (collection, vis, data) VALUES (?, ?, ?)`).bind(c, vis, data));
+      stmts.push(db.prepare(`INSERT INTO items (site, collection, vis, data) VALUES (?, ?, ?, ?)`).bind(site, c, vis, data));
     }
   }
   for (const k of KV_KEYS) {
-    if (src[k] !== undefined) stmts.push(db.prepare(`INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)`).bind(k, JSON.stringify(src[k])));
+    if (src[k] !== undefined) stmts.push(db.prepare(`INSERT OR REPLACE INTO kv (site, key, value) VALUES (?, ?, ?)`).bind(site, k, JSON.stringify(src[k])));
   }
   for (let i = 0; i < stmts.length; i += 50) await db.batch(stmts.slice(i, i + 50));
   return stmts.length;
@@ -138,31 +170,33 @@ function safeEqual(a, b) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
-const secretOf = (env) => {
-  if (!env.ADMIN_PASSWORD) throw new HttpError(500, "ยังไม่ได้ตั้งรหัสผ่าน ADMIN_PASSWORD ใน Cloudflare (Settings → Variables and Secrets)");
-  return env.ADMIN_PASSWORD;
-};
-
-export async function passwordMatches(env, given) {
-  const secret = secretOf(env);
-  // เทียบผ่าน HMAC เพื่อให้ความยาวเท่ากันและใช้เวลาคงที่
-  return safeEqual(await hmac("pw-check", String(given ?? "")), await hmac("pw-check", secret));
+// รหัสผ่านบอกว่าเป็นใคร: เทียบกับรหัสของทุกคน (ผ่าน HMAC ใช้เวลาคงที่)
+export async function siteForPassword(env, given) {
+  const configured = SITES.filter((s) => passwordOf(env, s));
+  if (!configured.length) throw new HttpError(500, "ยังไม่ได้ตั้งรหัสผ่านใน Cloudflare (Settings → Variables and Secrets)");
+  const g = await hmac("pw-check", String(given ?? ""));
+  const matches = [];
+  for (const s of configured) if (safeEqual(g, await hmac("pw-check", passwordOf(env, s)))) matches.push(s);
+  if (matches.length > 1) throw new HttpError(500, "รหัสผ่านของสองบัญชีซ้ำกัน ตั้งใน Cloudflare ให้ต่างกัน");
+  return matches[0]?.slug || null;
 }
 
-export async function sessionCookie(env) {
+export async function sessionCookie(env, slug) {
   const exp = Date.now() + SESSION_DAYS * 864e5;
-  const sig = await hmac(secretOf(env), `session:${exp}`);
-  return `${COOKIE}=${exp}.${sig}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DAYS * 86400}`;
+  const sig = await hmac(passwordOf(env, siteBySlug(slug)), `session:${slug}:${exp}`);
+  return `${COOKIE}=${slug}.${exp}.${sig}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_DAYS * 86400}`;
 }
 export const clearCookie = () => `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
 
-export async function isLoggedIn(request, env) {
+// คืนชื่อเจ้าของ (slug) ถ้าคุกกี้ถูกต้อง  เปลี่ยนรหัสผ่านใน Cloudflare = เครื่องเดิมต้องล็อกอินใหม่
+export async function sessionSite(request, env) {
   const m = (request.headers.get("cookie") || "").match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]+)`));
-  if (!m) return false;
-  const [exp, sig] = m[1].split(".");
-  if (!exp || !sig || Number(exp) < Date.now()) return false;
-  // เปลี่ยนรหัสผ่านใน Cloudflare = ทุกเครื่องต้องล็อกอินใหม่
-  return safeEqual(sig, await hmac(secretOf(env), `session:${exp}`));
+  if (!m) return null;
+  const [slug, exp, sig] = m[1].split(".");
+  const site = siteBySlug(slug);
+  const pw = site && passwordOf(env, site);
+  if (!pw || !exp || !sig || Number(exp) < Date.now()) return null;
+  return safeEqual(sig, await hmac(pw, `session:${slug}:${exp}`)) ? slug : null;
 }
 
 export async function checkLock(db, ip) {

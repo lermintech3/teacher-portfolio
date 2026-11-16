@@ -578,13 +578,13 @@ const SHARE_KEYS = [["responsibilities", "งานที่รับผิด�
   ["works", "ผลงาน"], ["evidence", "หลักฐาน"], ["reports", "รายงาน SAR / PA"]];
 App.pages["admin/sharing"] = () => {
   const n = (k, v) => arr(k).filter((i) => i.vis === v).length;
-  const site = location.origin;
+  const site = `${location.origin}/${SITE}`;
   return head("การเผยแพร่", "แตะป้าย \"ส่วนตัว / สาธารณะ\" ในแต่ละรายการเพื่อสลับ ค่าเริ่มต้นของรายการใหม่คือส่วนตัว", addBtn("reports", "เพิ่มรายงาน SAR / PA")) +
     `<div class="cols">
       <section class="panel"><h2>หน้าสาธารณะ</h2>
         <p>ทุกคนที่มีลิงก์เปิดดูได้ รวมถึงผู้บริหารและกรรมการประเมิน</p>
         <p class="meta">ลิงก์: <a href="${esc(site)}/" target="_blank" rel="noopener">${esc(site)}/</a></p>
-        <a class="btn ghost" href="/" target="_blank" rel="noopener">เปิดหน้าสาธารณะ</a></section>
+        <a class="btn ghost" href="/${esc(SITE)}/" target="_blank" rel="noopener">เปิดหน้าสาธารณะ</a></section>
       <section class="panel"><h2>QR Code</h2>
         <div class="qr-ph">QR Code<br><span class="meta">สร้างอัตโนมัติในระยะ 6</span></div>
         <p class="meta">ใช้ติดหน้าแฟ้มหรือสไลด์นำเสนอ สแกนแล้วเปิดหน้าสาธารณะ</p></section>
@@ -723,7 +723,7 @@ const screen = (html) => {
 };
 
 App.showLogin = (msg = "") => {
-  screen(`<div class="avatar big">ค</div><h1>หน้าครู</h1><p class="meta">ใส่รหัสผ่านที่ตั้งไว้ใน Cloudflare</p>
+  screen(`<div class="avatar big">ค</div><h1>หน้าครู</h1><p class="meta">ใส่รหัสผ่านของคุณ ระบบจะเปิดแฟ้มผลงานของเจ้าของรหัสให้เอง</p>
     <form id="loginForm"><label class="field">รหัสผ่าน<input type="password" id="pw" autocomplete="current-password" required></label>
     <p class="auth-err" id="loginErr">${esc(msg)}</p><button class="btn wide">เข้าสู่ระบบ</button></form>
     <a class="meta" href="/">กลับหน้าสาธารณะ</a>`);
@@ -749,7 +749,7 @@ const BLANK = {
   attendance: {}, attendanceDates: [], sarNotes: {},
 };
 const showSetup = () => {
-  screen(`<h1>ยินดีต้อนรับ</h1><p>ฐานข้อมูลยังว่าง เลือกวิธีเริ่มต้น</p>
+  screen(`<h1>ยินดีต้อนรับ</h1><p>คุณ${esc(App.siteName || "")}<br>แฟ้มผลงานยังว่าง เลือกวิธีเริ่มต้น</p>
     <div class="stack">
       <button class="btn wide" data-setup="blank">เริ่มจากว่าง แล้วกรอกข้อมูลจริง</button>
       <button class="btn ghost wide" data-setup="demo">เริ่มด้วยข้อมูลตัวอย่าง (ลองใช้ก่อน ลบทีหลังได้)</button>
@@ -757,7 +757,8 @@ const showSetup = () => {
   main.querySelectorAll("[data-setup]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     try {
-      const src = b.dataset.setup === "demo" ? await (await fetch(DEMO_URL, { cache: "no-cache" })).json() : BLANK;
+      const src = b.dataset.setup === "demo" ? await (await fetch(DEMO_URL, { cache: "no-cache" })).json()
+        : { ...BLANK, profile: { ...BLANK.profile, name: App.siteName || "" } };
       await api("POST", "/api/admin/import", src);
       if (b.dataset.setup === "blank") location.hash = "#/profile";
       await App.bootAdmin();
@@ -773,8 +774,12 @@ App.bootAdmin = async () => {
     if (e.status === 401) return App.showLogin();
     return screen(`<h1>เชื่อมต่อฐานข้อมูลไม่ได้</h1><p>${esc(e.message)}</p><button class="btn" onclick="location.reload()">ลองใหม่</button>`);
   }
+  SITE = data._site;
+  App.siteName = data._siteName;
+  const pub = $("#publicLink");
+  if (pub) pub.href = `/${SITE}/`;
   if (data._empty) return showSetup();
-  delete data._empty;
+  for (const k of ["_empty", "_site", "_siteName"]) delete data[k];
   document.body.dataset.auth = "in";
   App.setData(data);
   render();

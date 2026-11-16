@@ -8,21 +8,24 @@
 
 | หน้า | ลิงก์ | เห็นอะไร |
 | --- | --- | --- |
-| สาธารณะ | `/` | เฉพาะรายการที่ครูตั้งเป็น "สาธารณะ" |
-| ครู | `/admin/` | ทุกเมนู เพิ่ม แก้ ลบ สลับสาธารณะ/ส่วนตัว ตั้งค่าเว็บ สำรองข้อมูล |
+| หน้าแรก | `/` | โปรไฟล์ครูทุกคน (ตอนนี้ 2 คน) |
+| แฟ้มผลงานแต่ละคน | `/chalermphon/`, `/waraporn/` | เฉพาะรายการที่ครูคนนั้นตั้งเป็น "สาธารณะ" |
+| ครู | `/admin/` | รหัสผ่านบอกว่าเป็นใคร เห็นและแก้ได้เฉพาะข้อมูลตัวเอง |
 
 ## โครงสร้าง
 
 ```
 public/                 ← หน้าเว็บ (Cloudflare Pages: Build output directory = public)
-  index.html            ← หน้าสาธารณะ
+  index.html            ← หน้าแรก (โปรไฟล์ทุกคน) + js/landing.js + css/landing.css
+  chalermphon/, waraporn/  ← หน้าแฟ้มผลงานสาธารณะของแต่ละคน (ไฟล์เหมือนกัน แยกคนจากชื่อโฟลเดอร์)
   admin/index.html      ← หน้าครู
   js/app.js             ← แกนหลัก เมนู router หน้าสาธารณะ
   js/admin.js           ← หน้าครูทุกเมนู ฟอร์ม ตั้งค่าเว็บ ล็อกอิน
   css/style.css
   data/demo.json        ← ข้อมูลตัวอย่าง (ใช้ตอนเริ่มต้นและตอนฐานข้อมูลยังว่าง)
 functions/api/          ← API (Cloudflare Pages Functions)
-  public.js             GET  /api/public            ข้อมูลสาธารณะเท่านั้น
+  public.js             GET  /api/public?site=<slug> ข้อมูลสาธารณะของคนนั้นเท่านั้น
+  sites.js              GET  /api/sites             รายชื่อและโปรไฟล์ทุกคน (หน้าแรก)
   login.js, logout.js   POST /api/login, /api/logout
   admin/_middleware.js  ตรวจการล็อกอินทุกเส้นทาง /api/admin/*
   admin/data.js         GET  /api/admin/data         ข้อมูลทั้งหมด
@@ -39,13 +42,14 @@ src/server.js           ← โค้ดฝั่งเซิร์ฟเวอ�
 1. Pages เชื่อม repo นี้ Build output directory = `public`
 2. Storage & Databases → D1 → สร้าง `teacher-db`
 3. โปรเจกต์ → Settings → Bindings → D1 database ชื่อตัวแปร `DB` → `teacher-db`
-4. โปรเจกต์ → Settings → Variables and Secrets → Secret ชื่อ `ADMIN_PASSWORD`
+4. โปรเจกต์ → Settings → Variables and Secrets → Secret: `ADMIN_PASSWORD` (เฉลิมพล) และ `PASSWORD_WARAPORN` (วราภรณ์) ต้องไม่ซ้ำกัน
 
-ตารางในฐานข้อมูลสร้างเองอัตโนมัติตอนเรียก API ครั้งแรก ไม่ต้องรัน SQL
+ตารางในฐานข้อมูลสร้างเองอัตโนมัติตอนเรียก API ครั้งแรก ไม่ต้องรัน SQL ฐานข้อมูลรุ่นแรก (ก่อนแยกสองคน) ย้ายเองอัตโนมัติ ข้อมูลเดิมเป็นของคนแรก
 
 ## ความปลอดภัย
 
-- รหัสผ่านอยู่ใน Cloudflare Secret เท่านั้น คุกกี้ลงชื่อด้วย HMAC, HttpOnly, Secure, SameSite=Strict อายุ 30 วัน
+- ทุกแถวในฐานข้อมูลมี `site` ทุกคำสั่งกรองตามคนที่ล็อกอิน แก้ข้อมูลข้ามคนไม่ได้
+- รหัสผ่านอยู่ใน Cloudflare Secret เท่านั้น คุกกี้ระบุเจ้าของและลงชื่อด้วย HMAC จากรหัสของคนนั้น, HttpOnly, Secure, SameSite=Strict อายุ 30 วัน
 - ใส่รหัสผิด 5 ครั้ง ล็อก 15 นาที
 - `/api/public` ส่งเฉพาะรายการ vis = public และไม่ส่งเมนูส่วนตัวเสมอ (นักเรียน คะแนน เช็กชื่อ ดูแลช่วยเหลือ การลา ฯลฯ)
 - คำสั่งแก้ข้อมูลจากโดเมนอื่นถูกปฏิเสธ

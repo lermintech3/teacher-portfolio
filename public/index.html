@@ -4,57 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>แฟ้มสะสมผลงานครู</title>
-  <meta name="description" content="แฟ้มสะสมผลงาน งานที่รับผิดชอบ เกียรติบัตร และการพัฒนาตนเอง">
+  <meta name="description" content="แฟ้มสะสมผลงานครูเฉลิมพล และครูวราภรณ์">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/landing.css">
 </head>
 <body>
-  <header class="topbar">
-    <button class="menu-btn" id="menuBtn" aria-label="เปิดเมนู" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-    <span class="topbar-title" id="topbarTitle">แฟ้มสะสมผลงาน</span>
-  </header>
-
-  <aside class="sidebar" id="sidebar">
-    <div class="side-profile">
-      <div class="avatar" id="sideAvatar"></div>
-      <div>
-        <div class="side-name" id="sideName">กำลังโหลด…</div>
-        <div class="side-role" id="sideRole"></div>
-      </div>
+  <main class="landing">
+    <header class="intro">
+      <h1>แฟ้มสะสมผลงานครู</h1>
+      <p>เลือกแฟ้มผลงานที่ต้องการดู</p>
+    </header>
+    <div class="pair" id="pair" aria-busy="true">
+      <div class="card skeleton"></div>
+      <div class="heart" aria-hidden="true"></div>
+      <div class="card skeleton"></div>
     </div>
-    <nav class="nav" id="nav"></nav>
-    <div class="side-foot">แฟ้มสะสมผลงานครู</div>
-  </aside>
-  <div class="scrim" id="scrim"></div>
-
-  <main class="main" id="main" tabindex="-1">
-    <div class="loading">กำลังโหลด…</div>
   </main>
-
-  <dialog class="lightbox" id="lightbox">
-    <button class="lightbox-close" id="lightboxClose" aria-label="ปิด">×</button>
-    <img id="lightboxImg" alt="">
-    <p id="lightboxCaption"></p>
-  </dialog>
-
-  <dialog class="sheet" id="sheet">
-    <form method="dialog" id="sheetForm">
-      <h2 id="sheetTitle"></h2>
-      <div id="sheetFields"></div>
-      <div class="sheet-actions">
-        <button value="cancel" class="btn ghost" formnovalidate>ยกเลิก</button>
-        <button value="ok" class="btn">บันทึก</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-  <script src="/js/app.js"></script>
-  <script src="/js/admin.js"></script>
+  <script src="/js/landing.js"></script>
 </body>
 </html>

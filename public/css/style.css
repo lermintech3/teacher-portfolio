@@ -391,3 +391,5 @@ body[data-auth="out"] .main { margin-left: 0; max-width: none; }
 .auth-err { color: #c62828; min-height: 1.4em; margin: 0 0 8px; font-size: .9rem; }
 .avatar.big { width: 64px; height: 64px; font-size: 1.6rem; border-radius: 20px; margin: 0 auto; }
 .field input[type=file] { font: inherit; }
+.back-home { color: var(--muted); text-decoration: none; font-weight: 500; }
+.back-home:hover { color: var(--ink); }

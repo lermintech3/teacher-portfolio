@@ -1,5 +1,7 @@
-// GET /api/public — ข้อมูลเฉพาะรายการสาธารณะ (ไม่ต้องล็อกอิน)
-import { handle, json, loadAll } from "../../src/server.js";
+// GET /api/public?site=<slug> — ข้อมูลเฉพาะรายการสาธารณะของครูคนนั้น (ไม่ต้องล็อกอิน)
+import { handle, json, loadAll, requireSite } from "../../src/server.js";
 
-export const onRequestGet = handle(async ({ env }) =>
-  json(await loadAll(env.DB, { publicOnly: true }), 200, { "cache-control": "public, max-age=30" }));
+export const onRequestGet = handle(async ({ request, env }) => {
+  const site = requireSite(new URL(request.url).searchParams.get("site"));
+  return json(await loadAll(env.DB, site, { publicOnly: true }), 200, { "cache-control": "public, max-age=30" });
+});
