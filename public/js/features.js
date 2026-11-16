@@ -21,12 +21,37 @@ FORMS.surveys = { name: "แบบประเมินความพึงพ�
   { key: "target", label: "ผู้ประเมิน", options: ["นักเรียน", "ผู้ปกครอง", "เพื่อนครู", "อื่นๆ"] },
   { key: "questions", label: "หัวข้อประเมิน", type: "textarea", rows: 6, value: DEFAULT_SURVEY_Q, hint: "บรรทัดละข้อ ให้คะแนน 1–5 ดาว (แก้คำถามภายหลัง คำตอบเดิมจะไม่นับ)" },
   { key: "vis", label: "เปิดรับคำตอบ", hint: "เปิด = ทุกคนที่มีลิงก์หรือ QR ตอบได้", toggle: { on: "สาธารณะ", off: "ส่วนตัว" }, value: "สาธารณะ" }] };
+// รับได้ทั้งลิงก์โพสต์ และโค้ดฝังทั้งก้อนจาก ⋯ → ฝัง (ดึงลิงก์จริงจาก href=... ให้)
+const cleanFbUrl = (raw) => {
+  let v = String(raw || "").trim();
+  const src = v.match(/plugins\/(?:post|video)\.php\?[^"'\s>]*/i);
+  if (src) {
+    const href = new URLSearchParams(src[0].split("?")[1].replace(/&amp;/g, "&")).get("href");
+    if (href) v = href;
+  }
+  try {
+    const u = new URL(v);
+    u.hostname = u.hostname.replace(/^(m|mbasic|web|th-th)\./, "www.");
+    // ตัดพารามิเตอร์ติดตาม แต่เก็บตัวระบุโพสต์ไว้
+    const keep = ["story_fbid", "id", "fbid", "v", "set"];
+    [...u.searchParams.keys()].forEach((k) => { if (!keep.includes(k)) u.searchParams.delete(k); });
+    v = u.toString();
+  } catch { /* ไม่ใช่ URL */ }
+  if (/facebook\.com\/share\//i.test(v)) {
+    throw new Error("ลิงก์แบบแชร์ (facebook.com/share/...) ฝังไม่ได้ ให้ใช้ ⋯ → ฝัง (Embed) แล้ววางโค้ดทั้งหมดแทน");
+  }
+  if (/facebook\.com\/groups\//i.test(v)) throw new Error("โพสต์ในกลุ่ม Facebook ฝังบนเว็บไม่ได้ ใช้ได้เฉพาะโพสต์ในโปรไฟล์หรือเพจที่เป็นสาธารณะ");
+  if (!fbUrlOk(v)) throw new Error("ไม่ใช่ลิงก์โพสต์ Facebook");
+  return v;
+};
 FORMS.fbposts = { name: "โพสต์ Facebook", fields: [
-  { key: "url", label: "ลิงก์โพสต์ Facebook", type: "url", required: true, placeholder: "https://www.facebook.com/.../posts/...",
-    hint: "บนโพสต์กด ⋯ → ฝัง (Embed) หรือคัดลอกลิงก์ โพสต์ต้องตั้งเป็นสาธารณะ" },
+  { key: "url", label: "ลิงก์โพสต์ หรือโค้ดฝัง (Embed)", type: "textarea", rows: 3, required: true,
+    placeholder: "วางลิงก์ หรือโค้ด <iframe ...> ทั้งหมด",
+    hint: "แนะนำ: บนโพสต์กด ⋯ → ฝัง (Embed) → คัดลอกโค้ด แล้ววางทั้งหมด ระบบดึงลิงก์ให้เอง โพสต์ต้องเป็นสาธารณะ 🌐" },
   { key: "title", label: "หัวข้อ (ไม่บังคับ)", placeholder: "เช่น กิจกรรมวันวิทยาศาสตร์" },
   { key: "date", label: "วันที่", type: "date", value: "today" },
-  { ...visField, value: "สาธารณะ" }] };
+  { ...visField, value: "สาธารณะ" }],
+  map: (r) => ({ ...r, url: cleanFbUrl(r.url) }) };
 for (const k of ["albums", "videos", "surveys", "fbposts"]) App.adders[k] = () => App.editItem(k);
 
 // ---------- ช่องรูปหลายรูป (Gallery field) ----------
