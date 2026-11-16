@@ -37,9 +37,7 @@ const cleanFbUrl = (raw) => {
     [...u.searchParams.keys()].forEach((k) => { if (!keep.includes(k)) u.searchParams.delete(k); });
     v = u.toString();
   } catch { /* ไม่ใช่ URL */ }
-  if (/facebook\.com\/share\//i.test(v)) {
-    throw new Error("ลิงก์แบบแชร์ (facebook.com/share/...) ฝังไม่ได้ ให้ใช้ ⋯ → ฝัง (Embed) แล้ววางโค้ดทั้งหมดแทน");
-  }
+  if (/facebook\.com\/share\//i.test(v)) return { share: v };
   if (/facebook\.com\/groups\//i.test(v)) throw new Error("โพสต์ในกลุ่ม Facebook ฝังบนเว็บไม่ได้ ใช้ได้เฉพาะโพสต์ในโปรไฟล์หรือเพจที่เป็นสาธารณะ");
   if (!fbUrlOk(v)) throw new Error("ไม่ใช่ลิงก์โพสต์ Facebook");
   return v;
@@ -51,7 +49,17 @@ FORMS.fbposts = { name: "โพสต์ Facebook", fields: [
   { key: "title", label: "หัวข้อ (ไม่บังคับ)", placeholder: "เช่น กิจกรรมวันวิทยาศาสตร์" },
   { key: "date", label: "วันที่", type: "date", value: "today" },
   { ...visField, value: "สาธารณะ" }],
-  map: (r) => ({ ...r, url: cleanFbUrl(r.url) }) };
+  map: async (r) => {
+    let url = cleanFbUrl(r.url);
+    if (url.share) {
+      // ลิงก์แชร์: ให้เซิร์ฟเวอร์ลองตาม redirect ของ Facebook หาลิงก์โพสต์จริง
+      try { url = cleanFbUrl((await api("GET", `/api/admin/fb-resolve?url=${encodeURIComponent(url.share)}`)).url); }
+      catch { throw new Error("ลิงก์แบบแชร์ (facebook.com/share/...) แปลงอัตโนมัติไม่ได้ ให้ใช้ ⋯ → ฝัง (Embed) แล้ววางโค้ดทั้งหมดแทน"); }
+      if (url.share) throw new Error("ลิงก์แบบแชร์ใช้ไม่ได้ ให้ใช้ ⋯ → ฝัง (Embed) แล้ววางโค้ดทั้งหมดแทน");
+      toast("แปลงลิงก์แชร์เป็นลิงก์โพสต์ให้แล้ว");
+    }
+    return { ...r, url };
+  } };
 for (const k of ["albums", "videos", "surveys", "fbposts"]) App.adders[k] = () => App.editItem(k);
 
 // ---------- ช่องรูปหลายรูป (Gallery field) ----------

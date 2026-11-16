@@ -149,7 +149,7 @@ App.editItem = (key, item) => {
       return { ...f, options: options && value && !options.includes(value) ? [value, ...options] : options, value };
     });
   openForm(`${item ? "แก้ไข" : "เพิ่ม"}${F.name}`, fields, async (rec) => {
-    let body = F.map ? F.map(rec, item) : rec;
+    let body = F.map ? await F.map(rec, item) : rec;
     if (body.vis) body.vis = VIS_CODE[body.vis] || "private";
     if (item) {
       const { id, ...old } = item;
