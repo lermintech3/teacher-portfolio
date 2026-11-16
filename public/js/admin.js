@@ -633,7 +633,7 @@ App.actions.restore = async () => {
 App.actions.resetDemo = async () => {
   if (!confirm("ข้อมูลทั้งหมดจะถูกลบและแทนด้วยข้อมูลตัวอย่าง แนะนำให้ดาวน์โหลดไฟล์สำรองก่อน ดำเนินการต่อไหม?")) return;
   try {
-    await api("POST", "/api/admin/import?replace=1", await (await fetch(DEMO_URL, { cache: "no-cache" })).json());
+    await api("POST", "/api/admin/import?replace=1", await demoForMe());
     toast("ใส่ข้อมูลตัวอย่างแล้ว");
     await App.bootAdmin();
   } catch (e) { toast(e.message); }
@@ -830,6 +830,17 @@ const BLANK = {
   grades: { subject: "", room: "", parts: DEFAULT_PARTS, scores: {} },
   attendance: {}, attendanceDates: [], sarNotes: {},
 };
+// ค่าตัวอย่างที่ต้องแทนด้วยค่าจริง (ตรงกับ DEMO_PLACEHOLDERS ใน src/server.js)
+const PLACEHOLDERS = { name: ["", "ชื่อ นามสกุล"], school: ["", "โรงเรียนตัวอย่างวิทยา"], office: ["", "สำนักงานเขตพื้นที่การศึกษามัธยมศึกษา..."] };
+const withDefaults = (profile = {}) => {
+  const out = { ...profile };
+  for (const [k, v] of Object.entries(App.defaults || {})) if (out[k] === undefined || (PLACEHOLDERS[k] || [""]).includes(out[k])) out[k] = v;
+  return out;
+};
+const demoForMe = async () => {
+  const d = await (await fetch(DEMO_URL, { cache: "no-cache" })).json();
+  return { ...d, profile: withDefaults({ ...d.profile, name: "", school: "", office: "" }) };
+};
 const showSetup = () => {
   screen(`<h1>ยินดีต้อนรับ</h1><p>คุณ${esc(App.siteName || "")}<br>แฟ้มผลงานยังว่าง เลือกวิธีเริ่มต้น</p>
     <div class="stack">
@@ -839,8 +850,7 @@ const showSetup = () => {
   main.querySelectorAll("[data-setup]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
     try {
-      const src = b.dataset.setup === "demo" ? await (await fetch(DEMO_URL, { cache: "no-cache" })).json()
-        : { ...BLANK, profile: { ...BLANK.profile, name: App.siteName || "" } };
+      const src = b.dataset.setup === "demo" ? await demoForMe() : { ...BLANK, profile: withDefaults(BLANK.profile) };
       await api("POST", "/api/admin/import", src);
       if (b.dataset.setup === "blank") location.hash = "#/profile";
       await App.bootAdmin();
@@ -858,12 +868,19 @@ App.bootAdmin = async () => {
   }
   SITE = data._site;
   App.siteName = data._siteName;
+  App.defaults = data._defaults || {};
   const pub = $("#publicLink");
   if (pub) pub.href = `/${SITE}/`;
   App.drive = null;
   api("GET", "/api/admin/drive/status").then((d) => { App.drive = d; App.driveCats = d.categories; }).catch(() => { App.drive = { connected: false }; });
   if (data._empty) return showSetup();
-  for (const k of ["_empty", "_site", "_siteName"]) delete data[k];
+  for (const k of ["_empty", "_site", "_siteName", "_defaults"]) delete data[k];
+  // โปรไฟล์ยังเป็นชื่อ/โรงเรียนตัวอย่าง → ใส่ค่าจริงของเจ้าของให้ แล้วบันทึก
+  const fixed = withDefaults(data.profile);
+  if (JSON.stringify(fixed) !== JSON.stringify(data.profile || {})) {
+    data.profile = fixed;
+    api("PUT", "/api/admin/kv/profile", fixed).then(() => toast("ใส่ชื่อและโรงเรียนในโปรไฟล์ให้แล้ว")).catch(() => {});
+  }
   document.body.dataset.auth = "in";
   App.setData(data);
   render();

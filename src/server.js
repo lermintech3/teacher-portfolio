@@ -3,10 +3,21 @@
 
 // ---------- เจ้าของเว็บ (แต่ละคนมีข้อมูลและรหัสผ่านแยกกัน) ----------
 // เพิ่มคนใหม่: เพิ่มแถวที่นี่ + ตั้ง Secret PASSWORD_<SLUG> ใน Cloudflare + สร้างโฟลเดอร์ public/<slug>/
+// defaults = ค่าโปรไฟล์ตั้งต้น ใช้ตอนเริ่มต้นและแทนชื่อ/โรงเรียนตัวอย่าง
+const BAN_RAI = { school: "โรงเรียนบ้านไร่ อำเภอดอยเต่า จังหวัดเชียงใหม่", office: "สำนักงานเขตพื้นที่การศึกษาประถมศึกษาเชียงใหม่ เขต 5" };
 export const SITES = [
-  { slug: "chalermphon", name: "เฉลิมพล จันทร์แดง", passwordVars: ["PASSWORD_CHALERMPHON", "ADMIN_PASSWORD"] },
-  { slug: "waraporn", name: "วราภรณ์ สุขหยอม", passwordVars: ["PASSWORD_WARAPORN"] },
+  { slug: "chalermphon", name: "เฉลิมพล จันทร์แดง", passwordVars: ["PASSWORD_CHALERMPHON", "ADMIN_PASSWORD"], defaults: { name: "เฉลิมพล จันทร์แดง", ...BAN_RAI } },
+  { slug: "waraporn", name: "วราภรณ์ สุขหยอม", passwordVars: ["PASSWORD_WARAPORN"], defaults: { name: "วราภรณ์ สุขหยอม", ...BAN_RAI } },
 ];
+// ค่าตัวอย่างใน demo.json ที่ต้องแทนด้วยค่าจริงของเจ้าของ
+export const DEMO_PLACEHOLDERS = { name: ["", "ชื่อ นามสกุล"], school: ["", "โรงเรียนตัวอย่างวิทยา"], office: ["", "สำนักงานเขตพื้นที่การศึกษามัธยมศึกษา...", "สำนักงานเขตพื้นที่การศึกษาประถมศึกษาเชียงใหม่ เขต 5"] };
+export const withDefaults = (profile = {}, site) => {
+  const out = { ...profile };
+  for (const [k, v] of Object.entries(siteBySlug(site).defaults || {})) {
+    if (out[k] === undefined || (DEMO_PLACEHOLDERS[k] || [""]).includes(out[k])) out[k] = v;
+  }
+  return out;
+};
 const DEFAULT_SITE = SITES[0].slug; // ข้อมูลเดิมก่อนแยกสองคนเป็นของคนแรก
 export const siteBySlug = (slug) => SITES.find((s) => s.slug === slug);
 export const requireSite = (slug) => {
