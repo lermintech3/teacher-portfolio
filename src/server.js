@@ -254,14 +254,26 @@ export function driveTarget(env, site, params) {
   return url;
 }
 
-// เรียก Apps Script แล้วแปลงผลเป็น JSON (Apps Script ตอบกลับผ่านการ redirect)
+// เรียก Apps Script แล้วแปลงผลเป็น JSON
+// Apps Script ตอบ POST ด้วย 302 ไปอีกที่อยู่ ต้องตามไปด้วย GET เอง (ปลอดภัยกว่าให้ fetch ตามเอง)
 export async function callDrive(url, init = {}) {
   let res;
-  try { res = await fetch(url, { redirect: "follow", ...init }); } catch { throw new HttpError(502, "ติดต่อ Google Drive ไม่ได้ ลองใหม่อีกครั้ง"); }
+  try {
+    res = await fetch(url, { ...init, redirect: "manual" });
+    for (let hop = 0; hop < 3 && res.status >= 300 && res.status < 400 && res.headers.get("location"); hop++) {
+      res = await fetch(new URL(res.headers.get("location"), url), { redirect: "manual" });
+    }
+  } catch (e) {
+    console.error("drive fetch", e);
+    throw new HttpError(502, `ติดต่อ Google Drive ไม่ได้ (${e.message || e}) ลองใหม่อีกครั้ง`);
+  }
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch {
-    throw new HttpError(502, "Google Apps Script ตอบกลับไม่ถูกต้อง ตรวจว่า deploy เป็น Web app แบบ Anyone และใช้ URL ล่าสุด");
+    const hint = /accounts\.google|ServiceLogin/i.test(text) ? "Apps Script ขอให้ล็อกอิน: ตั้ง Who has access เป็น Anyone แล้ว deploy ใหม่"
+      : res.status === 404 ? "ไม่พบ Apps Script: ตรวจ DRIVE_SCRIPT_URL ว่าคัดลอกครบและลงท้าย /exec"
+      : "ตรวจว่า deploy เป็น Web app แบบ Anyone และใช้ URL ล่าสุด";
+    throw new HttpError(502, `Google Apps Script ตอบกลับไม่ถูกต้อง (${res.status}) ${hint}`);
   }
   if (data.error) throw new HttpError(502, `Google Drive: ${data.error}`);
   return data;
