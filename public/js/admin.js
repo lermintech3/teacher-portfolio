@@ -63,57 +63,65 @@ const FORMS = {
     { key: "detail", label: "คาบ / ห้อง" }, { key: "with", label: "ครูที่เกี่ยวข้อง" }] },
   plans: { name: "แผนการสอน / สื่อ", fields: [
     { key: "subject", label: "รหัสวิชา", required: true }, { key: "unit", label: "หน่วยการเรียนรู้" }, { key: "title", label: "ชื่อ", required: true },
-    { key: "type", label: "ประเภท", options: ["แผนการสอน", "สื่อ", "ใบงาน", "ข้อสอบ"] }, { key: "link", label: "ลิงก์ไฟล์ (Google Drive)", type: "url" }, visField] },
+    { key: "type", label: "ประเภท", options: ["แผนการสอน", "สื่อ", "ใบงาน", "ข้อสอบ"] }, { key: "link", label: "ไฟล์แผน / สื่อ", type: "file", category: "plans" }, visField] },
   reflections: { name: "บันทึกหลังสอน", fields: [
-    { key: "date", label: "วันที่", type: "date", required: true }, { key: "subject", label: "วิชา" }, { key: "room", label: "ห้อง" },
+    { key: "date", label: "วันที่", type: "date", required: true, value: "today" }, { key: "subject", label: "วิชา" }, { key: "room", label: "ห้อง" },
     { key: "topic", label: "เรื่องที่สอน", required: true }, { key: "result", label: "ผลการสอน", type: "textarea" },
-    { key: "problem", label: "ปัญหาที่พบ", type: "textarea" }, { key: "solution", label: "แนวทางแก้ไข", type: "textarea" }, visField] },
+    { key: "problem", label: "ปัญหาที่พบ", type: "textarea" }, { key: "solution", label: "แนวทางแก้ไข", type: "textarea" },
+    { key: "file", label: "รูปหรือไฟล์ประกอบ", type: "file", category: "reflections" }, visField] },
   supervision: { name: "ผลการนิเทศ", fields: [
     { key: "date", label: "วันที่", type: "date", required: true }, { key: "type", label: "ประเภท", options: ["นิเทศชั้นเรียน", "Open Class", "Lesson Study"] },
-    { key: "by", label: "ผู้นิเทศ" }, { key: "topic", label: "เรื่อง" }, { key: "result", label: "ผล / ข้อเสนอแนะ", type: "textarea" }, visField] },
+    { key: "by", label: "ผู้นิเทศ" }, { key: "topic", label: "เรื่อง" }, { key: "result", label: "ผล / ข้อเสนอแนะ", type: "textarea" },
+    { key: "file", label: "แบบบันทึกการนิเทศ / รูป", type: "file", category: "supervision" }, visField] },
   students: { name: "นักเรียน", fields: [{ key: "no", label: "เลขที่", type: "number", required: true }, { key: "name", label: "ชื่อ-นามสกุล", required: true }, { key: "room", label: "ห้อง" }] },
   care: { name: "บันทึกการดูแลช่วยเหลือ", fields: [
     { key: "student", label: "นักเรียน", required: true }, { key: "sdq", label: "ผล SDQ", options: ["ปกติ", "เสี่ยง", "มีปัญหา"] },
     { key: "screen", label: "ผลคัดกรอง", options: ["กลุ่มปกติ", "กลุ่มเสี่ยง", "กลุ่มมีปัญหา"] }, { key: "visit", label: "วันที่เยี่ยมบ้าน", type: "date" },
-    { key: "note", label: "บันทึก", type: "textarea" }] },
+    { key: "note", label: "บันทึก", type: "textarea" }, { key: "file", label: "รูปเยี่ยมบ้าน / เอกสาร (ส่วนตัว ไม่แชร์)", type: "file", category: "care" }] },
   activities: { name: "กิจกรรมพัฒนาผู้เรียน", fields: [
     { key: "title", label: "ชื่อกิจกรรม", required: true }, { key: "type", label: "ประเภท", options: ["ลูกเสือ/เนตรนารี", "ชุมนุม", "แนะแนว", "กิจกรรมเพื่อสังคม"] },
-    { key: "room", label: "ชั้น" }, { key: "hours", label: "ชั่วโมง", type: "number" }, { key: "passed", label: "ผ่าน (เช่น 30/32)" }, visField] },
+    { key: "room", label: "ชั้น" }, { key: "hours", label: "ชั่วโมง", type: "number" }, { key: "passed", label: "ผ่าน (เช่น 30/32)" },
+    { key: "file", label: "รูปกิจกรรม / เอกสาร", type: "file", category: "activities" }, visField] },
   responsibilities: { name: "งานที่รับผิดชอบ", fields: [
     { key: "title", label: "ชื่องาน", required: true }, { key: "type", label: "ประเภท", options: ["คำสั่ง", "งานฝ่าย", "งานที่ปรึกษา", "เวร", "โครงการ"] },
-    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" }, visField] },
+    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" },
+    { key: "file", label: "ไฟล์คำสั่ง", type: "file", category: "responsibilities" }, visField] },
   projects: { name: "โครงการ", fields: [
     { key: "title", label: "ชื่อโครงการ", required: true }, { key: "budget", label: "งบประมาณ (บาท)", type: "number" }, { key: "used", label: "ใช้ไปแล้ว (บาท)", type: "number" },
-    { key: "status", label: "สถานะ", options: ["ยังไม่เริ่ม", "กำลังดำเนินการ", "เสร็จสิ้น"] }, { key: "result", label: "ผลการดำเนินงาน", type: "textarea" }, visField] },
+    { key: "status", label: "สถานะ", options: ["ยังไม่เริ่ม", "กำลังดำเนินการ", "เสร็จสิ้น"] }, { key: "result", label: "ผลการดำเนินงาน", type: "textarea" },
+    { key: "file", label: "ไฟล์โครงการ / รูป", type: "file", category: "projects" }, visField] },
   documents: { name: "หนังสือราชการ", fields: [
     { key: "no", label: "เลขที่", required: true }, { key: "date", label: "ลงวันที่", type: "date" }, { key: "kind", label: "ประเภท", options: ["หนังสือรับ", "หนังสือส่ง", "คำสั่ง"] },
-    { key: "from", label: "จาก" }, { key: "title", label: "เรื่อง", required: true }, { key: "link", label: "ลิงก์ไฟล์", type: "url" }] },
+    { key: "from", label: "จาก" }, { key: "title", label: "เรื่อง", required: true }, { key: "link", label: "ไฟล์หนังสือ (ส่วนตัว ไม่แชร์)", type: "file", category: "documents" }] },
   meetings: { name: "บันทึกการประชุม", fields: [
-    { key: "date", label: "วันที่", type: "date", required: true }, { key: "title", label: "การประชุม", required: true }, { key: "summary", label: "สรุป / มติ", type: "textarea" }] },
+    { key: "date", label: "วันที่", type: "date", required: true, value: "today" }, { key: "title", label: "การประชุม", required: true }, { key: "summary", label: "สรุป / มติ", type: "textarea" },
+    { key: "file", label: "ไฟล์รายงานการประชุม", type: "file", category: "meetings" }] },
   trainings: { name: "การอบรม / PLC", fields: [
     { key: "title", label: "หลักสูตร / หัวข้อ", required: true }, { key: "organizer", label: "หน่วยงานที่จัด" }, { key: "date", label: "วันที่", type: "date" },
     { key: "hours", label: "จำนวนชั่วโมง", type: "number" }, { key: "format", label: "รูปแบบ", options: ["ออนไซต์", "ออนไลน์", "PLC"] },
-    { key: "certificate", label: "ลิงก์เกียรติบัตร", type: "url" }, visField] },
+    { key: "certificate", label: "เกียรติบัตร (รูปหรือ PDF)", type: "file", category: "trainings" }, visField] },
   certificates: { name: "เกียรติบัตร / รางวัล", fields: [
     { key: "title", label: "ชื่อเกียรติบัตร / รางวัล", required: true }, { key: "issuer", label: "ผู้มอบ" }, { key: "date", label: "วันที่", type: "date" },
     { key: "type", label: "ประเภท", options: ["เกียรติบัตร", "รางวัล", "รางวัลนักเรียน"] }, { key: "level", label: "ระดับ", options: ["โรงเรียน", "เขตพื้นที่", "จังหวัด", "ภาค", "ประเทศ"] },
-    { key: "image", label: "ลิงก์ภาพ", type: "url", hint: "ระยะ 3 จะอัปโหลดภาพลง Google Drive ได้" }, visField] },
+    { key: "image", label: "รูปเกียรติบัตร", type: "file", category: "certificates", store: "img", accept: "image/*" }, visField] },
   works: { name: "ผลงาน", fields: [
     { key: "title", label: "ชื่อผลงาน", required: true }, { key: "type", label: "ประเภท", options: ["นวัตกรรม", "วิจัยในชั้นเรียน", "สื่อการสอน", "บทความ"] },
-    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "description", label: "รายละเอียด", type: "textarea" }, { key: "link", label: "ลิงก์", type: "url" }, visField] },
+    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "description", label: "รายละเอียด", type: "textarea" },
+    { key: "link", label: "ไฟล์หรือลิงก์ผลงาน", type: "file", category: "works" }, visField] },
   reports: { name: "รายงาน SAR / PA", fields: [
     { key: "title", label: "ชื่อรายงาน", required: true }, { key: "type", label: "ประเภท", options: ["SAR", "PA"] }, { key: "year", label: "ปีการศึกษา", value: "2569" },
-    { key: "link", label: "ลิงก์ไฟล์ PDF", type: "url" }, visField] },
+    { key: "link", label: "ไฟล์รายงาน (PDF)", type: "file", category: "reports", accept: ".pdf,application/pdf" }, visField] },
   evidence: { name: "หลักฐาน", fields: [
     { key: "title", label: "ชื่อหลักฐาน", required: true },
     { key: "source", label: "มาจากเมนู", options: ["แผนการสอน", "บันทึกหลังสอน", "สื่อ", "การวัดผล", "นิเทศ", "ดูแลช่วยเหลือ", "การพัฒนาตนเอง", "อื่นๆ"] },
     { key: "pa", label: "ตัวชี้วัด PA", hint: "คั่นด้วยจุลภาค เช่น 1.3, 1.6" },
     { key: "sar", label: "หัวข้อ SAR", options: ["การจัดการเรียนการสอน", "ผลสัมฤทธิ์ทางการเรียน", "งานที่ได้รับมอบหมาย", "การพัฒนาตนเอง", "ผลงาน"] },
-    { key: "link", label: "ลิงก์ไฟล์", type: "url" }, visField],
+    { key: "link", label: "ไฟล์หลักฐาน", type: "file", category: "evidence" }, visField],
     map: (r) => ({ ...r, pa: splitList(r.pa).filter((c) => PA_CODES.includes(c)) }) },
   leaves: { name: "การลา", fields: [
     { key: "type", label: "ประเภท", options: ["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ"] }, { key: "from", label: "ตั้งแต่", type: "date", required: true },
-    { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number" }, { key: "reason", label: "เหตุผล" }] },
+    { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number" }, { key: "reason", label: "เหตุผล" },
+    { key: "file", label: "ใบลา / เอกสาร (ส่วนตัว ไม่แชร์)", type: "file", category: "leaves" }] },
   career: { name: "เหตุการณ์ในประวัติ", fields: [
     { key: "date", label: "วันที่", type: "date", required: true }, { key: "event", label: "เหตุการณ์", required: true, hint: "เช่น เลื่อนวิทยฐานะ ย้ายโรงเรียน" }] },
 };
@@ -121,7 +129,7 @@ const FORMS = {
 // ---------- เพิ่ม / แก้ / ลบ / สลับการมองเห็น ----------
 const findItem = (key, id) => arr(key).find((i) => String(i.id) === String(id));
 const formValue = (f, item) => {
-  if (!item) return f.value;
+  if (!item) return f.value === "today" ? today() : f.value;
   if (f.key === "vis") return VIS_LABEL[item.vis] || "ส่วนตัว";
   return Array.isArray(item[f.key]) ? item[f.key].join(", ") : item[f.key];
 };
@@ -155,7 +163,9 @@ App.itemTools = (key, item) => {
   const vis = PRIVATE_ONLY.has(key)
     ? ""
     : `<button class="vis ${item.vis === "public" ? "v-public" : "v-private"}" data-act="vis" data-key="${key}" data-id="${item.id}" title="แตะเพื่อสลับ">${VIS_LABEL[item.vis] || "ส่วนตัว"}</button>`;
-  return `<span class="acts">${vis}<button class="ico" data-act="edit" data-key="${key}" data-id="${item.id}">แก้ไข</button><button class="ico del" data-act="del" data-key="${key}" data-id="${item.id}">ลบ</button></span>`;
+  const file = safeUrl(item.file);
+  const att = file ? `<a class="ico" href="${esc(file)}" target="_blank" rel="noopener">ไฟล์แนบ</a>` : "";
+  return `<span class="acts">${vis}${att}<button class="ico" data-act="edit" data-key="${key}" data-id="${item.id}">แก้ไข</button><button class="ico del" data-act="del" data-key="${key}" data-id="${item.id}">ลบ</button></span>`;
 };
 App.actions.edit = (b) => App.editItem(b.dataset.key, findItem(b.dataset.key, b.dataset.id));
 App.actions.del = async (b) => {
@@ -554,7 +564,7 @@ App.actions.editProfile = () => editKV("แก้ไขโปรไฟล์", "
   { key: "academicStanding", label: "วิทยฐานะ", hint: "เช่น ครูชำนาญการ" }, { key: "school", label: "โรงเรียน" }, { key: "office", label: "สังกัด" },
   { key: "learningArea", label: "กลุ่มสาระ" }, { key: "subjects", label: "วิชาที่สอน", hint: "คั่นด้วยจุลภาค", get: (o) => (o.subjects || []).join(", ") },
   { key: "homeroom", label: "หน้าที่พิเศษ", hint: "เช่น ครูที่ปรึกษา ม.4/2" }, { key: "contactEmail", label: "อีเมลติดต่อ (แสดงสาธารณะ เว้นว่างได้)", type: "email" },
-  { key: "photo", label: "ลิงก์รูปโปรไฟล์", type: "url" }, { key: "philosophy", label: "ปรัชญาการสอน", type: "textarea" },
+  { key: "photo", label: "รูปโปรไฟล์", type: "file", category: "profile", store: "img", accept: "image/*" }, { key: "philosophy", label: "ปรัชญาการสอน", type: "textarea" },
   { key: "education", label: "ประวัติการศึกษา", type: "textarea", rows: 4, hint: "บรรทัดละวุฒิ รูปแบบ วุฒิ | สถาบัน | ปี",
     get: (o) => (o.education || []).map((e) => [e.degree, e.institution, e.year].join(" | ")).join("\n") },
 ], (o, r) => {
@@ -627,6 +637,78 @@ App.actions.resetDemo = async () => {
     toast("ใส่ข้อมูลตัวอย่างแล้ว");
     await App.bootAdmin();
   } catch (e) { toast(e.message); }
+};
+
+// ---------- ไฟล์ใน Google Drive ----------
+const fmtSize = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+App.pages["admin/files"] = () => {
+  setTimeout(App.loadFiles, 0);
+  const cats = App.driveCats || {};
+  return head("ไฟล์ใน Google Drive", "ไฟล์ที่แนบจากทุกเมนู แยกโฟลเดอร์ตามหมวดงาน", `<button class="btn ghost" data-act="reloadFiles">โหลดใหม่</button>`) +
+    `<div id="driveBox">${empty("กำลังโหลดรายการไฟล์…")}</div>
+    <section class="panel"><h2>อัปโหลดไฟล์</h2>
+      <label class="field">เก็บในโฟลเดอร์<select id="upCat">${Object.entries(cats).map(([k, v]) => `<option value="${k}" ${k === "other" ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>
+      <div class="drop page-drop"><input type="file" hidden multiple><div class="drop-ui"><b>ลากไฟล์มาวางที่นี่ (หลายไฟล์ได้)</b><span> หรือ </span><button type="button" class="link-btn">เลือกไฟล์</button>
+      <small>ไม่เกิน ${MAX_FILE_MB} MB ต่อไฟล์ รูปจะถูกย่อให้อัตโนมัติ</small></div><div class="drop-status" id="upStatus"></div></div>
+    </section>`;
+};
+const DRIVE_SETUP = `<section class="panel"><h2>ยังไม่ได้เชื่อม Google Drive</h2>
+  <ol class="steps">
+    <li>เปิด <a href="https://script.google.com" target="_blank" rel="noopener">script.google.com</a> ด้วยบัญชี Google ที่เป็นเจ้าของโฟลเดอร์ → New project</li>
+    <li>คัดลอกโค้ดจากไฟล์ <code>google-apps-script/Code.gs</code> ใน GitHub ไปวางแทนทั้งหมด แล้วกดบันทึก</li>
+    <li>Project Settings → Script Properties → เพิ่ม <code>SECRET</code> = รหัสลับยาวๆ ที่คิดเอง</li>
+    <li>Deploy → New deployment → Web app → Execute as: <b>Me</b>, Who has access: <b>Anyone</b> → อนุญาตสิทธิ์ → คัดลอก Web app URL</li>
+    <li>Cloudflare → โปรเจกต์ → Settings → Variables and Secrets: <code>DRIVE_SCRIPT_URL</code> = Web app URL, <code>DRIVE_SECRET</code> (Secret) = รหัสลับเดียวกับข้อ 3 แล้ว deploy ใหม่</li>
+  </ol><p class="meta">ทำครั้งเดียว ใช้ร่วมกันทั้งสองคน ไฟล์ของแต่ละคนแยกโฟลเดอร์ตามชื่อ ระหว่างนี้วางลิงก์ไฟล์ในฟอร์มแทนได้</p></section>`;
+App.loadFiles = async () => {
+  const box = $("#driveBox");
+  if (!box) return;
+  const zone = main.querySelector(".page-drop");
+  if (zone && !zone.dataset.wired) wirePageDrop(zone);
+  try {
+    if (!App.drive) App.drive = await api("GET", "/api/admin/drive/status");
+    if (!App.drive.connected) { box.innerHTML = DRIVE_SETUP + (App.drive.error ? `<p class="private-note">${esc(App.drive.error)}</p>` : ""); return; }
+    const d = await api("GET", "/api/admin/drive/list");
+    box.innerHTML = `<p><a class="btn ghost" href="${esc(d.url)}" target="_blank" rel="noopener">เปิดโฟลเดอร์ของฉันใน Google Drive</a></p>` +
+      (d.folders.length ? d.folders.map((f) => `<details class="panel folder" open><summary><b>${esc(f.name)}</b> <span class="meta">${f.files.length} ไฟล์</span>
+        <a class="mini" href="${esc(f.url)}" target="_blank" rel="noopener">เปิดใน Drive</a></summary>
+        ${f.files.length ? `<div class="files">${f.files.map((x) => `<div class="file">
+          <a class="thumb" href="${esc(x.url)}" target="_blank" rel="noopener">${x.img ? `<img src="${esc(x.img.replace("sz=w1600", "sz=w400"))}" alt="" loading="lazy">` : `<span>${esc((x.name.split(".").pop() || "ไฟล์").slice(0, 4).toUpperCase())}</span>`}</a>
+          <div class="file-name" title="${esc(x.name)}">${esc(x.name)}</div><div class="meta">${fmtSize(x.size)} ${x.shared ? "" : "· ไม่แชร์"}</div>
+          <span class="acts"><button class="ico" data-act="copyLink" data-url="${esc(x.img || x.url)}">คัดลอกลิงก์</button><button class="ico del" data-act="trashFile" data-id="${esc(x.id)}" data-name="${esc(x.name)}">ลบ</button></span>
+        </div>`).join("")}</div>` : empty("ยังไม่มีไฟล์")}</details>`).join("") : empty("ยังไม่มีไฟล์ แนบไฟล์จากฟอร์มในเมนูต่างๆ หรืออัปโหลดด้านล่าง")) +
+      (d.truncated ? `<p class="meta">แสดง 300 ไฟล์แรก ดูทั้งหมดได้ใน Google Drive</p>` : "");
+  } catch (e) {
+    box.innerHTML = `<p class="private-note">${esc(e.message)}</p>`;
+  }
+};
+function wirePageDrop(zone) {
+  zone.dataset.wired = "1";
+  const input = zone.querySelector("input[type=file]");
+  const status = zone.querySelector(".drop-status");
+  const go = async (files) => {
+    if (App.drive && !App.drive.connected) return toast("ยังไม่ได้เชื่อม Google Drive");
+    let done = 0;
+    for (const f of files) {
+      try { await App.uploadFile(f, $("#upCat").value, (m) => (status.textContent = `${f.name}: ${m}`)); done++; }
+      catch (e) { toast(`${f.name}: ${e.message}`); }
+    }
+    status.textContent = `อัปโหลดแล้ว ${done} จาก ${files.length} ไฟล์`;
+    App.loadFiles();
+  };
+  zone.querySelector(".link-btn").onclick = () => input.click();
+  input.onchange = () => go([...input.files]);
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("over"); go([...e.dataTransfer.files]); });
+}
+App.actions.reloadFiles = () => { App.drive = null; App.loadFiles(); };
+App.actions.copyLink = async (b) => {
+  try { await navigator.clipboard.writeText(b.dataset.url); toast("คัดลอกลิงก์แล้ว"); } catch { prompt("คัดลอกลิงก์นี้", b.dataset.url); }
+};
+App.actions.trashFile = async (b) => {
+  if (!confirm(`ย้าย "${b.dataset.name}" ไปถังขยะของ Google Drive? (กู้คืนได้ใน Drive ภายใน 30 วัน)`)) return;
+  try { await api("POST", "/api/admin/drive/delete", { id: b.dataset.id }); toast("ย้ายไปถังขยะแล้ว"); App.loadFiles(); } catch (e) { toast(e.message); }
 };
 
 // ---------- ตั้งค่าเว็บ: ครูปรับแต่งเองได้ทั้งหมด ----------
@@ -778,6 +860,8 @@ App.bootAdmin = async () => {
   App.siteName = data._siteName;
   const pub = $("#publicLink");
   if (pub) pub.href = `/${SITE}/`;
+  App.drive = null;
+  api("GET", "/api/admin/drive/status").then((d) => { App.drive = d; App.driveCats = d.categories; }).catch(() => { App.drive = { connected: false }; });
   if (data._empty) return showSetup();
   for (const k of ["_empty", "_site", "_siteName"]) delete data[k];
   document.body.dataset.auth = "in";

@@ -89,3 +89,10 @@ body {
   .heart { width: 46px; height: 46px; margin: -4px 0; }
   .skeleton { min-height: 380px; width: min(360px, 100%); }
 }
+
+.foot { text-align: center; margin-top: 48px; }
+.admin-btn {
+  display: inline-block; padding: 8px 18px; border-radius: 999px; font-size: .88rem; font-weight: 500;
+  color: var(--muted); text-decoration: none; background: rgba(255, 255, 255, .8); box-shadow: inset 0 0 0 1px var(--dot);
+}
+.admin-btn:hover { color: var(--ink); box-shadow: inset 0 0 0 1px var(--him); }

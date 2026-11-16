@@ -216,3 +216,42 @@ export async function recordFail(db, ip, prev) {
 export const clearFails = (db, ip) => db.prepare(`DELETE FROM login_attempts WHERE ip = ?`).bind(ip).run();
 export const clientIp = (request) => request.headers.get("CF-Connecting-IP") || "local";
 export { MAX_FAILS };
+
+// ---------- Google Drive (ผ่าน Google Apps Script ของครู) ----------
+// ต้องตั้งใน Cloudflare: DRIVE_SCRIPT_URL (Web app URL) และ Secret DRIVE_SECRET
+// โฟลเดอร์ใน Drive: <โฟลเดอร์หลัก>/<ชื่อครู>/<หมวด>/ไฟล์
+export const DRIVE_CATEGORIES = {
+  profile: "รูปโปรไฟล์", certificates: "เกียรติบัตรและรางวัล", trainings: "การอบรมและพัฒนาตนเอง",
+  plans: "แผนการสอนและสื่อ", reflections: "บันทึกหลังสอน", supervision: "การนิเทศ",
+  works: "ผลงาน วิจัย นวัตกรรม", reports: "รายงาน SAR และ PA", evidence: "หลักฐาน PA",
+  projects: "โครงการ", activities: "กิจกรรมพัฒนาผู้เรียน", responsibilities: "งานที่รับผิดชอบ",
+  documents: "หนังสือราชการ", meetings: "บันทึกการประชุม", care: "ดูแลช่วยเหลือนักเรียน", leaves: "การลา",
+  other: "อื่นๆ",
+};
+// หมวดที่ไม่เปิดลิงก์แชร์ (ข้อมูลส่วนตัว/นักเรียน)
+export const DRIVE_PRIVATE = new Set(["documents", "meetings", "care", "leaves"]);
+export const MAX_UPLOAD_BYTES = 28 * 1024 * 1024; // base64 ของไฟล์ราว 20 MB
+
+export function driveTarget(env, site, params) {
+  if (!env.DRIVE_SCRIPT_URL || !env.DRIVE_SECRET) {
+    throw new HttpError(503, "ยังไม่ได้เชื่อม Google Drive (ตั้ง DRIVE_SCRIPT_URL และ DRIVE_SECRET ใน Cloudflare)");
+  }
+  const url = new URL(env.DRIVE_SCRIPT_URL);
+  url.searchParams.set("secret", env.DRIVE_SECRET);
+  url.searchParams.set("person", siteBySlug(site).name);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  return url;
+}
+
+// เรียก Apps Script แล้วแปลงผลเป็น JSON (Apps Script ตอบกลับผ่านการ redirect)
+export async function callDrive(url, init = {}) {
+  let res;
+  try { res = await fetch(url, { redirect: "follow", ...init }); } catch { throw new HttpError(502, "ติดต่อ Google Drive ไม่ได้ ลองใหม่อีกครั้ง"); }
+  const text = await res.text();
+  let data;
+  try { data = JSON.parse(text); } catch {
+    throw new HttpError(502, "Google Apps Script ตอบกลับไม่ถูกต้อง ตรวจว่า deploy เป็น Web app แบบ Anyone และใช้ URL ล่าสุด");
+  }
+  if (data.error) throw new HttpError(502, `Google Drive: ${data.error}`);
+  return data;
+}

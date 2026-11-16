@@ -393,3 +393,35 @@ body[data-auth="out"] .main { margin-left: 0; max-width: none; }
 .field input[type=file] { font: inherit; }
 .back-home { color: var(--muted); text-decoration: none; font-weight: 500; }
 .back-home:hover { color: var(--ink); }
+.foot-links { display: flex; justify-content: space-between; gap: 8px; }
+
+/* ===================== แนบไฟล์ (Google Drive) ===================== */
+.field-block { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; font-size: .9rem; font-weight: 500; }
+.field-label small { display: block; font-weight: 400; color: var(--muted); font-size: .8rem; }
+.drop {
+  border: 2px dashed var(--c-soft); border-radius: 14px; padding: 14px; text-align: center; background: var(--c-tint);
+  transition: border-color .15s, background .15s; font-weight: 400;
+}
+.drop.over { border-color: var(--c); background: #fff; }
+.drop.busy { opacity: .75; }
+.drop-ui b { font-family: var(--display); font-weight: 600; color: var(--c-deep); }
+.drop-ui small { display: block; color: var(--muted); font-size: .78rem; margin-top: 4px; }
+.link-btn { font: inherit; border: 0; background: none; color: var(--c-deep); text-decoration: underline; cursor: pointer; padding: 0; font-weight: 600; }
+.drop-preview img { max-height: 140px; max-width: 100%; border-radius: 10px; display: block; margin: 0 auto 8px; }
+.drop-status { font-size: .85rem; margin-top: 6px; min-height: 1.2em; color: var(--muted); }
+.drop-status.ok { color: #0b6b4c; }
+.drop-status.err { color: #c62828; }
+.page-drop { padding: 28px 16px; }
+.steps { padding-left: 20px; margin: 0 0 8px; }
+.steps li { margin-bottom: 6px; }
+code { background: var(--paper); padding: 1px 6px; border-radius: 6px; font-size: .88em; }
+details.folder summary { cursor: pointer; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; list-style: none; }
+details.folder summary::-webkit-details-marker { display: none; }
+details.folder summary b { font-family: var(--display); color: var(--c-deep); }
+.files { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 14px; }
+.file { background: var(--paper); border-radius: 14px; padding: 8px; font-size: .85rem; min-width: 0; }
+.thumb { display: grid; place-items: center; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; background: var(--c-tint); text-decoration: none; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb span { font-family: var(--display); font-weight: 700; color: var(--c-deep); }
+.file-name { margin-top: 6px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field select { font: inherit; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; }

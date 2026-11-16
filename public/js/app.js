@@ -61,6 +61,7 @@ App.NAV = {
       { route: "admin/profile", label: "โปรไฟล์", c: C.violet },
       { route: "admin/career", label: "ประวัติและวิทยฐานะ", c: C.pink },
       { route: "admin/sharing", label: "การเผยแพร่", c: C.teal },
+      { route: "admin/files", label: "ไฟล์ใน Google Drive", c: C.teal },
       { route: "admin/settings", label: "ตั้งค่าเว็บ", c: C.slate },
       { route: "admin/backup", label: "สำรองข้อมูล", c: C.slate },
     ] },
@@ -158,6 +159,7 @@ const openForm = (title, fields, onSave) => {
     const id = `f_${f.key}`;
     const req = f.required ? "required" : "";
     const val = f.value ?? "";
+    if (f.type === "file") return fileField(f, id, val);
     const input = f.options
       ? `<select id="${id}" name="${f.key}" ${req}>${f.options.map((o) => `<option ${String(o) === String(val) ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
       : f.type === "textarea"
@@ -169,6 +171,7 @@ const openForm = (title, fields, onSave) => {
   const form = $("#sheetForm");
   const okBtn = form.querySelector("button[value=ok]");
   okBtn.disabled = false;
+  form.querySelectorAll(".drop").forEach((z) => wireDrop(z, okBtn));
   form.onsubmit = async (e) => {
     if (e.submitter?.value !== "ok") return;
     e.preventDefault();
@@ -189,6 +192,108 @@ const openForm = (title, fields, onSave) => {
   dlg.showModal();
   dlg.querySelector("input, select, textarea")?.focus();
 };
+
+// ---------- แนบไฟล์: ลากวาง / เลือกไฟล์ / วางลิงก์ → เก็บใน Google Drive ----------
+const MAX_FILE_MB = 20;
+const fileField = (f, id, val) => {
+  const img = f.store === "img" && safeUrl(val);
+  return `<div class="field-block"><span class="field-label">${f.label}${f.hint ? `<small>${f.hint}</small>` : ""}</span>
+    <div class="drop" data-cat="${esc(f.category || "other")}" data-store="${f.store || "url"}" data-target="${id}">
+      <input type="file" hidden ${f.accept ? `accept="${esc(f.accept)}"` : ""}>
+      <div class="drop-preview">${img ? `<img src="${esc(val)}" alt="">` : ""}</div>
+      <div class="drop-ui"><b>ลากไฟล์มาวางที่นี่</b><span> หรือ </span><button type="button" class="link-btn">เลือกไฟล์</button>
+        <small>เก็บลง Google Drive โฟลเดอร์ "${esc(App.driveCats?.[f.category] || f.category || "อื่นๆ")}" รูปจะถูกย่อให้อัตโนมัติ ไม่เกิน ${MAX_FILE_MB} MB</small></div>
+      <div class="drop-status" role="status"></div>
+    </div>
+    <input id="${id}" name="${f.key}" type="url" placeholder="หรือวางลิงก์ เช่น ลิงก์ Google Drive / YouTube" value="${esc(val)}">
+  </div>`;
+};
+
+// ย่อรูปก่อนอัปโหลด: ด้านยาวไม่เกิน 1600px บันทึกเป็น JPEG
+const shrinkImage = (file) => new Promise((resolve) => {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return resolve(file);
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+    if (scale === 1 && file.size < 600 * 1024) return resolve(file);
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob((b) => resolve(b && b.size < file.size ? new File([b], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.85);
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = () => resolve(file);
+  img.src = URL.createObjectURL(file);
+});
+
+const toBase64 = (file) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(String(r.result).split(",")[1] || "");
+  r.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
+  r.readAsDataURL(file);
+});
+
+// อัปโหลดหนึ่งไฟล์ คืน { url, img, name, ... } จาก Google Drive
+App.uploadFile = async (raw, category, onProgress = () => {}) => {
+  if (raw.size > MAX_FILE_MB * 1024 * 1024) throw new Error(`ไฟล์ใหญ่เกิน ${MAX_FILE_MB} MB`);
+  onProgress("กำลังเตรียมไฟล์…");
+  const file = await shrinkImage(raw);
+  const b64 = await toBase64(file);
+  const qs = new URLSearchParams({ category, name: file.name, mime: file.type || "application/octet-stream" });
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/admin/drive/upload?${qs}`);
+    xhr.setRequestHeader("content-type", "text/plain");
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(`กำลังอัปโหลด ${Math.round((e.loaded / e.total) * 100)}%`);
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch { /* */ }
+      if (xhr.status === 401 && App.showLogin) App.showLogin();
+      xhr.status < 300 ? resolve(data) : reject(new Error(data.error || `อัปโหลดไม่สำเร็จ (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error("อัปโหลดไม่สำเร็จ ตรวจอินเทอร์เน็ต"));
+    onProgress("กำลังอัปโหลด 0%");
+    xhr.send(b64);
+  });
+};
+
+let uploading = 0;
+function wireDrop(zone, okBtn) {
+  const input = zone.querySelector("input[type=file]");
+  const target = document.getElementById(zone.dataset.target);
+  const status = zone.querySelector(".drop-status");
+  const preview = zone.querySelector(".drop-preview");
+  const setPreview = (url) => { preview.innerHTML = zone.dataset.store === "img" && safeUrl(url) ? `<img src="${esc(url)}" alt="">` : ""; };
+  target.addEventListener("input", () => setPreview(target.value));
+  const go = async (file) => {
+    if (!file) return;
+    if (App.drive && !App.drive.connected) {
+      status.className = "drop-status err";
+      status.textContent = "ยังไม่ได้เชื่อม Google Drive ดูวิธีที่เมนู \"ไฟล์ใน Google Drive\" ระหว่างนี้วางลิงก์แทนได้";
+      return;
+    }
+    uploading++; okBtn.disabled = true; zone.classList.add("busy");
+    status.className = "drop-status";
+    try {
+      const r = await App.uploadFile(file, zone.dataset.cat, (m) => (status.textContent = m));
+      target.value = zone.dataset.store === "img" && r.img ? r.img : r.url;
+      setPreview(target.value);
+      status.className = "drop-status ok";
+      status.innerHTML = `อัปโหลดแล้ว: <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.name)}</a>`;
+    } catch (e) {
+      status.className = "drop-status err";
+      status.textContent = e.message;
+    } finally {
+      uploading--; zone.classList.remove("busy");
+      if (!uploading) okBtn.disabled = false;
+    }
+  };
+  zone.querySelector(".link-btn").onclick = () => input.click();
+  input.onchange = () => go(input.files[0]);
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("over"); go(e.dataTransfer.files[0]); });
+}
 
 // เรียก API: โยน Error พร้อมข้อความภาษาไทยเมื่อไม่สำเร็จ
 const api = async (method, path, body) => {

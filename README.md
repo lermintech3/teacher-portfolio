@@ -34,6 +34,8 @@ functions/api/          ← API (Cloudflare Pages Functions)
   admin/kv/[key].js     PUT ค่าเดี่ยว (profile schedule grades attendance attendanceDates sarNotes settings)
   admin/import.js       POST นำเข้า (?replace=1 แทนที่ทั้งหมด)
   admin/export.js       GET  ดาวน์โหลดไฟล์สำรอง
+  admin/drive/          upload / list / delete / status — ส่งต่อไป Google Apps Script
+google-apps-script/Code.gs  ← ตัวรับไฟล์ลง Google Drive (ครูติดตั้งเองใน script.google.com)
 src/server.js           ← โค้ดฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน (สร้างตารางอัตโนมัติ, ล็อกอิน, กันเดารหัส)
 ```
 
@@ -44,6 +46,8 @@ src/server.js           ← โค้ดฝั่งเซิร์ฟเวอ�
 3. โปรเจกต์ → Settings → Bindings → D1 database ชื่อตัวแปร `DB` → `teacher-db`
 4. โปรเจกต์ → Settings → Variables and Secrets → Secret: `ADMIN_PASSWORD` (เฉลิมพล) และ `PASSWORD_WARAPORN` (วราภรณ์) ต้องไม่ซ้ำกัน
 
+5. (ไฟล์) `DRIVE_SCRIPT_URL` และ Secret `DRIVE_SECRET` ดูคู่มือหัวข้อ 5
+
 ตารางในฐานข้อมูลสร้างเองอัตโนมัติตอนเรียก API ครั้งแรก ไม่ต้องรัน SQL ฐานข้อมูลรุ่นแรก (ก่อนแยกสองคน) ย้ายเองอัตโนมัติ ข้อมูลเดิมเป็นของคนแรก
 
 ## ความปลอดภัย
@@ -53,3 +57,4 @@ src/server.js           ← โค้ดฝั่งเซิร์ฟเวอ�
 - ใส่รหัสผิด 5 ครั้ง ล็อก 15 นาที
 - `/api/public` ส่งเฉพาะรายการ vis = public และไม่ส่งเมนูส่วนตัวเสมอ (นักเรียน คะแนน เช็กชื่อ ดูแลช่วยเหลือ การลา ฯลฯ)
 - คำสั่งแก้ข้อมูลจากโดเมนอื่นถูกปฏิเสธ
+- อัปโหลดไฟล์ต้องล็อกอิน เซิร์ฟเวอร์กำหนดโฟลเดอร์เจ้าของเอง และส่ง DRIVE_SECRET ไป Apps Script (เบราว์เซอร์ไม่เห็น)
