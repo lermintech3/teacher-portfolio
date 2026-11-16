@@ -155,28 +155,24 @@ const toast = (msg) => {
 // onSave(rec) คืน Promise — บันทึกสำเร็จแล้วค่อยปิดฟอร์ม
 const openForm = (title, fields, onSave) => {
   $("#sheetTitle").textContent = title;
-  $("#sheetFields").innerHTML = fields.map((f) => {
-    const id = `f_${f.key}`;
-    const req = f.required ? "required" : "";
-    const val = f.value ?? "";
-    if (f.type === "file") return fileField(f, id, val);
-    const input = f.options
-      ? `<select id="${id}" name="${f.key}" ${req}>${f.options.map((o) => `<option ${String(o) === String(val) ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
-      : f.type === "textarea"
-        ? `<textarea id="${id}" name="${f.key}" rows="${f.rows || 3}" ${req}>${esc(val)}</textarea>`
-        : `<input id="${id}" name="${f.key}" type="${f.type || "text"}" ${f.type === "number" ? 'step="any"' : ""} ${req} value="${esc(val)}">`;
-    return `<label for="${id}">${f.label}${f.hint ? `<small>${f.hint}</small>` : ""}${input}</label>`;
-  }).join("");
+  $("#sheetFields").innerHTML = fields.map((f) => iOS.field(f, `f_${f.key}`, f.value ?? "")).join("");
   const dlg = $("#sheet");
   const form = $("#sheetForm");
   const okBtn = form.querySelector("button[value=ok]");
   okBtn.disabled = false;
+  iOS.wire(form);
   form.querySelectorAll(".drop").forEach((z) => wireDrop(z, okBtn));
   form.onsubmit = async (e) => {
     if (e.submitter?.value !== "ok") return;
     e.preventDefault();
+    const missing = iOS.missingRequired(form)
+      || [...form.querySelectorAll("input[required], textarea[required]")].find((i) => !i.value.trim())?.closest(".ios-cell")?.querySelector(".ios-label")?.textContent.replace("*", "").trim();
+    if (missing) return toast(`กรุณากรอก "${missing}"`);
     const fd = new FormData(form);
-    const rec = Object.fromEntries(fields.map((f) => [f.key, f.type === "number" ? Number(fd.get(f.key)) || 0 : String(fd.get(f.key) ?? "").trim()]));
+    const rec = Object.fromEntries(fields.map((f) => {
+      const raw = String(fd.get(f.key) ?? "").trim();
+      return [f.key, f.type === "number" ? Number(raw.replace(/,/g, "")) || 0 : f.type === "check" ? raw === "1" : raw];
+    }));
     okBtn.disabled = true;
     try {
       await onSave(rec);
@@ -190,7 +186,7 @@ const openForm = (title, fields, onSave) => {
     }
   };
   dlg.showModal();
-  dlg.querySelector("input, select, textarea")?.focus();
+  if (matchMedia("(pointer: fine)").matches) dlg.querySelector(".sheet-body input:not([type=hidden]), .sheet-body textarea")?.focus();
 };
 
 // ---------- แนบไฟล์: ลากวาง / เลือกไฟล์ / วางลิงก์ → เก็บใน Google Drive ----------

@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/ios.css">
 </head>
 <body>
   <header class="topbar">
@@ -41,19 +42,20 @@
     <p id="lightboxCaption"></p>
   </dialog>
 
-  <dialog class="sheet" id="sheet">
-    <form method="dialog" id="sheetForm">
-      <h2 id="sheetTitle"></h2>
-      <div id="sheetFields"></div>
-      <div class="sheet-actions">
-        <button value="cancel" class="btn ghost" formnovalidate>ยกเลิก</button>
-        <button value="ok" class="btn">บันทึก</button>
+  <dialog class="sheet" id="sheet" aria-labelledby="sheetTitle">
+    <form method="dialog" id="sheetForm" novalidate>
+      <div class="sheet-bar">
+        <button value="cancel" class="ios-bar-btn" formnovalidate>ยกเลิก</button>
+        <h2 id="sheetTitle"></h2>
+        <button value="ok" class="ios-bar-btn strong">บันทึก</button>
       </div>
+      <div class="sheet-body"><div id="sheetFields" class="ios-group"></div></div>
     </form>
   </dialog>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <script src="/js/ios.js"></script>
   <script src="/js/app.js"></script>
   <script src="/js/admin.js"></script>
 </body>

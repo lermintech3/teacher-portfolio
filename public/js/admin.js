@@ -4,7 +4,11 @@
 const VIS_OPTS = ["ส่วนตัว", "สาธารณะ"];
 const VIS_CODE = { "ส่วนตัว": "private", "สาธารณะ": "public" };
 const VIS_LABEL = { private: "ส่วนตัว", public: "สาธารณะ" };
-const visField = { key: "vis", label: "แสดงในหน้าสาธารณะไหม", options: VIS_OPTS, value: "ส่วนตัว" };
+const visField = { key: "vis", label: "แสดงในหน้าสาธารณะ", hint: "ปิด = เห็นเฉพาะครู", toggle: { on: "สาธารณะ", off: "ส่วนตัว" }, value: "ส่วนตัว" };
+// ปีการศึกษา (พ.ศ.) ให้เลือกด้วยวงล้อ ไม่ต้องพิมพ์
+const BE_NOW = new Date().getFullYear() + 543 - (new Date().getMonth() < 4 ? 1 : 0);
+const YEARS = Array.from({ length: 10 }, (_, i) => String(BE_NOW - 6 + i));
+const yearField = { key: "year", label: "ปีการศึกษา", options: YEARS, wheel: true, value: String(BE_NOW) };
 // ต้องตรงกับ PRIVATE_ONLY ใน src/server.js
 const PRIVATE_ONLY = new Set(["todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps"]);
 const arr = (key) => (App.DATA[key] = App.DATA[key] || []);
@@ -56,7 +60,7 @@ const optionsFor = (key, f) => App.DATA?.settings?.options?.[`${key}.${f.key}`] 
 
 // ---------- ฟอร์มของแต่ละเมนู ----------
 const FORMS = {
-  todos: { name: "งานที่ต้องทำ", fields: [{ key: "title", label: "งาน", required: true }, { key: "due", label: "กำหนดส่ง", type: "date" }], map: (r, old) => ({ done: old?.done || false, ...r }) },
+  todos: { name: "งานที่ต้องทำ", fields: [{ key: "title", label: "งาน", required: true }, { key: "due", label: "กำหนดส่ง", type: "date" }, { key: "done", label: "ทำเสร็จแล้ว", type: "check" }] },
   deadlines: { name: "กำหนดส่งสำคัญ", fields: [{ key: "title", label: "เรื่อง", required: true }, { key: "date", label: "วันกำหนดส่ง", type: "date", required: true }] },
   swaps: { name: "การสอนแทน / แลกคาบ", fields: [
     { key: "date", label: "วันที่", type: "date", required: true }, { key: "kind", label: "ประเภท", options: ["สอนแทน", "ให้ครูอื่นสอนแทน", "แลกคาบ"] },
@@ -73,21 +77,21 @@ const FORMS = {
     { key: "date", label: "วันที่", type: "date", required: true }, { key: "type", label: "ประเภท", options: ["นิเทศชั้นเรียน", "Open Class", "Lesson Study"] },
     { key: "by", label: "ผู้นิเทศ" }, { key: "topic", label: "เรื่อง" }, { key: "result", label: "ผล / ข้อเสนอแนะ", type: "textarea" },
     { key: "file", label: "แบบบันทึกการนิเทศ / รูป", type: "file", category: "supervision" }, visField] },
-  students: { name: "นักเรียน", fields: [{ key: "no", label: "เลขที่", type: "number", required: true }, { key: "name", label: "ชื่อ-นามสกุล", required: true }, { key: "room", label: "ห้อง" }] },
+  students: { name: "นักเรียน", fields: [{ key: "no", label: "เลขที่", type: "number", min: 1, max: 60, required: true }, { key: "name", label: "ชื่อ-นามสกุล", required: true }, { key: "room", label: "ห้อง" }] },
   care: { name: "บันทึกการดูแลช่วยเหลือ", fields: [
     { key: "student", label: "นักเรียน", required: true }, { key: "sdq", label: "ผล SDQ", options: ["ปกติ", "เสี่ยง", "มีปัญหา"] },
     { key: "screen", label: "ผลคัดกรอง", options: ["กลุ่มปกติ", "กลุ่มเสี่ยง", "กลุ่มมีปัญหา"] }, { key: "visit", label: "วันที่เยี่ยมบ้าน", type: "date" },
     { key: "note", label: "บันทึก", type: "textarea" }, { key: "file", label: "รูปเยี่ยมบ้าน / เอกสาร (ส่วนตัว ไม่แชร์)", type: "file", category: "care" }] },
   activities: { name: "กิจกรรมพัฒนาผู้เรียน", fields: [
     { key: "title", label: "ชื่อกิจกรรม", required: true }, { key: "type", label: "ประเภท", options: ["ลูกเสือ/เนตรนารี", "ชุมนุม", "แนะแนว", "กิจกรรมเพื่อสังคม"] },
-    { key: "room", label: "ชั้น" }, { key: "hours", label: "ชั่วโมง", type: "number" }, { key: "passed", label: "ผ่าน (เช่น 30/32)" },
+    { key: "room", label: "ชั้น" }, { key: "hours", label: "ชั่วโมง", type: "number", min: 0, max: 200, unit: "ชม.", start: 20 }, { key: "passed", label: "ผ่าน (เช่น 30/32)" },
     { key: "file", label: "รูปกิจกรรม / เอกสาร", type: "file", category: "activities" }, visField] },
   responsibilities: { name: "งานที่รับผิดชอบ", fields: [
     { key: "title", label: "ชื่องาน", required: true }, { key: "type", label: "ประเภท", options: ["คำสั่ง", "งานฝ่าย", "งานที่ปรึกษา", "เวร", "โครงการ"] },
-    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" },
+    yearField, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" },
     { key: "file", label: "ไฟล์คำสั่ง", type: "file", category: "responsibilities" }, visField] },
   projects: { name: "โครงการ", fields: [
-    { key: "title", label: "ชื่อโครงการ", required: true }, { key: "budget", label: "งบประมาณ (บาท)", type: "number" }, { key: "used", label: "ใช้ไปแล้ว (บาท)", type: "number" },
+    { key: "title", label: "ชื่อโครงการ", required: true }, { key: "budget", label: "งบประมาณ (บาท)", type: "number", wheel: false }, { key: "used", label: "ใช้ไปแล้ว (บาท)", type: "number", wheel: false },
     { key: "status", label: "สถานะ", options: ["ยังไม่เริ่ม", "กำลังดำเนินการ", "เสร็จสิ้น"] }, { key: "result", label: "ผลการดำเนินงาน", type: "textarea" },
     { key: "file", label: "ไฟล์โครงการ / รูป", type: "file", category: "projects" }, visField] },
   documents: { name: "หนังสือราชการ", fields: [
@@ -98,7 +102,7 @@ const FORMS = {
     { key: "file", label: "ไฟล์รายงานการประชุม", type: "file", category: "meetings" }] },
   trainings: { name: "การอบรม / PLC", fields: [
     { key: "title", label: "หลักสูตร / หัวข้อ", required: true }, { key: "organizer", label: "หน่วยงานที่จัด" }, { key: "date", label: "วันที่", type: "date" },
-    { key: "hours", label: "จำนวนชั่วโมง", type: "number" }, { key: "format", label: "รูปแบบ", options: ["ออนไซต์", "ออนไลน์", "PLC"] },
+    { key: "hours", label: "จำนวนชั่วโมง", type: "number", min: 0.5, max: 120, step: 0.5, unit: "ชม.", start: 6 }, { key: "format", label: "รูปแบบ", options: ["ออนไซต์", "ออนไลน์", "PLC"] },
     { key: "certificate", label: "เกียรติบัตร (รูปหรือ PDF)", type: "file", category: "trainings" }, visField] },
   certificates: { name: "เกียรติบัตร / รางวัล", fields: [
     { key: "title", label: "ชื่อเกียรติบัตร / รางวัล", required: true }, { key: "issuer", label: "ผู้มอบ" }, { key: "date", label: "วันที่", type: "date" },
@@ -106,10 +110,10 @@ const FORMS = {
     { key: "image", label: "รูปเกียรติบัตร", type: "file", category: "certificates", store: "img", accept: "image/*" }, visField] },
   works: { name: "ผลงาน", fields: [
     { key: "title", label: "ชื่อผลงาน", required: true }, { key: "type", label: "ประเภท", options: ["นวัตกรรม", "วิจัยในชั้นเรียน", "สื่อการสอน", "บทความ"] },
-    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "description", label: "รายละเอียด", type: "textarea" },
+    yearField, { key: "description", label: "รายละเอียด", type: "textarea" },
     { key: "link", label: "ไฟล์หรือลิงก์ผลงาน", type: "file", category: "works" }, visField] },
   reports: { name: "รายงาน SAR / PA", fields: [
-    { key: "title", label: "ชื่อรายงาน", required: true }, { key: "type", label: "ประเภท", options: ["SAR", "PA"] }, { key: "year", label: "ปีการศึกษา", value: "2569" },
+    { key: "title", label: "ชื่อรายงาน", required: true }, { key: "type", label: "ประเภท", options: ["SAR", "PA"] }, yearField,
     { key: "link", label: "ไฟล์รายงาน (PDF)", type: "file", category: "reports", accept: ".pdf,application/pdf" }, visField] },
   evidence: { name: "หลักฐาน", fields: [
     { key: "title", label: "ชื่อหลักฐาน", required: true },
@@ -120,7 +124,7 @@ const FORMS = {
     map: (r) => ({ ...r, pa: splitList(r.pa).filter((c) => PA_CODES.includes(c)) }) },
   leaves: { name: "การลา", fields: [
     { key: "type", label: "ประเภท", options: ["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ"] }, { key: "from", label: "ตั้งแต่", type: "date", required: true },
-    { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number" }, { key: "reason", label: "เหตุผล" },
+    { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number", min: 0.5, max: 60, step: 0.5, unit: "วัน", start: 1 }, { key: "reason", label: "เหตุผล" },
     { key: "file", label: "ใบลา / เอกสาร (ส่วนตัว ไม่แชร์)", type: "file", category: "leaves" }] },
   career: { name: "เหตุการณ์ในประวัติ", fields: [
     { key: "date", label: "วันที่", type: "date", required: true }, { key: "event", label: "เหตุการณ์", required: true, hint: "เช่น เลื่อนวิทยฐานะ ย้ายโรงเรียน" }] },
@@ -247,7 +251,7 @@ App.pages.admin = () => {
       <section class="panel" style="--c:${C.coral}">
         <h2>งานที่ต้องทำ</h2>
         ${todos.length ? `<div class="stack">${todos.map((t) => `
-          <div class="todo ${t.done ? "done" : ""}"><input type="checkbox" aria-label="ทำเสร็จแล้ว" data-act="todo" data-id="${t.id}" ${t.done ? "checked" : ""}>
+          <div class="todo ${t.done ? "done" : ""}"><input type="checkbox" class="ios-check" aria-label="ทำเสร็จแล้ว" data-act="todo" data-id="${t.id}" ${t.done ? "checked" : ""}>
           <span>${esc(t.title)}</span><span class="meta">${t.due ? thDate(t.due) : ""}</span>${tools("todos", t)}</div>`).join("")}</div>` : empty("ไม่มีงานค้าง")}
       </section>
     </div>
@@ -281,7 +285,8 @@ App.pages["admin/schedule"] = () => {
 App.actions.addClass = () => {
   const s = App.DATA.schedule;
   openForm("เพิ่มคาบสอน", [
-    { key: "day", label: "วัน", options: DAYS }, { key: "period", label: "คาบที่", type: "number", required: true },
+    { key: "day", label: "วัน", options: DAYS, value: DAYS[Math.min(4, Math.max(0, new Date().getDay() - 1))] },
+    { key: "period", label: "คาบที่", type: "number", min: 1, max: 10, required: true },
     { key: "subject", label: "วิชา", required: true }, { key: "room", label: "ห้อง" },
   ], async (r) => {
     s.classes = s.classes || [];
@@ -295,14 +300,16 @@ App.actions.delClass = async (b) => {
   try { await saveKV("schedule"); toast("ลบแล้ว"); } catch (e) { s.classes.splice(Number(b.dataset.i), 0, removed); toast(e.message); }
   render();
 };
-App.actions.editTerm = () => editKV("ภาคเรียนและเวลาคาบ", "schedule", [
-  { key: "term", label: "ภาคเรียน", hint: "เช่น 2/2569" },
-  { key: "times", label: "เวลาแต่ละคาบ", type: "textarea", rows: 7, hint: "บรรทัดละคาบ เช่น 08:30–09:20",
-    get: (o) => (o.periods || []).map((p) => p.time).join("\n") },
-], (o, r) => {
-  o.term = r.term;
-  o.periods = splitList(r.times).map((time, i) => ({ no: i + 1, time }));
-});
+App.actions.editTerm = () => {
+  const periods = App.DATA.schedule?.periods || [];
+  editKV("ภาคเรียนและเวลาคาบ", "schedule", [
+    { key: "term", label: "ภาคเรียน", options: YEARS.flatMap((y) => [`1/${y}`, `2/${y}`]), wheel: true, get: (o) => o.term || `${new Date().getMonth() >= 4 && new Date().getMonth() < 10 ? 1 : 2}/${BE_NOW}` },
+    ...Array.from({ length: 10 }, (_, i) => ({ key: `p${i}`, label: `คาบ ${i + 1}`, type: "timerange", placeholder: "ไม่มีคาบนี้", get: () => periods[i]?.time || "" })),
+  ], (o, r) => {
+    o.term = r.term;
+    o.periods = Array.from({ length: 10 }, (_, i) => r[`p${i}`]).map((time, i) => ({ no: i + 1, time })).filter((p) => p.time);
+  });
+};
 
 App.pages["admin/plans"] = listPage({
   key: "plans", title: "แผนการสอนและสื่อ", sub: (r) => `${r.length} รายการ แยกตามวิชาและหน่วย`, filter: "type",
@@ -352,7 +359,7 @@ App.actions.editScore = (b) => {
   const g = App.DATA.grades;
   const s = arr("students").find((x) => String(x.no) === b.dataset.no);
   const sc = g.scores[s.no] || [];
-  openForm(`คะแนน เลขที่ ${s.no} ${s.name}`, g.parts.map((p, i) => ({ key: `p${i}`, label: `${p.label} (เต็ม ${p.max})`, type: "number", value: sc[i] ?? "" })),
+  openForm(`คะแนน เลขที่ ${s.no} ${s.name}`, g.parts.map((p, i) => ({ key: `p${i}`, label: `${p.label} (เต็ม ${p.max})`, type: "number", min: 0, max: Number(p.max), step: 0.5, unit: "คะแนน", start: Math.round(p.max * 0.7), value: sc[i] ?? "" })),
     async (r) => {
       const old = g.scores[s.no];
       g.scores[s.no] = g.parts.map((p, i) => Math.min(Number(p.max), Math.max(0, Number(r[`p${i}`]) || 0)));
@@ -736,7 +743,8 @@ App.pages["admin/settings"] = () => {
     `<h2>เมนู</h2><p class="meta">เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ</p>` +
     table([{ label: "หน้า", render: (r) => MODE_LABEL[r.mode] }, { label: "กลุ่ม", key: "group" },
       { label: "ชื่อเมนู", render: (r) => `<span class="swatch" style="background:${esc(menus[r.route]?.c || r.c)}"></span>${esc(menus[r.route]?.label || r.label)}` },
-      { label: "สถานะ", render: (r) => (LOCKED_ROUTES.has(r.route) ? `<span class="meta">ซ่อนไม่ได้</span>` : menus[r.route]?.hidden ? `<span class="vis v-private">ซ่อนอยู่</span>` : `<span class="vis v-public">แสดง</span>`) },
+      { label: "แสดง", render: (r) => (LOCKED_ROUTES.has(r.route) ? `<span class="meta">ซ่อนไม่ได้</span>`
+        : `<button type="button" class="ios-switch sm" role="switch" aria-checked="${!menus[r.route]?.hidden}" aria-label="แสดงเมนู ${esc(r.label)}" data-act="toggleMenu" data-route="${esc(r.route)}"><span></span></button>`) },
       { label: "", cls: "nowrap", render: (r) => `<span class="acts"><button class="ico" data-act="setMenu" data-route="${esc(r.route)}">ปรับ</button></span>` }], menuRows()) +
     `<h2>ตัวเลือกในฟอร์ม</h2><p class="meta">เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน</p>` +
     table([{ label: "เมนู", key: "name" }, { label: "ช่อง", render: (r) => esc(r.f.label) },
@@ -758,7 +766,7 @@ App.actions.setMenu = (b) => {
     { key: "label", label: "ชื่อเมนู", value: cur.label || base.label, required: true },
     { key: "c", label: "สีประจำเมนู", type: "color", value: cur.c || base.c },
   ];
-  if (!LOCKED_ROUTES.has(route)) fields.push({ key: "show", label: "แสดงเมนูนี้ไหม", options: ["แสดง", "ซ่อน"], value: cur.hidden ? "ซ่อน" : "แสดง" });
+  if (!LOCKED_ROUTES.has(route)) fields.push({ key: "show", label: "แสดงเมนูนี้", toggle: { on: "แสดง", off: "ซ่อน" }, value: cur.hidden ? "ซ่อน" : "แสดง" });
   openForm(`ปรับเมนู "${base.label}"`, fields, (r) => saveSettings((st) => {
     st.menus = st.menus || {};
     st.menus[route] = {
@@ -768,6 +776,22 @@ App.actions.setMenu = (b) => {
     };
     if (!Object.keys(st.menus[route]).length) delete st.menus[route];
   }));
+};
+App.actions.toggleMenu = async (b) => {
+  const route = b.dataset.route;
+  const show = b.getAttribute("aria-checked") !== "true";
+  b.setAttribute("aria-checked", String(show)); // ขยับทันที ให้รู้สึกลื่น
+  try {
+    await new Promise((r) => setTimeout(r, 220));
+    await saveSettings((st) => {
+      st.menus = st.menus || {};
+      const m = { ...(st.menus[route] || {}) };
+      if (show) delete m.hidden; else m.hidden = true;
+      if (Object.keys(m).length) st.menus[route] = m; else delete st.menus[route];
+    });
+    toast(show ? "แสดงเมนูแล้ว" : "ซ่อนเมนูแล้ว");
+    render();
+  } catch (e) { b.setAttribute("aria-checked", String(!show)); toast(e.message); }
 };
 App.actions.setOptions = (b) => {
   const { key, field } = b.dataset;

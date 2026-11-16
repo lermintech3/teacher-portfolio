@@ -21,6 +21,7 @@ public/                 ← หน้าเว็บ (Cloudflare Pages: Build ou
   admin/index.html      ← หน้าครู
   js/app.js             ← แกนหลัก เมนู router หน้าสาธารณะ
   js/admin.js           ← หน้าครูทุกเมนู ฟอร์ม ตั้งค่าเว็บ ล็อกอิน
+  js/ios.js, css/ios.css ← ส่วนประกอบแบบ iOS: Wheel/Date/Time/Number Picker, Switch, Segmented, Checkbox, Radio, Text Field
   css/style.css
   data/demo.json        ← ข้อมูลตัวอย่าง (ใช้ตอนเริ่มต้นและตอนฐานข้อมูลยังว่าง)
 functions/api/          ← API (Cloudflare Pages Functions)

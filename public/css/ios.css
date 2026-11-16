@@ -1,0 +1,200 @@
+/* ส่วนประกอบแบบ iOS — ฟอร์มแบบ Inset Grouped, Bottom Sheet, Wheel Picker, Switch, Segmented, Checkbox, Radio, Text Field */
+:root {
+  --ios-bg: #f2f2f7;
+  --ios-cell: #ffffff;
+  --ios-sep: rgba(60, 60, 67, .18);
+  --ios-label2: rgba(60, 60, 67, .6);
+  --ios-fill: rgba(118, 118, 128, .12);
+  --ios-green: #34c759;
+  --ios-blue: #007aff;
+  --ios-red: #ff3b30;
+  --ios-spring: cubic-bezier(.32, 1.25, .5, 1);
+  --ios-ease: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* ---------- Sheet (ฟอร์ม) ---------- */
+dialog.sheet {
+  border: 0; padding: 0; width: min(560px, 94vw); max-height: 88vh; border-radius: 16px; background: var(--ios-bg);
+  box-shadow: 0 30px 80px -20px rgba(20, 10, 60, .45); overflow: hidden;
+}
+dialog.sheet::backdrop { background: rgba(0, 0, 0, .32); }
+dialog.sheet[open] { animation: ios-pop .32s var(--ios-ease); }
+@keyframes ios-pop { from { opacity: 0; transform: translateY(18px) scale(.98); } }
+.sheet form { display: flex; flex-direction: column; max-height: 88vh; padding: 0; }
+.sheet-bar {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 12px 16px 10px;
+  background: rgba(249, 249, 249, .94); backdrop-filter: saturate(180%) blur(20px); border-bottom: .5px solid var(--ios-sep);
+  position: sticky; top: 0; z-index: 2;
+}
+.sheet-bar h2 { margin: 0; font-size: 1.02rem; font-weight: 600; text-align: center; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 52vw; }
+.sheet-bar .ios-bar-btn:last-child { justify-self: end; }
+.ios-bar-btn { font: inherit; font-size: 1rem; border: 0; background: none; color: var(--c-deep, var(--ios-blue)); padding: 6px 4px; cursor: pointer; border-radius: 8px; justify-self: start; }
+.ios-bar-btn.strong { font-weight: 600; }
+.ios-bar-btn:disabled { opacity: .35; cursor: progress; }
+.sheet-body { overflow-y: auto; padding: 18px 16px 28px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+/* มือถือ: เลื่อนขึ้นจากด้านล่าง มีที่จับ */
+@media (max-width: 640px) {
+  dialog.sheet, dialog.ios-picker { width: 100%; max-width: 100%; margin: 0; inset: auto 0 0 0; border-radius: 14px 14px 0 0; }
+  dialog.sheet { max-height: 94vh; height: 94vh; }
+  .sheet form { max-height: 94vh; height: 100%; }
+  dialog.sheet[open], dialog.ios-picker[open] { animation: ios-up .38s var(--ios-ease); }
+  .sheet-bar::before, .ios-picker-bar::before {
+    content: ""; position: absolute; top: 5px; left: 50%; width: 36px; height: 5px; border-radius: 3px; background: rgba(60, 60, 67, .3); transform: translateX(-50%);
+  }
+  .sheet-bar { padding-top: 16px; }
+  .sheet-body { padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+}
+@keyframes ios-up { from { transform: translateY(100%); } }
+
+/* ---------- Inset Grouped list ---------- */
+.ios-group { background: var(--ios-cell); border-radius: 12px; overflow: hidden; }
+.ios-cell { display: block; padding: 11px 16px; position: relative; font-size: 1rem; font-weight: 400; margin: 0; }
+.ios-cell + .ios-cell::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: .5px; background: var(--ios-sep); }
+.ios-row { display: flex; align-items: center; gap: 12px; min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
+.ios-row .ios-label { flex: 1; }
+.ios-label { display: block; font-size: .95rem; color: var(--ink); font-weight: 500; }
+.ios-label .req { color: var(--ios-red); font-style: normal; }
+.ios-hint { display: block; font-size: .78rem; color: var(--ios-label2); margin-top: 1px; font-weight: 400; }
+.ios-row .ios-hint { display: none; }
+.ios-cell.shake { animation: ios-shake .4s; background: #fff2f1; }
+@keyframes ios-shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+
+/* ---------- Text Field ---------- */
+.ios-text .ios-input-wrap { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.ios-cell input[type=text], .ios-cell input[type=url], .ios-cell input[type=email], .ios-cell input:not([type]), .ios-cell textarea {
+  font: inherit; font-size: 16px; /* 16px กัน iPhone ซูมหน้าจอ */ width: 100%; border: 0; outline: none; background: transparent; color: var(--ink); padding: 4px 0;
+  box-shadow: none;
+}
+.ios-cell textarea { resize: vertical; min-height: 66px; line-height: 1.55; margin-top: 4px; }
+.ios-cell input::placeholder, .ios-cell textarea::placeholder { color: rgba(60, 60, 67, .3); }
+.ios-cell:focus-within { background: #fbfbfd; }
+.ios-clear {
+  flex: none; width: 20px; height: 20px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; display: grid; place-items: center;
+  background: rgba(118, 118, 128, .24); color: #fff; font-size: 15px; line-height: 1;
+}
+.ios-clear[hidden] { display: none; }
+.ios-text .ios-clear { opacity: 0; transition: opacity .15s; }
+.ios-text:focus-within .ios-clear { opacity: 1; }
+
+/* ---------- ค่าที่แตะแล้วเปิด Picker ---------- */
+.ios-value {
+  font: inherit; font-size: 1rem; border: 0; background: var(--ios-fill); color: var(--ink); cursor: pointer;
+  padding: 6px 10px 6px 12px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; max-width: 62%; text-align: right;
+}
+.ios-value span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ios-value .ph { color: var(--ios-label2); }
+.ios-value:active { background: rgba(118, 118, 128, .22); }
+.ios-chev { width: 7px; height: 12px; color: rgba(60, 60, 67, .35); flex: none; }
+
+/* ---------- Toggle Switch ---------- */
+.ios-switch {
+  --w: 51px; --h: 31px; position: relative; width: var(--w); height: var(--h); flex: none; border: 0; padding: 0; cursor: pointer;
+  border-radius: 999px; background: rgba(120, 120, 128, .16); transition: background .25s ease;
+}
+.ios-switch span {
+  position: absolute; top: 2px; left: 2px; width: calc(var(--h) - 4px); height: calc(var(--h) - 4px); border-radius: 50%; background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .15), 0 3px 1px rgba(0, 0, 0, .06); transition: transform .35s var(--ios-spring), width .2s ease;
+}
+.ios-switch:active span { width: calc(var(--h) + 2px); }
+.ios-switch[aria-checked=true] { background: var(--ios-green); }
+.ios-switch[aria-checked=true] span { transform: translateX(calc(var(--w) - var(--h))); }
+.ios-switch[aria-checked=true]:active span { transform: translateX(calc(var(--w) - var(--h) - 6px)); }
+.ios-switch:focus-visible { outline: 3px solid color-mix(in srgb, var(--ios-green) 45%, transparent); outline-offset: 2px; }
+
+/* ---------- Segmented Control ---------- */
+.ios-seg {
+  --i: 0; position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); margin-top: 8px;
+  background: var(--ios-fill); border-radius: 9px; padding: 2px; isolation: isolate;
+}
+.ios-seg-thumb {
+  position: absolute; z-index: -1; top: 2px; bottom: 2px; left: 2px; width: calc((100% - 4px) / var(--n)); border-radius: 7px; background: #fff;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .12), 0 3px 1px rgba(0, 0, 0, .04); transform: translateX(calc(var(--i) * 100%)); transition: transform .3s var(--ios-ease);
+}
+.ios-seg button {
+  font: inherit; font-size: .88rem; border: 0; background: none; padding: 6px 4px; cursor: pointer; color: var(--ink); border-radius: 7px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: font-weight .2s;
+}
+.ios-seg button[aria-checked=true] { font-weight: 600; }
+.ios-seg button + button { box-shadow: -1px 0 0 -0 rgba(60, 60, 67, .12); }
+.ios-seg button[aria-checked=true], .ios-seg button[aria-checked=true] + button { box-shadow: none; }
+
+/* ---------- Radio (รายการพร้อมเครื่องหมายถูกแบบ iOS) ---------- */
+.ios-radio-cell { padding-bottom: 4px; }
+.ios-radios { margin: 6px -16px 0 0; }
+.ios-radio {
+  font: inherit; font-size: 1rem; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border: 0; background: none; padding: 10px 16px 10px 0; cursor: pointer; text-align: left; color: var(--ink); border-top: .5px solid var(--ios-sep);
+}
+.ios-radio svg { width: 16px; height: 12px; color: var(--c-deep, var(--ios-blue)); opacity: 0; transform: scale(.6); transition: opacity .15s, transform .25s var(--ios-spring); }
+.ios-radio[aria-checked=true] svg { opacity: 1; transform: none; }
+.ios-radio[aria-checked=true] span { font-weight: 600; }
+.ios-radio:active { background: rgba(0, 0, 0, .04); }
+
+/* ---------- Checkbox (วงกลมแบบ iOS) ---------- */
+input.ios-check {
+  appearance: none; -webkit-appearance: none; width: 24px; height: 24px; flex: none; margin: 0; border-radius: 50%; cursor: pointer;
+  border: 1.5px solid rgba(60, 60, 67, .3); background: #fff center / 13px no-repeat; transition: background-color .2s, border-color .2s, transform .2s var(--ios-spring);
+}
+input.ios-check:checked {
+  background-color: var(--c, var(--ios-blue)); border-color: var(--c, var(--ios-blue));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath d='M1.5 6.5l4 4 9-9' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input.ios-check:active { transform: scale(.9); }
+.ios-check-row { cursor: pointer; }
+
+.ios-color { width: 44px; height: 30px; border: 0; padding: 0; background: none; cursor: pointer; }
+.ios-cell .field-block { margin: 0; }
+.ios-cell .drop { margin-top: 6px; }
+.ios-cell .field-block > input[type=url] { font: inherit; font-size: 16px; border: 0; border-top: .5px solid var(--ios-sep); border-radius: 0; padding: 10px 0 2px; outline: none; background: transparent; }
+
+/* ---------- Wheel Picker ---------- */
+dialog.ios-picker {
+  border: 0; padding: 0; width: min(420px, 94vw); border-radius: 14px; background: rgba(250, 250, 252, .98); overflow: hidden;
+  box-shadow: 0 30px 80px -20px rgba(20, 10, 60, .5);
+}
+dialog.ios-picker::backdrop { background: rgba(0, 0, 0, .25); }
+dialog.ios-picker[open] { animation: ios-pop .28s var(--ios-ease); }
+dialog.ios-picker.closing { animation: ios-fade .18s ease forwards; }
+@keyframes ios-fade { to { opacity: 0; transform: translateY(12px); } }
+.ios-picker-bar { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 12px 16px 8px; border-bottom: .5px solid var(--ios-sep); }
+.ios-picker-bar b { font-weight: 600; font-size: .98rem; text-align: center; }
+.ios-picker-bar .ios-bar-btn:last-child { justify-self: end; }
+.ios-wheels { position: relative; display: flex; gap: 2px; padding: 10px 12px; height: 220px; perspective: 900px; }
+.ios-wheel {
+  flex: 1; height: 200px; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; position: relative; z-index: 1; outline: none;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
+  transform-style: preserve-3d; overscroll-behavior: contain;
+}
+.ios-wheel::-webkit-scrollbar { display: none; }
+.ios-wheel:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ios-blue) 40%, transparent); border-radius: 10px; }
+.ios-wheel-pad { height: 80px; }
+.ios-wheel-item {
+  height: 40px; line-height: 40px; text-align: center; scroll-snap-align: center; font-size: 1.15rem; color: var(--ink); cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; backface-visibility: hidden; font-variant-numeric: tabular-nums;
+}
+.ios-wheel-item.on { font-weight: 600; }
+.ios-wheel-band { position: absolute; left: 10px; right: 10px; top: 90px; height: 40px; border-radius: 9px; background: var(--ios-fill); pointer-events: none; z-index: 0; }
+.ios-picker-foot { display: flex; justify-content: center; gap: 10px; padding: 4px 16px 16px; }
+.ios-chip { font: inherit; font-size: .9rem; border: 0; border-radius: 999px; padding: 6px 16px; background: var(--ios-fill); color: var(--c-deep, var(--ios-blue)); font-weight: 600; cursor: pointer; }
+.ios-range-hint { flex: 1; text-align: center; color: var(--ios-label2); font-size: .82rem; }
+@media (max-width: 640px) { .ios-picker-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom)); } }
+
+/* ---------- ตัวกรองแบบ Segmented (เลื่อนแนวนอนได้) ---------- */
+.filters { background: var(--ios-fill); border-radius: 10px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: fit-content; max-width: 100%; }
+.filters::-webkit-scrollbar { display: none; }
+.filters button { box-shadow: none; background: none; border-radius: 8px; padding: 6px 14px; white-space: nowrap; transition: background .2s, box-shadow .2s; }
+.filters button:hover { box-shadow: none; background: rgba(255, 255, 255, .5); }
+.filters button.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 3px 8px rgba(0, 0, 0, .1), 0 1px 1px rgba(0, 0, 0, .04); }
+
+/* Toggle เล็กในตาราง */
+.ios-switch.sm { --w: 42px; --h: 26px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ios-switch span, .ios-seg-thumb, .ios-radio svg, input.ios-check { transition: none; }
+  dialog.sheet[open], dialog.ios-picker[open] { animation: none; }
+}
+@media (max-width: 640px) {
+  dialog.ios-picker { width: 100%; max-width: 100%; margin: 0; inset: auto 0 0 0; border-radius: 14px 14px 0 0; }
+  dialog.ios-picker[open] { animation: ios-up .38s var(--ios-ease); }
+}
