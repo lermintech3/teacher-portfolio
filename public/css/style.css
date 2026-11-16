@@ -431,3 +431,23 @@ details.folder summary b { font-family: var(--display); color: var(--c-deep); }
   .sched .plus { display: none; }
   .sched.edit .cell { min-height: 0; }
 }
+
+/* ===================== หน้าตั้งค่า: แบ่งเป็นแท็บและการ์ด ===================== */
+.set-hint { margin: 0 0 14px; }
+.set-cols { align-items: start; }
+.set-card { display: flex; flex-direction: column; gap: 6px; }
+.set-card p { margin: 0; }
+.set-danger { box-shadow: inset 0 0 0 1.5px #f3c4c0; }
+.panel h2 small { font-size: .78rem; font-weight: 400; margin-left: 6px; }
+.set-list { display: flex; flex-direction: column; }
+.set-group { margin: 16px 0 4px; font-size: .78rem; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.set-group:first-of-type { margin-top: 4px; }
+.set-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.set-row:first-child { border-top: 0; }
+.set-row .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.set-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; }
+.set-grid .panel { margin-bottom: 0; }
+.set-opt { padding: 10px 0; border-top: 1px solid var(--line); }
+.set-opt:first-of-type { border-top: 0; padding-top: 2px; }
+.set-opt .row-head { margin-bottom: 6px; }
+.set-tags { display: flex; flex-wrap: wrap; gap: 6px; }

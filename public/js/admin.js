@@ -820,32 +820,62 @@ const MODE_LABEL = { public: "หน้าสาธารณะ", admin: "หน
 const menuRows = () => Object.entries(App.navBase()).flatMap(([mode, groups]) =>
   groups.flatMap((g) => g.items.map((i) => ({ ...i, mode, group: g.group || "" }))));
 
-App.pages["admin/settings"] = () => {
+const SET_TABS = ["ทั่วไป", "เมนู", "ตัวเลือกฟอร์ม", "บัญชี"];
+const SET_HINT = {
+  "ทั่วไป": "ชื่อเว็บและตัวชี้วัด PA",
+  "เมนู": "เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ",
+  "ตัวเลือกฟอร์ม": "เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน",
+  "บัญชี": "รหัสผ่านและการคืนค่าตั้งต้น",
+};
+App.pages["admin/settings"] = ({ q } = {}) => {
   const st = settingsObj();
   const menus = st.menus || {};
-  const optionFields = Object.entries(FORMS).flatMap(([key, F]) =>
-    F.fields.filter((f) => f.options && f.key !== "vis").map((f) => ({ key, f, name: F.name, custom: !!st.options?.[`${key}.${f.key}`] })));
+  const tab = SET_TABS.includes(q?.tag) ? q.tag : SET_TABS[0];
+  const tabs = `<div class="filters" role="tablist">${SET_TABS.map((t) => `<button type="button" role="tab" aria-selected="${t === tab}" data-tag="${esc(t)}" class="${t === tab ? "on" : ""}">${esc(t)}</button>`).join("")}</div>`;
+
+  const menuRow = (r) => {
+    const m = menus[r.route] || {};
+    const sw = LOCKED_ROUTES.has(r.route)
+      ? `<span class="meta">ซ่อนไม่ได้</span>`
+      : `<button type="button" class="ios-switch sm" role="switch" aria-checked="${!m.hidden}" aria-label="แสดงเมนู ${esc(r.label)}" data-act="toggleMenu" data-route="${esc(r.route)}"><span></span></button>`;
+    return `<div class="set-row"><span class="name"><span class="swatch" style="background:${esc(m.c || r.c)}"></span>${esc(m.label || r.label)}</span>${sw}<button type="button" class="ico" data-act="setMenu" data-route="${esc(r.route)}">ปรับ</button></div>`;
+  };
+  const menuPanel = (mode) => {
+    const rows = menuRows().filter((r) => r.mode === mode);
+    const groups = [...new Set(rows.map((r) => r.group))];
+    return `<section class="panel"><h2>${MODE_LABEL[mode]} <small class="meta">${rows.length} เมนู</small></h2>${groups.map((g) =>
+      `${g ? `<div class="set-group">${esc(g)}</div>` : ""}<div class="set-list">${rows.filter((r) => r.group === g).map(menuRow).join("")}</div>`).join("")}</section>`;
+  };
+
+  const optionPanel = ([key, F]) => {
+    const fields = F.fields.filter((f) => f.options && f.key !== "vis");
+    if (!fields.length) return "";
+    return `<section class="panel"><h2>${esc(F.name)}</h2>${fields.map((f) => {
+      const custom = !!st.options?.[`${key}.${f.key}`];
+      return `<div class="set-opt"><div class="row-head"><b>${esc(f.label)}${custom ? ` <span class="meta">(แก้แล้ว)</span>` : ""}</b><button type="button" class="ico" data-act="setOptions" data-key="${key}" data-field="${f.key}">แก้ไข</button></div>
+        <div class="set-tags">${optionsFor(key, f).map((o) => `<span class="tag">${esc(o)}</span>`).join(" ")}</div></div>`;
+    }).join("")}</section>`;
+  };
+
+  const body = {
+    "ทั่วไป": () => `<div class="cols">
+      <section class="panel set-card"><h2 class="row-head">ชื่อเว็บ <button class="btn ghost small" data-act="setTitle">แก้ไข</button></h2>
+        <p>${esc(st.siteTitle || "") || `<span class="meta">ยังไม่ได้ตั้ง (ใช้ชื่อครูแทน)</span>`}</p>
+        <p class="meta">แสดงบนแท็บเบราว์เซอร์และตอนแชร์ลิงก์</p></section>
+      <section class="panel set-card"><h2 class="row-head">ตัวชี้วัด PA <button class="btn ghost small" data-act="setPA">แก้ไข</button></h2>
+        <p>${PA === DEFAULT_PA ? "ใช้ค่าตั้งต้นตาม ว 9/2564 (15 ตัวชี้วัด)" : `กำหนดเอง ${PA_CODES.length} ตัวชี้วัด`}</p>
+        <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section></div>`,
+    "เมนู": () => `<div class="cols set-cols">${Object.keys(MODE_LABEL).map(menuPanel).join("")}</div>`,
+    "ตัวเลือกฟอร์ม": () => `<div class="grid set-grid">${Object.entries(FORMS).map(optionPanel).join("")}</div>`,
+    "บัญชี": () => `<div class="cols">
+      <section class="panel set-card"><h2 class="row-head">รหัสผ่าน <button class="btn ghost small" data-act="changePw">เปลี่ยนรหัสผ่าน</button></h2>
+        <p class="meta">เปลี่ยนแล้วเครื่องอื่นที่เคยเข้าสู่ระบบไว้จะต้องเข้าใหม่ ถ้าลืมรหัส ให้ตั้งรหัสใหม่ใน Cloudflare แล้ว deploy ใหม่</p></section>
+      <section class="panel set-card set-danger"><h2 class="row-head">คืนค่าตั้งต้น <button class="btn ghost danger small" data-act="resetSettings">คืนค่าทั้งหมด</button></h2>
+        <p>ล้างการตั้งค่าทั้งหมดในหน้านี้ (ชื่อเว็บ เมนู ตัวเลือก PA) ข้อมูลอื่นไม่หาย</p></section></div>`,
+  }[tab]();
+
   return head("ตั้งค่าเว็บ", "ปรับชื่อเว็บ เมนู สี ตัวเลือกในฟอร์ม และตัวชี้วัด PA ได้เอง การตั้งค่าบันทึกทันที") +
-    `<section class="panel"><h2 class="row-head">ชื่อเว็บ <button class="btn ghost small" data-act="setTitle">แก้ไข</button></h2>
-      <p>${esc(st.siteTitle || "") || `<span class="meta">ยังไม่ได้ตั้ง (ใช้ชื่อครูแทน)</span>`}</p>
-      <p class="meta">แสดงบนแท็บเบราว์เซอร์และตอนแชร์ลิงก์</p></section>` +
-    `<h2>เมนู</h2><p class="meta">เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ</p>` +
-    table([{ label: "หน้า", render: (r) => MODE_LABEL[r.mode] }, { label: "กลุ่ม", key: "group" },
-      { label: "ชื่อเมนู", render: (r) => `<span class="swatch" style="background:${esc(menus[r.route]?.c || r.c)}"></span>${esc(menus[r.route]?.label || r.label)}` },
-      { label: "แสดง", render: (r) => (LOCKED_ROUTES.has(r.route) ? `<span class="meta">ซ่อนไม่ได้</span>`
-        : `<button type="button" class="ios-switch sm" role="switch" aria-checked="${!menus[r.route]?.hidden}" aria-label="แสดงเมนู ${esc(r.label)}" data-act="toggleMenu" data-route="${esc(r.route)}"><span></span></button>`) },
-      { label: "", cls: "nowrap", render: (r) => `<span class="acts"><button class="ico" data-act="setMenu" data-route="${esc(r.route)}">ปรับ</button></span>` }], menuRows()) +
-    `<h2>ตัวเลือกในฟอร์ม</h2><p class="meta">เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน</p>` +
-    table([{ label: "เมนู", key: "name" }, { label: "ช่อง", render: (r) => esc(r.f.label) },
-      { label: "ตัวเลือก", render: (r) => optionsFor(r.key, r.f).map((o) => `<span class="tag">${esc(o)}</span>`).join(" ") + (r.custom ? ` <span class="meta">(แก้แล้ว)</span>` : "") },
-      { label: "", cls: "nowrap", render: (r) => `<span class="acts"><button class="ico" data-act="setOptions" data-key="${r.key}" data-field="${r.f.key}">แก้ไข</button></span>` }], optionFields) +
-    `<section class="panel" style="margin-top:20px"><h2 class="row-head">ตัวชี้วัด PA <button class="btn ghost small" data-act="setPA">แก้ไข</button></h2>
-      <p>${PA === DEFAULT_PA ? "ใช้ค่าตั้งต้นตาม ว 9/2564 (15 ตัวชี้วัด)" : `กำหนดเอง ${PA_CODES.length} ตัวชี้วัด`}</p>
-      <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section>` +
-    `<section class="panel"><h2 class="row-head">รหัสผ่าน <button class="btn ghost small" data-act="changePw">เปลี่ยนรหัสผ่าน</button></h2>
-      <p class="meta">เปลี่ยนแล้วเครื่องอื่นที่เคยเข้าสู่ระบบไว้จะต้องเข้าใหม่ ถ้าลืมรหัส ให้ตั้งรหัสใหม่ใน Cloudflare แล้ว deploy ใหม่</p></section>` +
-    `<section class="panel"><h2>คืนค่าตั้งต้น</h2><p>ล้างการตั้งค่าทั้งหมดในหน้านี้ ข้อมูลอื่นไม่หาย</p>
-      <button class="btn ghost danger" data-act="resetSettings">คืนค่าตั้งต้นทั้งหมด</button></section>`;
+    tabs + `<p class="meta set-hint">${SET_HINT[tab]}</p>` + body;
 };
 App.actions.setTitle = () => editKV("ชื่อเว็บ", "settings", [{ key: "siteTitle", label: "ชื่อเว็บ", hint: "เช่น แฟ้มสะสมผลงาน ครูสมศรี" }],
   (o, r) => { o.siteTitle = r.siteTitle; });
