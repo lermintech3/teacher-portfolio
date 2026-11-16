@@ -2,43 +2,50 @@
 
 เว็บไซต์ All-in-One สำหรับครู พัฒนาทีละระยะตามแผนในเอกสาร "แผนพัฒนาเว็บไซต์ครู All-in-One"
 
-**สถานะ:** ต้นแบบหน้าตาครบทุกเมนู 2 มุมมอง ใช้ข้อมูลตัวอย่างจาก `public/data/demo.json`
+**สถานะ:** ระยะ 2 เสร็จ ใช้งานจริงได้ บันทึกลงฐานข้อมูล Cloudflare D1 หน้าครูล็อกด้วยรหัสผ่าน
 
-| มุมมอง | ลิงก์ | เห็นอะไร |
+📘 วิธีใช้งานทั้งหมด: [docs/คู่มือการใช้งาน.md](docs/คู่มือการใช้งาน.md)
+
+| หน้า | ลิงก์ | เห็นอะไร |
 | --- | --- | --- |
-| สาธารณะ | `/#/` | เฉพาะรายการที่ครูตั้งเป็น "สาธารณะ" (ผู้บริหารและกรรมการประเมินใช้หน้านี้) |
-| ครู (ตัวเอง) | `/#/admin` | ทุกเมนูและทุกรายการ ทั้งสาธารณะและส่วนตัว |
-
-> หน้าครูยังไม่ล็อก (ระยะ 2 จะล็อกด้วย Cloudflare Access ให้เข้าได้เฉพาะอีเมลของครู) ปุ่มเพิ่มข้อมูลเป็นแบบทดลอง รีเฟรชแล้วหาย
+| สาธารณะ | `/` | เฉพาะรายการที่ครูตั้งเป็น "สาธารณะ" |
+| ครู | `/admin/` | ทุกเมนู เพิ่ม แก้ ลบ สลับสาธารณะ/ส่วนตัว ตั้งค่าเว็บ สำรองข้อมูล |
 
 ## โครงสร้าง
 
 ```
-public/              ← ไฟล์ทั้งหมดที่ขึ้นเว็บ (Cloudflare Pages ใช้โฟลเดอร์นี้)
-  index.html
+public/                 ← หน้าเว็บ (Cloudflare Pages: Build output directory = public)
+  index.html            ← หน้าสาธารณะ
+  admin/index.html      ← หน้าครู
+  js/app.js             ← แกนหลัก เมนู router หน้าสาธารณะ
+  js/admin.js           ← หน้าครูทุกเมนู ฟอร์ม ตั้งค่าเว็บ ล็อกอิน
   css/style.css
-  js/app.js          ← แกนหลัก เมนู router หน้าผู้เข้าชม
-  js/admin.js        ← หน้าโหมดครู
-  data/demo.json     ← ข้อมูลตัวอย่าง (vis: public / private)
-functions/           ← (ระยะ 2) API ที่ต่อกับฐานข้อมูล D1
+  data/demo.json        ← ข้อมูลตัวอย่าง (ใช้ตอนเริ่มต้นและตอนฐานข้อมูลยังว่าง)
+functions/api/          ← API (Cloudflare Pages Functions)
+  public.js             GET  /api/public            ข้อมูลสาธารณะเท่านั้น
+  login.js, logout.js   POST /api/login, /api/logout
+  admin/_middleware.js  ตรวจการล็อกอินทุกเส้นทาง /api/admin/*
+  admin/data.js         GET  /api/admin/data         ข้อมูลทั้งหมด
+  admin/items/[collection].js  POST เพิ่มรายการ
+  admin/item/[id].js    PUT แก้ / PATCH สลับสาธารณะ / DELETE ลบ
+  admin/kv/[key].js     PUT ค่าเดี่ยว (profile schedule grades attendance attendanceDates sarNotes settings)
+  admin/import.js       POST นำเข้า (?replace=1 แทนที่ทั้งหมด)
+  admin/export.js       GET  ดาวน์โหลดไฟล์สำรอง
+src/server.js           ← โค้ดฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน (สร้างตารางอัตโนมัติ, ล็อกอิน, กันเดารหัส)
 ```
 
-## ตั้งค่า Cloudflare Pages (ทำครั้งเดียว)
+## ตั้งค่า Cloudflare (ทำครั้งเดียว)
 
-1. Cloudflare → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-2. เลือก repo `teacher-portfolio`
-3. ตั้งค่า build:
-   - Framework preset: **None**
-   - Build command: *(เว้นว่าง)*
-   - Build output directory: **public**
-4. กด **Save and Deploy** — ทุกครั้งที่มีโค้ดใหม่เข้า `main` เว็บจะอัปเดตเอง
+1. Pages เชื่อม repo นี้ Build output directory = `public`
+2. Storage & Databases → D1 → สร้าง `teacher-db`
+3. โปรเจกต์ → Settings → Bindings → D1 database ชื่อตัวแปร `DB` → `teacher-db`
+4. โปรเจกต์ → Settings → Variables and Secrets → Secret ชื่อ `ADMIN_PASSWORD`
 
-## แก้ข้อมูลโปรไฟล์ชั่วคราว (ก่อนระยะ 2)
+ตารางในฐานข้อมูลสร้างเองอัตโนมัติตอนเรียก API ครั้งแรก ไม่ต้องรัน SQL
 
-แก้เฉพาะส่วน `profile` ในไฟล์ `public/data/demo.json` ผ่านหน้าเว็บ GitHub ได้เลย (กดไอคอนดินสอ → แก้ → Commit changes)
+## ความปลอดภัย
 
-- รายการที่ขึ้นต้นด้วย `(ตัวอย่าง)` ให้แก้เป็นข้อมูลจริงหรือลบทิ้ง
-- วันที่ใช้รูปแบบ `ปี ค.ศ.-เดือน-วัน` เช่น `2026-11-16` (เว็บแสดงเป็น พ.ศ. ให้เอง)
-- รูปและไฟล์ ใส่เป็นลิงก์ (`https://...`) ระยะ 3 จะมีระบบอัปโหลดลง Google Drive
-
-> ⚠️ ไฟล์นี้ทุกคนเปิดดูได้ แม้รายการจะตั้งเป็นส่วนตัว ห้ามใส่ข้อมูลจริงของนักเรียน เลขบัตรประชาชน เบอร์โทร หรือที่อยู่ ข้อมูลจริงรอใส่ในระยะ 2 ที่มีฐานข้อมูลและระบบล็อกอิน
+- รหัสผ่านอยู่ใน Cloudflare Secret เท่านั้น คุกกี้ลงชื่อด้วย HMAC, HttpOnly, Secure, SameSite=Strict อายุ 30 วัน
+- ใส่รหัสผิด 5 ครั้ง ล็อก 15 นาที
+- `/api/public` ส่งเฉพาะรายการ vis = public และไม่ส่งเมนูส่วนตัวเสมอ (นักเรียน คะแนน เช็กชื่อ ดูแลช่วยเหลือ การลา ฯลฯ)
+- คำสั่งแก้ข้อมูลจากโดเมนอื่นถูกปฏิเสธ

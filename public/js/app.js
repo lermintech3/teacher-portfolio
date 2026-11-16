@@ -1,10 +1,11 @@
-// แฟ้มสะสมผลงานครู — 2 มุมมอง: สาธารณะ (#/) และครู (#/admin)
-// แกนหลัก: เมนูตามโหมด, router, ส่วนประกอบที่ใช้ร่วมกัน, หน้าผู้เข้าชม
-// ตอนนี้อ่านข้อมูลตัวอย่างจาก JSON  ระยะ 2 จะเปลี่ยน DATA_URL เป็น API ที่ต่อกับ D1
-const DATA_URL = "/data/demo.json";
+// แฟ้มสะสมผลงานครู — 2 มุมมอง: หน้าสาธารณะ (/) และหน้าครู (/admin/ ต้องใส่รหัสผ่าน)
+// แกนหลัก: เมนู, router, ส่วนประกอบที่ใช้ร่วมกัน, หน้าสาธารณะ
+// ข้อมูลมาจาก API (Cloudflare D1)  ถ้าฐานข้อมูลยังว่าง หน้าสาธารณะจะแสดงข้อมูลตัวอย่างจาก /data/demo.json
+const IS_ADMIN = !!window.IS_ADMIN;
+const DEMO_URL = "/data/demo.json";
 const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
 
-const App = { DATA: null, pages: {}, mode: "public" };
+const App = { DATA: null, pages: {}, mode: IS_ADMIN ? "admin" : "public" };
 
 // ---------- เมนูของแต่ละโหมด (สีประจำหมวด) ----------
 const C = {
@@ -55,12 +56,31 @@ App.NAV = {
     ] },
     { group: "ส่วนตัวและตั้งค่า", items: [
       { route: "admin/leaves", label: "การลา", c: C.pink },
+      { route: "admin/profile", label: "โปรไฟล์", c: C.violet },
       { route: "admin/career", label: "ประวัติและวิทยฐานะ", c: C.pink },
-      { route: "admin/sharing", label: "การเผยแพร่และสิทธิ์", c: C.teal },
+      { route: "admin/sharing", label: "การเผยแพร่", c: C.teal },
+      { route: "admin/settings", label: "ตั้งค่าเว็บ", c: C.slate },
+      { route: "admin/backup", label: "สำรองข้อมูล", c: C.slate },
     ] },
   ],
 };
 
+// เก็บเมนูตั้งต้นไว้ แล้วปรับตามที่ครูตั้งค่า (ชื่อเมนู สี ซ่อน/แสดง)
+const NAV_BASE = JSON.parse(JSON.stringify(App.NAV));
+const LOCKED_ROUTES = new Set(["", "admin", "admin/settings"]); // ซ่อนไม่ได้ กันเข้าหน้าตั้งค่าไม่ได้
+App.applySettings = () => {
+  const menus = App.DATA?.settings?.menus || {};
+  App.NAV = {};
+  for (const [mode, groups] of Object.entries(NAV_BASE)) {
+    App.NAV[mode] = groups.map((g) => ({
+      ...g,
+      items: g.items
+        .map((i) => ({ ...i, ...(menus[i.route]?.label ? { label: menus[i.route].label } : {}), ...(menus[i.route]?.c ? { c: menus[i.route].c } : {}) }))
+        .filter((i) => LOCKED_ROUTES.has(i.route) || !menus[i.route]?.hidden),
+    })).filter((g) => g.items.length);
+  }
+};
+App.navBase = () => NAV_BASE;
 const navItems = (mode) => App.NAV[mode].flatMap((g) => g.items);
 const navItem = (route) => Object.keys(App.NAV).flatMap(navItems).find((i) => i.route === route);
 const COLOR = (route) => navItem(route)?.c || C.violet;
@@ -128,32 +148,66 @@ const toast = (msg) => {
   toastTimer = setTimeout(() => t.classList.remove("show"), 3200);
 };
 
-// ฟอร์มเพิ่มข้อมูล: fields = [{key, label, type?, options?, required?}]
-// ต้นแบบ: เพิ่มเข้าหน่วยความจำชั่วคราว ระยะ 2 จะบันทึกลง D1
+// ฟอร์มเพิ่ม/แก้ข้อมูล: fields = [{key, label, type?, options?, required?, value?}]
+// onSave(rec) คืน Promise — บันทึกสำเร็จแล้วค่อยปิดฟอร์ม
 const openForm = (title, fields, onSave) => {
   $("#sheetTitle").textContent = title;
   $("#sheetFields").innerHTML = fields.map((f) => {
     const id = `f_${f.key}`;
     const req = f.required ? "required" : "";
+    const val = f.value ?? "";
     const input = f.options
-      ? `<select id="${id}" name="${f.key}" ${req}>${f.options.map((o) => `<option>${esc(o)}</option>`).join("")}</select>`
+      ? `<select id="${id}" name="${f.key}" ${req}>${f.options.map((o) => `<option ${String(o) === String(val) ? "selected" : ""}>${esc(o)}</option>`).join("")}</select>`
       : f.type === "textarea"
-        ? `<textarea id="${id}" name="${f.key}" rows="3" ${req}></textarea>`
-        : `<input id="${id}" name="${f.key}" type="${f.type || "text"}" ${req} value="${esc(f.value ?? "")}">`;
-    return `<label for="${id}">${f.label}${input}</label>`;
+        ? `<textarea id="${id}" name="${f.key}" rows="${f.rows || 3}" ${req}>${esc(val)}</textarea>`
+        : `<input id="${id}" name="${f.key}" type="${f.type || "text"}" ${f.type === "number" ? 'step="any"' : ""} ${req} value="${esc(val)}">`;
+    return `<label for="${id}">${f.label}${f.hint ? `<small>${f.hint}</small>` : ""}${input}</label>`;
   }).join("");
   const dlg = $("#sheet");
-  dlg.returnValue = "";
-  dlg.onclose = () => {
-    if (dlg.returnValue !== "ok") return;
-    const fd = new FormData($("#sheetForm"));
-    const rec = Object.fromEntries(fields.map((f) => [f.key, f.type === "number" ? Number(fd.get(f.key)) || 0 : fd.get(f.key) || ""]));
-    onSave(rec);
-    toast("เพิ่มแล้ว (ต้นแบบ: ข้อมูลจะหายเมื่อรีเฟรช จะบันทึกถาวรได้ในระยะ 2)");
-    render();
+  const form = $("#sheetForm");
+  const okBtn = form.querySelector("button[value=ok]");
+  okBtn.disabled = false;
+  form.onsubmit = async (e) => {
+    if (e.submitter?.value !== "ok") return;
+    e.preventDefault();
+    const fd = new FormData(form);
+    const rec = Object.fromEntries(fields.map((f) => [f.key, f.type === "number" ? Number(fd.get(f.key)) || 0 : String(fd.get(f.key) ?? "").trim()]));
+    okBtn.disabled = true;
+    try {
+      await onSave(rec);
+      dlg.close();
+      toast("บันทึกแล้ว");
+      render();
+    } catch (err) {
+      toast(err.message || "บันทึกไม่สำเร็จ");
+    } finally {
+      okBtn.disabled = false;
+    }
   };
   dlg.showModal();
+  dlg.querySelector("input, select, textarea")?.focus();
 };
+
+// เรียก API: โยน Error พร้อมข้อความภาษาไทยเมื่อไม่สำเร็จ
+const api = async (method, path, body) => {
+  const res = await fetch(path, {
+    method, credentials: "same-origin",
+    headers: body !== undefined ? { "content-type": "application/json" } : {},
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch { /* ไม่ใช่ JSON */ }
+  if (!res.ok) {
+    const err = new Error(data?.error || `เชื่อมต่อไม่สำเร็จ (${res.status})`);
+    err.status = res.status;
+    if (res.status === 401 && IS_ADMIN && App.showLogin && path !== "/api/login") App.showLogin();
+    throw err;
+  }
+  return data;
+};
+
+// เครื่องมือในแต่ละรายการ (แก้ไข ลบ สลับสาธารณะ) — หน้าครูเท่านั้น admin.js เป็นผู้กำหนด
+const tools = (key, item) => (App.mode === "admin" && App.itemTools ? App.itemTools(key, item) : "");
 
 // ---------- หน้าสาธารณะ (โหมดครูใช้ซ้ำบางหน้า) ----------
 App.pages[""] = () => {
@@ -235,8 +289,8 @@ App.pages.certificates = ({ q }) => {
           const img = safeUrl(i.image);
           return `<div class="card cert">
             <button class="cert-img ${img ? "has-img" : ""}" ${img ? `data-img="${esc(img)}" data-cap="${esc(i.title)}" style="background-image:url('${esc(img)}')"` : "disabled"} aria-label="ดูภาพ ${esc(i.title)}">${img ? "" : "ยังไม่มีภาพ"}</button>
-            <div class="cert-body"><span class="tag">${esc(i.type)}</span>${i.level ? ` <span class="tag solid">${esc(i.level)}</span>` : ""} ${App.mode === "admin" ? visBadge(i.vis) : ""}
-            <h3>${esc(i.title)}</h3><div class="meta">${esc(i.issuer)}<br>${thDate(i.date)}</div></div></div>`;
+            <div class="cert-body"><span class="tag">${esc(i.type)}</span>${i.level ? ` <span class="tag solid">${esc(i.level)}</span>` : ""}
+            <h3>${esc(i.title)}</h3><div class="meta">${esc(i.issuer)}<br>${thDate(i.date)}</div>${tools("certificates", i)}</div></div>`;
         }).join("")}</div>`
       : empty());
 };
@@ -255,8 +309,8 @@ App.pages.trainings = ({ q }) => {
           const cert = safeUrl(i.certificate);
           return `<div class="card item"><div class="item-body"><h3>${esc(i.title)}</h3>
             <div class="meta">${esc(i.organizer)}<br>${thDate(i.date)}${i.format ? `, ${esc(i.format)}` : ""}</div>
-            ${cert ? `<a href="${esc(cert)}" target="_blank" rel="noopener">ดูเกียรติบัตร</a>` : ""}</div>
-            <div class="item-side">${App.mode === "admin" ? visBadge(i.vis) : ""}<div class="hours">${esc(i.hours)} ชม.</div></div></div>`;
+            ${cert ? `<a href="${esc(cert)}" target="_blank" rel="noopener">ดูเกียรติบัตร</a>` : ""}${tools("trainings", i)}</div>
+            <div class="item-side"><div class="hours">${esc(i.hours)} ชม.</div></div></div>`;
         }).join("")}</div>`
       : empty());
 };
@@ -268,9 +322,9 @@ App.pages.works = () => {
     (items.length
       ? `<div class="grid">${items.map((i) => {
           const link = safeUrl(i.link);
-          return `<div class="card"><span class="tag">${esc(i.type)}</span> <span class="meta">ปีการศึกษา ${esc(i.year)}</span> ${App.mode === "admin" ? visBadge(i.vis) : ""}
+          return `<div class="card"><span class="tag">${esc(i.type)}</span> <span class="meta">ปีการศึกษา ${esc(i.year)}</span>
             <h3 style="margin-top:8px">${esc(i.title)}</h3>${i.description ? `<p class="meta">${esc(i.description)}</p>` : ""}
-            ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">ดูผลงาน</a>` : ""}</div>`;
+            ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">ดูผลงาน</a>` : ""}${tools("works", i)}</div>`;
         }).join("")}</div>`
       : empty());
 };
@@ -288,39 +342,39 @@ App.pages.reports = () => {
 };
 
 // ---------- router ----------
+// หน้าสาธารณะ: /#/certificates   หน้าครู: /admin/#/plans (ภายในใช้ชื่อ admin/plans)
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, "");
-  const [path, qs = ""] = raw.split("?");
-  const mode = path.startsWith("admin") ? "admin" : "public";
-  const route = navItem(path) || App.pages[path] ? path : mode === "public" ? "" : mode;
-  return { route, mode, q: Object.fromEntries(new URLSearchParams(qs)) };
+  let [path, qs = ""] = raw.split("?");
+  if (IS_ADMIN && !path.startsWith("admin")) path = path ? `admin/${path}` : "admin";
+  if (!IS_ADMIN && path.startsWith("admin")) path = "";
+  const hidden = App.DATA?.settings?.menus?.[path]?.hidden && !LOCKED_ROUTES.has(path);
+  const route = !hidden && (navItem(path) || App.pages[path]) ? path : IS_ADMIN ? "admin" : "";
+  return { route, mode: App.mode, q: Object.fromEntries(new URLSearchParams(qs)) };
 }
+const hrefOf = (route) => `#/${IS_ADMIN ? route.replace(/^admin\/?/, "") : route}`;
 
-// หน้าที่ใช้ร่วมกันระหว่างโหมด: admin/certificates → certificates
+// หน้าที่ใช้ร่วมกัน: admin/certificates → certificates
 const pageFor = (route) => App.pages[route] || App.pages[route.replace(/^admin\//, "")];
 
-function buildNav(mode) {
-  $("#nav").innerHTML = App.NAV[mode].map((g) =>
+function buildNav() {
+  $("#nav").innerHTML = App.NAV[App.mode].map((g) =>
     `${g.group ? `<div class="nav-group">${g.group}</div>` : ""}${g.items.map((i) =>
-      `<a href="#/${i.route}" data-route="${i.route}" style="--c:${i.c}">${i.label}</a>`).join("")}`).join("");
-  document.querySelectorAll("#modes a").forEach((a) => a.classList.toggle("on", a.dataset.mode === mode));
+      `<a href="${hrefOf(i.route)}" data-route="${i.route}" style="--c:${i.c}">${i.label}</a>`).join("")}`).join("");
 }
 
 function render() {
   if (!App.DATA) return;
-  const { route, mode, q } = parseHash();
-  if (mode !== App.mode || !$("#nav").children.length) { App.mode = mode; buildNav(mode); }
-  document.body.dataset.mode = mode;
+  const { route, q } = parseHash();
+  if (!$("#nav").children.length) buildNav();
+  document.body.dataset.mode = App.mode;
   document.body.style.setProperty("--c", COLOR(route));
   const page = pageFor(route);
-  const banner = mode === "admin"
-    ? `<div class="notice">โหมดครู (ต้นแบบ): ข้อมูลทั้งหมดเป็นตัวอย่าง ปุ่มเพิ่มข้อมูลใช้ทดลองได้แต่ยังไม่บันทึกถาวร ระยะ 2 จะต่อฐานข้อมูลและล็อกหน้านี้ด้วย Cloudflare Access</div>`
-    : "";
-  main.innerHTML = banner + (page ? page({ q, route }) : empty("ไม่พบหน้านี้"));
+  main.innerHTML = (App.banner ? App.banner() : "") + (page ? page({ q, route }) : empty("ไม่พบหน้านี้"));
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   const label = navItem(route)?.label || "";
   $("#topbarTitle").textContent = label;
-  document.title = `${label} | ${App.DATA.profile?.name || "แฟ้มสะสมผลงานครู"}`;
+  document.title = `${label} | ${App.DATA.settings?.siteTitle || App.DATA.profile?.name || "แฟ้มสะสมผลงานครู"}`;
   document.body.classList.remove("menu-open");
   $("#menuBtn").setAttribute("aria-expanded", "false");
 }
@@ -360,17 +414,35 @@ $("#menuBtn").addEventListener("click", () => {
 $("#scrim").addEventListener("click", () => document.body.classList.remove("menu-open"));
 window.addEventListener("hashchange", () => { render(); window.scrollTo(0, 0); });
 
-App.boot = () =>
-  fetch(DATA_URL, { cache: "no-cache" })
-    .then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); })
-    .then((data) => {
-      App.DATA = data;
-      const p = data.profile || {};
-      $("#sideName").textContent = p.name || "";
-      $("#sideRole").textContent = [p.position, p.academicStanding].filter(Boolean).join(" ");
-      const photo = safeUrl(p.photo);
-      const av = $("#sideAvatar");
-      if (photo) { av.classList.add("photo"); av.style.backgroundImage = `url('${photo}')`; } else av.textContent = initials(p.name);
-      render();
-    })
-    .catch(() => { main.innerHTML = `<p class="empty">โหลดข้อมูลไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้านี้</p>`; });
+App.setData = (data) => {
+  App.DATA = data;
+  App.applySettings();
+  if (App.onData) App.onData();
+  $("#nav").innerHTML = "";
+  const p = data.profile || {};
+  $("#sideName").textContent = p.name || "ยังไม่ได้ใส่ชื่อ";
+  $("#sideRole").textContent = [p.position, p.academicStanding].filter(Boolean).join(" ");
+  const photo = safeUrl(p.photo);
+  const av = $("#sideAvatar");
+  av.classList.toggle("photo", !!photo);
+  av.style.backgroundImage = photo ? `url('${photo}')` : "";
+  av.textContent = photo ? "" : initials(p.name);
+};
+
+// หน้าสาธารณะ: ดึงจาก API ถ้าฐานข้อมูลยังไม่มีโปรไฟล์หรือ API ใช้ไม่ได้ ใช้ข้อมูลตัวอย่างแทน
+App.loadPublic = async () => {
+  let data = null;
+  try { data = await api("GET", "/api/public"); } catch { /* ใช้ข้อมูลตัวอย่าง */ }
+  if (!data || !data.profile) data = await (await fetch(DEMO_URL, { cache: "no-cache" })).json();
+  return data;
+};
+
+App.boot = async () => {
+  try {
+    if (IS_ADMIN) return App.bootAdmin();
+    App.setData(await App.loadPublic());
+    render();
+  } catch {
+    main.innerHTML = `<p class="empty">โหลดข้อมูลไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วรีเฟรชหน้านี้</p>`;
+  }
+};

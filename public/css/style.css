@@ -351,3 +351,43 @@ table.data { border-collapse: collapse; width: 100%; font-size: .92rem; }
   .band::before, .band::after { display: none; }
   .panel { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
 }
+
+/* ===================== ระยะ 2: หน้าครูใช้งานจริง ===================== */
+.btn.small { padding: 6px 12px; font-size: .85rem; border-radius: 10px; }
+.btn.wide { width: 100%; }
+.btn.danger { color: #c62828; box-shadow: inset 0 0 0 1.5px #f3c4c0; }
+.btn:disabled { opacity: .55; cursor: progress; }
+.row-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.admin-foot { display: flex; flex-direction: column; gap: 6px; }
+.admin-foot .btn { width: 100%; }
+
+/* ปุ่มในรายการ: สลับสาธารณะ แก้ไข ลบ */
+.acts { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+td .acts { margin-top: 0; }
+button.vis { border: 0; cursor: pointer; font: inherit; font-size: .75rem; }
+button.vis:hover { filter: brightness(.95); box-shadow: inset 0 0 0 1px currentColor; }
+.ico { font: inherit; font-size: .8rem; border: 0; background: var(--paper); color: var(--ink); padding: 3px 10px; border-radius: 8px; cursor: pointer; }
+.ico:hover { background: var(--c-tint); color: var(--c-deep); }
+.ico.del:hover { background: #ffe2df; color: #c62828; }
+.note-head .acts { margin: 0 0 0 auto; }
+.todo { grid-template-columns: auto 1fr auto auto; cursor: default; }
+.todo .acts { margin: 0; }
+.deadline .acts { margin-top: 8px; }
+.timeline li .acts { margin-top: 4px; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 8px; vertical-align: -1px; }
+.sheet label small { font-weight: 400; color: var(--muted); font-size: .8rem; }
+.sheet input[type=color] { height: 44px; padding: 4px; }
+
+/* หน้าเข้าสู่ระบบ / เริ่มต้น */
+body[data-auth="out"] .sidebar, body[data-auth="out"] .topbar { display: none; }
+body[data-auth="out"] .main { margin-left: 0; max-width: none; }
+.auth-wrap { min-height: 90vh; display: grid; place-items: center; padding: 16px; }
+.auth-card { background: var(--surface); border-radius: 24px; padding: 32px 28px; width: min(420px, 100%); text-align: center;
+  box-shadow: 0 1px 0 var(--line), 0 24px 48px -24px rgba(40, 30, 110, .35); display: flex; flex-direction: column; gap: 8px; }
+.auth-card h1 { margin: 6px 0 0; color: #6c4cf1; }
+.auth-card .field { text-align: left; }
+.auth-card .field input { font: inherit; padding: 12px; border: 1.5px solid var(--line); border-radius: 12px; }
+.auth-card .field input:focus { outline: none; border-color: #6c4cf1; box-shadow: 0 0 0 3px #ece7fd; }
+.auth-err { color: #c62828; min-height: 1.4em; margin: 0 0 8px; font-size: .9rem; }
+.avatar.big { width: 64px; height: 64px; font-size: 1.6rem; border-radius: 20px; margin: 0 auto; }
+.field input[type=file] { font: inherit; }

@@ -1,16 +1,19 @@
-// โหมดครู (ต้นแบบ) — ทุกหน้าใช้ข้อมูลตัวอย่างจาก demo.json
-// ปุ่ม "+ เพิ่ม" เพิ่มเข้าหน่วยความจำชั่วคราว ระยะ 2 จะบันทึกลงฐานข้อมูล D1
+// หน้าครู (/admin/) — บันทึกลงฐานข้อมูล D1 ผ่าน API ต้องล็อกอินด้วยรหัสผ่าน
+// ไฟล์นี้โหลดทั้งหน้าสาธารณะและหน้าครู (หน้าสาธารณะใช้แค่หน้า PA)
 
 const VIS_OPTS = ["ส่วนตัว", "สาธารณะ"];
 const VIS_CODE = { "ส่วนตัว": "private", "สาธารณะ": "public" };
-const visField = { key: "vis", label: "แสดงในหน้าสาธารณะไหม", options: VIS_OPTS };
+const VIS_LABEL = { private: "ส่วนตัว", public: "สาธารณะ" };
+const visField = { key: "vis", label: "แสดงในหน้าสาธารณะไหม", options: VIS_OPTS, value: "ส่วนตัว" };
+// ต้องตรงกับ PRIVATE_ONLY ใน src/server.js
+const PRIVATE_ONLY = new Set(["todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps"]);
 const arr = (key) => (App.DATA[key] = App.DATA[key] || []);
-const addTo = (key, rec) => arr(key).unshift({ ...rec, ...(rec.vis ? { vis: VIS_CODE[rec.vis] || rec.vis } : {}) });
 const addBtn = (key, label) => `<button class="btn" data-add="${key}">+ ${label}</button>`;
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD ตามเวลาเครื่อง
+const splitList = (s) => String(s || "").split(/[,\n]+/).map((x) => x.trim()).filter(Boolean);
 
 // ---------- ตัวชี้วัด PA (ว 9/2564 สำหรับตำแหน่งครู) ปรับตามแบบฟอร์มโรงเรียนได้ ----------
-const PA = [
+const DEFAULT_PA = [
   { no: "1", title: "ด้านการจัดการเรียนรู้", items: [
     ["1.1", "สร้างและหรือพัฒนาหลักสูตร"], ["1.2", "ออกแบบการจัดการเรียนรู้"], ["1.3", "จัดกิจกรรมการเรียนรู้"],
     ["1.4", "สร้างและหรือพัฒนาสื่อ นวัตกรรม เทคโนโลยี และแหล่งเรียนรู้"], ["1.5", "วัดและประเมินผลการเรียนรู้"],
@@ -26,19 +29,182 @@ const PA = [
     ["3.3", "นำความรู้และทักษะจากการพัฒนาตนเองมาใช้พัฒนาการเรียนรู้"],
   ] },
 ];
-const PA_CODES = PA.flatMap((d) => d.items.map(([c]) => c));
+let PA = DEFAULT_PA;
+let PA_CODES = PA.flatMap((d) => d.items.map(([c]) => c));
+
+// ตัวชี้วัด PA ที่ครูแก้เอง: บรรทัดที่ขึ้นต้นด้วย # = ชื่อด้าน, บรรทัดอื่น = รหัส | ชื่อตัวชี้วัด
+const paToText = (pa) => pa.map((d) => [`# ${d.title}`, ...d.items.map(([c, n]) => `${c} | ${n}`)].join("\n")).join("\n");
+const paFromText = (text) => {
+  const out = [];
+  for (const line of String(text || "").split("\n").map((l) => l.trim()).filter(Boolean)) {
+    if (line.startsWith("#")) out.push({ no: String(out.length + 1), title: line.replace(/^#+\s*/, ""), items: [] });
+    else {
+      const [code, ...rest] = line.split("|");
+      if (!out.length) out.push({ no: "1", title: "ตัวชี้วัด", items: [] });
+      out.at(-1).items.push([code.trim(), rest.join("|").trim() || code.trim()]);
+    }
+  }
+  return out.filter((d) => d.items.length);
+};
+App.onData = () => {
+  const custom = App.DATA?.settings?.paText ? paFromText(App.DATA.settings.paText) : null;
+  PA = custom?.length ? custom : DEFAULT_PA;
+  PA_CODES = PA.flatMap((d) => d.items.map(([c]) => c));
+};
+// ตัวเลือกในฟอร์มที่ครูแก้เอง เช่น ประเภทของแผนการสอน
+const optionsFor = (key, f) => App.DATA?.settings?.options?.[`${key}.${f.key}`] || f.options;
+
+// ---------- ฟอร์มของแต่ละเมนู ----------
+const FORMS = {
+  todos: { name: "งานที่ต้องทำ", fields: [{ key: "title", label: "งาน", required: true }, { key: "due", label: "กำหนดส่ง", type: "date" }], map: (r, old) => ({ done: old?.done || false, ...r }) },
+  deadlines: { name: "กำหนดส่งสำคัญ", fields: [{ key: "title", label: "เรื่อง", required: true }, { key: "date", label: "วันกำหนดส่ง", type: "date", required: true }] },
+  swaps: { name: "การสอนแทน / แลกคาบ", fields: [
+    { key: "date", label: "วันที่", type: "date", required: true }, { key: "kind", label: "ประเภท", options: ["สอนแทน", "ให้ครูอื่นสอนแทน", "แลกคาบ"] },
+    { key: "detail", label: "คาบ / ห้อง" }, { key: "with", label: "ครูที่เกี่ยวข้อง" }] },
+  plans: { name: "แผนการสอน / สื่อ", fields: [
+    { key: "subject", label: "รหัสวิชา", required: true }, { key: "unit", label: "หน่วยการเรียนรู้" }, { key: "title", label: "ชื่อ", required: true },
+    { key: "type", label: "ประเภท", options: ["แผนการสอน", "สื่อ", "ใบงาน", "ข้อสอบ"] }, { key: "link", label: "ลิงก์ไฟล์ (Google Drive)", type: "url" }, visField] },
+  reflections: { name: "บันทึกหลังสอน", fields: [
+    { key: "date", label: "วันที่", type: "date", required: true }, { key: "subject", label: "วิชา" }, { key: "room", label: "ห้อง" },
+    { key: "topic", label: "เรื่องที่สอน", required: true }, { key: "result", label: "ผลการสอน", type: "textarea" },
+    { key: "problem", label: "ปัญหาที่พบ", type: "textarea" }, { key: "solution", label: "แนวทางแก้ไข", type: "textarea" }, visField] },
+  supervision: { name: "ผลการนิเทศ", fields: [
+    { key: "date", label: "วันที่", type: "date", required: true }, { key: "type", label: "ประเภท", options: ["นิเทศชั้นเรียน", "Open Class", "Lesson Study"] },
+    { key: "by", label: "ผู้นิเทศ" }, { key: "topic", label: "เรื่อง" }, { key: "result", label: "ผล / ข้อเสนอแนะ", type: "textarea" }, visField] },
+  students: { name: "นักเรียน", fields: [{ key: "no", label: "เลขที่", type: "number", required: true }, { key: "name", label: "ชื่อ-นามสกุล", required: true }, { key: "room", label: "ห้อง" }] },
+  care: { name: "บันทึกการดูแลช่วยเหลือ", fields: [
+    { key: "student", label: "นักเรียน", required: true }, { key: "sdq", label: "ผล SDQ", options: ["ปกติ", "เสี่ยง", "มีปัญหา"] },
+    { key: "screen", label: "ผลคัดกรอง", options: ["กลุ่มปกติ", "กลุ่มเสี่ยง", "กลุ่มมีปัญหา"] }, { key: "visit", label: "วันที่เยี่ยมบ้าน", type: "date" },
+    { key: "note", label: "บันทึก", type: "textarea" }] },
+  activities: { name: "กิจกรรมพัฒนาผู้เรียน", fields: [
+    { key: "title", label: "ชื่อกิจกรรม", required: true }, { key: "type", label: "ประเภท", options: ["ลูกเสือ/เนตรนารี", "ชุมนุม", "แนะแนว", "กิจกรรมเพื่อสังคม"] },
+    { key: "room", label: "ชั้น" }, { key: "hours", label: "ชั่วโมง", type: "number" }, { key: "passed", label: "ผ่าน (เช่น 30/32)" }, visField] },
+  responsibilities: { name: "งานที่รับผิดชอบ", fields: [
+    { key: "title", label: "ชื่องาน", required: true }, { key: "type", label: "ประเภท", options: ["คำสั่ง", "งานฝ่าย", "งานที่ปรึกษา", "เวร", "โครงการ"] },
+    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" }, visField] },
+  projects: { name: "โครงการ", fields: [
+    { key: "title", label: "ชื่อโครงการ", required: true }, { key: "budget", label: "งบประมาณ (บาท)", type: "number" }, { key: "used", label: "ใช้ไปแล้ว (บาท)", type: "number" },
+    { key: "status", label: "สถานะ", options: ["ยังไม่เริ่ม", "กำลังดำเนินการ", "เสร็จสิ้น"] }, { key: "result", label: "ผลการดำเนินงาน", type: "textarea" }, visField] },
+  documents: { name: "หนังสือราชการ", fields: [
+    { key: "no", label: "เลขที่", required: true }, { key: "date", label: "ลงวันที่", type: "date" }, { key: "kind", label: "ประเภท", options: ["หนังสือรับ", "หนังสือส่ง", "คำสั่ง"] },
+    { key: "from", label: "จาก" }, { key: "title", label: "เรื่อง", required: true }, { key: "link", label: "ลิงก์ไฟล์", type: "url" }] },
+  meetings: { name: "บันทึกการประชุม", fields: [
+    { key: "date", label: "วันที่", type: "date", required: true }, { key: "title", label: "การประชุม", required: true }, { key: "summary", label: "สรุป / มติ", type: "textarea" }] },
+  trainings: { name: "การอบรม / PLC", fields: [
+    { key: "title", label: "หลักสูตร / หัวข้อ", required: true }, { key: "organizer", label: "หน่วยงานที่จัด" }, { key: "date", label: "วันที่", type: "date" },
+    { key: "hours", label: "จำนวนชั่วโมง", type: "number" }, { key: "format", label: "รูปแบบ", options: ["ออนไซต์", "ออนไลน์", "PLC"] },
+    { key: "certificate", label: "ลิงก์เกียรติบัตร", type: "url" }, visField] },
+  certificates: { name: "เกียรติบัตร / รางวัล", fields: [
+    { key: "title", label: "ชื่อเกียรติบัตร / รางวัล", required: true }, { key: "issuer", label: "ผู้มอบ" }, { key: "date", label: "วันที่", type: "date" },
+    { key: "type", label: "ประเภท", options: ["เกียรติบัตร", "รางวัล", "รางวัลนักเรียน"] }, { key: "level", label: "ระดับ", options: ["โรงเรียน", "เขตพื้นที่", "จังหวัด", "ภาค", "ประเทศ"] },
+    { key: "image", label: "ลิงก์ภาพ", type: "url", hint: "ระยะ 3 จะอัปโหลดภาพลง Google Drive ได้" }, visField] },
+  works: { name: "ผลงาน", fields: [
+    { key: "title", label: "ชื่อผลงาน", required: true }, { key: "type", label: "ประเภท", options: ["นวัตกรรม", "วิจัยในชั้นเรียน", "สื่อการสอน", "บทความ"] },
+    { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "description", label: "รายละเอียด", type: "textarea" }, { key: "link", label: "ลิงก์", type: "url" }, visField] },
+  reports: { name: "รายงาน SAR / PA", fields: [
+    { key: "title", label: "ชื่อรายงาน", required: true }, { key: "type", label: "ประเภท", options: ["SAR", "PA"] }, { key: "year", label: "ปีการศึกษา", value: "2569" },
+    { key: "link", label: "ลิงก์ไฟล์ PDF", type: "url" }, visField] },
+  evidence: { name: "หลักฐาน", fields: [
+    { key: "title", label: "ชื่อหลักฐาน", required: true },
+    { key: "source", label: "มาจากเมนู", options: ["แผนการสอน", "บันทึกหลังสอน", "สื่อ", "การวัดผล", "นิเทศ", "ดูแลช่วยเหลือ", "การพัฒนาตนเอง", "อื่นๆ"] },
+    { key: "pa", label: "ตัวชี้วัด PA", hint: "คั่นด้วยจุลภาค เช่น 1.3, 1.6" },
+    { key: "sar", label: "หัวข้อ SAR", options: ["การจัดการเรียนการสอน", "ผลสัมฤทธิ์ทางการเรียน", "งานที่ได้รับมอบหมาย", "การพัฒนาตนเอง", "ผลงาน"] },
+    { key: "link", label: "ลิงก์ไฟล์", type: "url" }, visField],
+    map: (r) => ({ ...r, pa: splitList(r.pa).filter((c) => PA_CODES.includes(c)) }) },
+  leaves: { name: "การลา", fields: [
+    { key: "type", label: "ประเภท", options: ["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ"] }, { key: "from", label: "ตั้งแต่", type: "date", required: true },
+    { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number" }, { key: "reason", label: "เหตุผล" }] },
+  career: { name: "เหตุการณ์ในประวัติ", fields: [
+    { key: "date", label: "วันที่", type: "date", required: true }, { key: "event", label: "เหตุการณ์", required: true, hint: "เช่น เลื่อนวิทยฐานะ ย้ายโรงเรียน" }] },
+};
+
+// ---------- เพิ่ม / แก้ / ลบ / สลับการมองเห็น ----------
+const findItem = (key, id) => arr(key).find((i) => String(i.id) === String(id));
+const formValue = (f, item) => {
+  if (!item) return f.value;
+  if (f.key === "vis") return VIS_LABEL[item.vis] || "ส่วนตัว";
+  return Array.isArray(item[f.key]) ? item[f.key].join(", ") : item[f.key];
+};
+
+App.editItem = (key, item) => {
+  const F = FORMS[key];
+  const fields = F.fields
+    .filter((f) => !(f.key === "vis" && PRIVATE_ONLY.has(key)))
+    .map((f) => {
+      const options = f.key === "vis" ? f.options : optionsFor(key, f);
+      const value = formValue(f, item);
+      // ค่าเดิมที่ไม่อยู่ในตัวเลือกใหม่ ยังเลือกได้ ไม่หาย
+      return { ...f, options: options && value && !options.includes(value) ? [value, ...options] : options, value };
+    });
+  openForm(`${item ? "แก้ไข" : "เพิ่ม"}${F.name}`, fields, async (rec) => {
+    let body = F.map ? F.map(rec, item) : rec;
+    if (body.vis) body.vis = VIS_CODE[body.vis] || "private";
+    if (item) {
+      const { id, ...old } = item;
+      const saved = await api("PUT", `/api/admin/item/${id}`, { ...old, ...body });
+      Object.assign(item, saved);
+    } else {
+      arr(key).unshift(await api("POST", `/api/admin/items/${key}`, body));
+    }
+  });
+};
+for (const key of Object.keys(FORMS)) App.adders[key] = () => App.editItem(key);
+
+App.itemTools = (key, item) => {
+  if (!item || item.id === undefined) return "";
+  const vis = PRIVATE_ONLY.has(key)
+    ? ""
+    : `<button class="vis ${item.vis === "public" ? "v-public" : "v-private"}" data-act="vis" data-key="${key}" data-id="${item.id}" title="แตะเพื่อสลับ">${VIS_LABEL[item.vis] || "ส่วนตัว"}</button>`;
+  return `<span class="acts">${vis}<button class="ico" data-act="edit" data-key="${key}" data-id="${item.id}">แก้ไข</button><button class="ico del" data-act="del" data-key="${key}" data-id="${item.id}">ลบ</button></span>`;
+};
+App.actions.edit = (b) => App.editItem(b.dataset.key, findItem(b.dataset.key, b.dataset.id));
+App.actions.del = async (b) => {
+  const item = findItem(b.dataset.key, b.dataset.id);
+  if (!item || !confirm(`ลบ "${item.title || item.name || item.event || item.no || "รายการนี้"}" ใช่ไหม? ลบแล้วกู้คืนไม่ได้`)) return;
+  try {
+    await api("DELETE", `/api/admin/item/${item.id}`);
+    App.DATA[b.dataset.key] = arr(b.dataset.key).filter((i) => i !== item);
+    toast("ลบแล้ว");
+    render();
+  } catch (e) { toast(e.message); }
+};
+App.actions.vis = async (b) => {
+  const item = findItem(b.dataset.key, b.dataset.id);
+  try {
+    Object.assign(item, await api("PATCH", `/api/admin/item/${item.id}`, { vis: item.vis === "public" ? "private" : "public" }));
+    toast(item.vis === "public" ? "แสดงในหน้าสาธารณะแล้ว" : "ซ่อนจากหน้าสาธารณะแล้ว");
+    render();
+  } catch (e) { toast(e.message); }
+};
+
+// ค่าเดี่ยว (โปรไฟล์ ตารางสอน คะแนน การเช็กชื่อ SAR)
+const saveKV = (key) => api("PUT", `/api/admin/kv/${key}`, App.DATA[key]);
+const saveTimers = {};
+const saveKVLater = (key) => {
+  clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(() => saveKV(key).catch((e) => toast(`บันทึกไม่สำเร็จ: ${e.message}`)), 700);
+};
+const editKV = (title, key, fields, apply) => {
+  const obj = (App.DATA[key] = App.DATA[key] || {});
+  openForm(title, fields.map((f) => ({ ...f, value: f.get ? f.get(obj) : obj[f.key] })), async (rec) => {
+    const backup = JSON.stringify(obj);
+    apply ? apply(obj, rec) : Object.assign(obj, rec);
+    try { await saveKV(key); } catch (e) { App.DATA[key] = JSON.parse(backup); throw e; }
+    if (key === "profile" || key === "settings") App.setData(App.DATA);
+  });
+};
 
 // ---------- หน้ารายการทั่วไป ----------
-const listPage = ({ key, title, sub, cols, filter, add }) => ({ q }) => {
+const listPage = ({ key, title, sub, cols, filter }) => ({ q }) => {
   const rows = list(key);
   const vals = filter ? [...new Set(rows.map((r) => r[filter]).filter(Boolean))] : [];
   const cur = q.type || "ทั้งหมด";
   const shown = filter ? rows.filter((r) => cur === "ทั้งหมด" || r[filter] === cur) : rows;
-  return head(title, typeof sub === "function" ? sub(rows) : sub, add ? addBtn(key, add) : "") +
-    (filter ? filterBar(vals, cur, "type") : "") + table(cols, shown);
+  return head(title, typeof sub === "function" ? sub(rows) : sub, addBtn(key, `เพิ่ม${FORMS[key].name}`)) +
+    (filter ? filterBar(vals, cur, "type") : "") + table([...cols, { label: "", render: (r) => tools(key, r), cls: "nowrap" }], shown);
 };
-const visCol = { label: "การมองเห็น", render: (r) => visBadge(r.vis), cls: "nowrap" };
 const dateCol = (key = "date", label = "วันที่") => ({ label, render: (r) => thDate(r[key]), cls: "nowrap" });
+const tagCol = (label, key) => ({ label, render: (r) => (r[key] ? `<span class="tag">${esc(r[key])}</span>` : "") });
 
 // ---------- แดชบอร์ด ----------
 App.pages.admin = () => {
@@ -48,133 +214,199 @@ App.pages.admin = () => {
   const s = App.DATA.schedule || {};
   const todays = (s.classes || []).filter((c) => c.day === dayName).sort((a, b) => a.period - b.period);
   const time = (no) => (s.periods || []).find((x) => Number(x.no) === Number(no))?.time || "";
-  const todos = arr("todos").map((t, i) => ({ ...t, i })).sort((a, b) => a.done - b.done || String(a.due).localeCompare(String(b.due)));
+  const todos = [...arr("todos")].sort((a, b) => a.done - b.done || String(a.due || "9").localeCompare(String(b.due || "9")));
   const hours = list("trainings").reduce((a, t) => a + (Number(t.hours) || 0), 0);
   const covered = PA_CODES.filter((c) => list("evidence").some((e) => (e.pa || []).includes(c))).length;
-  const deadlines = arr("deadlines").map((d) => ({ ...d, left: daysUntil(d.date) })).sort((a, b) => a.left - b.left);
+  const deadlines = arr("deadlines").map((d) => ({ d, left: daysUntil(d.date) })).sort((a, b) => a.left - b.left);
+  const first = (p.name || "").split(" ")[0];
 
-  return head(`สวัสดี คุณครู${esc((p.name || "").split(" ")[0])}`, `วัน${dayName}ที่ ${thDate(today())}`, addBtn("todos", "เพิ่มงานที่ต้องทำ")) + `
+  return head(`สวัสดี${first ? ` คุณครู${esc(first)}` : ""}`, `วัน${dayName}ที่ ${thDate(today())}`, addBtn("todos", "เพิ่มงานที่ต้องทำ")) + `
     <div class="stats">
-      <a class="stat" style="--sc:${C.sky}" href="#/admin/schedule"><b>${todays.length}</b><span>คาบสอนวันนี้</span></a>
-      <a class="stat" style="--sc:${C.coral}" href="#/admin/responsibilities"><b>${todos.filter((t) => !t.done).length}</b><span>งานค้าง</span></a>
-      <a class="stat" style="--sc:${C.mint}" href="#/admin/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
-      <a class="stat" style="--sc:${C.indigo}" href="#/admin/pa"><b>${covered}/${PA_CODES.length}</b><span>ตัวชี้วัด PA ที่มีหลักฐาน</span></a>
+      <a class="stat" style="--sc:${C.sky}" href="#/schedule"><b>${todays.length}</b><span>คาบสอนวันนี้</span></a>
+      <a class="stat" style="--sc:${C.coral}" href="#/"><b>${todos.filter((t) => !t.done).length}</b><span>งานค้าง</span></a>
+      <a class="stat" style="--sc:${C.mint}" href="#/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
+      <a class="stat" style="--sc:${C.indigo}" href="#/pa"><b>${covered}/${PA_CODES.length}</b><span>ตัวชี้วัด PA ที่มีหลักฐาน</span></a>
     </div>
     <div class="cols">
       <section class="panel" style="--c:${C.sky}">
         <h2>คาบสอนวันนี้</h2>
         ${todays.length ? `<div class="stack">${todays.map((c) => `
           <div class="slot"><b>คาบ ${esc(c.period)}</b><span class="meta">${esc(time(c.period))}</span><span>${esc(c.subject)} ${esc(c.room)}</span>
-          <a class="mini" href="#/admin/reflections">บันทึกหลังสอน</a></div>`).join("")}</div>` : empty("วันนี้ไม่มีคาบสอน")}
+          <a class="mini" href="#/reflections">บันทึกหลังสอน</a></div>`).join("")}</div>` : empty("วันนี้ไม่มีคาบสอน")}
       </section>
       <section class="panel" style="--c:${C.coral}">
         <h2>งานที่ต้องทำ</h2>
-        <div class="stack">${todos.map((t) => `
-          <label class="todo ${t.done ? "done" : ""}"><input type="checkbox" data-act="todo" data-i="${t.i}" ${t.done ? "checked" : ""}>
-          <span>${esc(t.title)}</span><span class="meta">${t.due ? thDate(t.due) : ""}</span></label>`).join("")}</div>
+        ${todos.length ? `<div class="stack">${todos.map((t) => `
+          <div class="todo ${t.done ? "done" : ""}"><input type="checkbox" aria-label="ทำเสร็จแล้ว" data-act="todo" data-id="${t.id}" ${t.done ? "checked" : ""}>
+          <span>${esc(t.title)}</span><span class="meta">${t.due ? thDate(t.due) : ""}</span>${tools("todos", t)}</div>`).join("")}</div>` : empty("ไม่มีงานค้าง")}
       </section>
     </div>
     <section class="panel" style="--c:${C.indigo}">
-      <h2>กำหนดส่งสำคัญ</h2>
-      <div class="deadlines">${deadlines.map((d) => `
-        <div class="deadline ${d.left <= 30 ? "soon" : ""}"><b>${d.left >= 0 ? `อีก ${d.left} วัน` : "เลยกำหนด"}</b><span>${esc(d.title)}</span><span class="meta">${thDate(d.date)}</span></div>`).join("")}</div>
+      <h2 class="row-head">กำหนดส่งสำคัญ <button class="btn ghost small" data-add="deadlines">+ เพิ่ม</button></h2>
+      ${deadlines.length ? `<div class="deadlines">${deadlines.map(({ d, left }) => `
+        <div class="deadline ${left <= 30 ? "soon" : ""}"><b>${left >= 0 ? `อีก ${left} วัน` : "เลยกำหนด"}</b><span>${esc(d.title)}</span><span class="meta">${thDate(d.date)}</span>${tools("deadlines", d)}</div>`).join("")}</div>` : empty("ยังไม่มีกำหนดส่ง")}
     </section>`;
 };
-App.actions.todo = (el) => { const t = arr("todos")[el.dataset.i]; t.done = !t.done; App.render(); };
-App.adders.todos = () => openForm("เพิ่มงานที่ต้องทำ", [
-  { key: "title", label: "งาน", required: true }, { key: "due", label: "กำหนดส่ง", type: "date" },
-], (r) => arr("todos").unshift({ ...r, done: false }));
+App.actions.todo = async (el) => {
+  const t = findItem("todos", el.dataset.id);
+  const { id, ...rest } = t;
+  try { Object.assign(t, await api("PUT", `/api/admin/item/${id}`, { ...rest, done: !t.done })); } catch (e) { toast(e.message); }
+  render();
+};
 
 // ---------- การสอน ----------
 App.pages["admin/schedule"] = () => {
-  const s = App.DATA.schedule || {};
-  return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term)} สอน ${(s.classes || []).length} คาบต่อสัปดาห์`, addBtn("swaps", "บันทึกสอนแทน / แลกคาบ")) +
-    App.scheduleTable() + `<h2>สอนแทนและแลกคาบ</h2>` +
-    table([dateCol(), { label: "ประเภท", key: "kind" }, { label: "คาบ / ห้อง", key: "detail" }, { label: "กับครู", key: "with" }], arr("swaps"));
+  const s = (App.DATA.schedule = App.DATA.schedule || { term: "", periods: [], classes: [] });
+  const order = (c) => DAYS.indexOf(c.day) * 100 + Number(c.period);
+  const classes = (s.classes || []).map((c, i) => ({ ...c, i })).sort((a, b) => order(a) - order(b));
+  return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term || "-")} สอน ${(s.classes || []).length} คาบต่อสัปดาห์`,
+    `<button class="btn" data-act="addClass">+ เพิ่มคาบสอน</button><button class="btn ghost" data-act="editTerm">ภาคเรียนและเวลาคาบ</button>`) +
+    App.scheduleTable() + `<h2>คาบสอนทั้งหมด</h2>` +
+    table([{ label: "วัน", key: "day" }, { label: "คาบ", key: "period", cls: "num" }, { label: "วิชา", key: "subject" }, { label: "ห้อง", key: "room" },
+      { label: "", cls: "nowrap", render: (c) => `<span class="acts"><button class="ico del" data-act="delClass" data-i="${c.i}">ลบ</button></span>` }], classes) +
+    `<h2 class="row-head">สอนแทนและแลกคาบ <button class="btn ghost small" data-add="swaps">+ บันทึก</button></h2>` +
+    table([dateCol(), { label: "ประเภท", key: "kind" }, { label: "คาบ / ห้อง", key: "detail" }, { label: "กับครู", key: "with" },
+      { label: "", render: (r) => tools("swaps", r), cls: "nowrap" }], arr("swaps"));
 };
-App.adders.swaps = () => openForm("บันทึกสอนแทน / แลกคาบ", [
-  { key: "date", label: "วันที่", type: "date", required: true }, { key: "kind", label: "ประเภท", options: ["สอนแทน", "ให้ครูอื่นสอนแทน", "แลกคาบ"] },
-  { key: "detail", label: "คาบ / ห้อง" }, { key: "with", label: "ครูที่เกี่ยวข้อง" },
-], (r) => arr("swaps").unshift(r));
+App.actions.addClass = () => {
+  const s = App.DATA.schedule;
+  openForm("เพิ่มคาบสอน", [
+    { key: "day", label: "วัน", options: DAYS }, { key: "period", label: "คาบที่", type: "number", required: true },
+    { key: "subject", label: "วิชา", required: true }, { key: "room", label: "ห้อง" },
+  ], async (r) => {
+    s.classes = s.classes || [];
+    s.classes.push({ ...r, period: Number(r.period) });
+    try { await saveKV("schedule"); } catch (e) { s.classes.pop(); throw e; }
+  });
+};
+App.actions.delClass = async (b) => {
+  const s = App.DATA.schedule;
+  const [removed] = s.classes.splice(Number(b.dataset.i), 1);
+  try { await saveKV("schedule"); toast("ลบแล้ว"); } catch (e) { s.classes.splice(Number(b.dataset.i), 0, removed); toast(e.message); }
+  render();
+};
+App.actions.editTerm = () => editKV("ภาคเรียนและเวลาคาบ", "schedule", [
+  { key: "term", label: "ภาคเรียน", hint: "เช่น 2/2569" },
+  { key: "times", label: "เวลาแต่ละคาบ", type: "textarea", rows: 7, hint: "บรรทัดละคาบ เช่น 08:30–09:20",
+    get: (o) => (o.periods || []).map((p) => p.time).join("\n") },
+], (o, r) => {
+  o.term = r.term;
+  o.periods = splitList(r.times).map((time, i) => ({ no: i + 1, time }));
+});
 
 App.pages["admin/plans"] = listPage({
-  key: "plans", title: "แผนการสอนและสื่อ", sub: (r) => `${r.length} รายการ แยกตามวิชาและหน่วย`, filter: "type", add: "เพิ่มแผน/สื่อ",
-  cols: [{ label: "วิชา", key: "subject", cls: "nowrap" }, { label: "หน่วย", key: "unit" }, { label: "ชื่อ", key: "title" },
-    { label: "ประเภท", render: (r) => `<span class="tag">${esc(r.type)}</span>` }, visCol],
+  key: "plans", title: "แผนการสอนและสื่อ", sub: (r) => `${r.length} รายการ แยกตามวิชาและหน่วย`, filter: "type",
+  cols: [{ label: "วิชา", key: "subject", cls: "nowrap" }, { label: "หน่วย", key: "unit" },
+    { label: "ชื่อ", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) }, tagCol("ประเภท", "type")],
 });
-App.adders.plans = () => openForm("เพิ่มแผนการสอน / สื่อ", [
-  { key: "subject", label: "รหัสวิชา", required: true }, { key: "unit", label: "หน่วยการเรียนรู้" }, { key: "title", label: "ชื่อ", required: true },
-  { key: "type", label: "ประเภท", options: ["แผนการสอน", "สื่อ", "ใบงาน", "ข้อสอบ"] }, { key: "link", label: "ลิงก์ไฟล์ (Google Drive)", type: "url" }, visField,
-], (r) => addTo("plans", r));
 
 App.pages["admin/reflections"] = () => {
   const rows = [...list("reflections")].sort(byDateDesc);
   return head("บันทึกหลังสอน", `${rows.length} บันทึก ใช้เป็นหลักฐาน PA ตัวชี้วัด 1.3 และ 1.6`, addBtn("reflections", "เขียนบันทึกหลังสอน")) +
     (rows.length ? `<div class="stack">${rows.map((r) => `
-      <article class="card note"><div class="note-head"><b>${thDate(r.date)}</b><span class="tag">${esc(r.subject)} ${esc(r.room)}</span>${visBadge(r.vis)}</div>
+      <article class="card note"><div class="note-head"><b>${thDate(r.date)}</b><span class="tag">${esc(r.subject)} ${esc(r.room)}</span>${tools("reflections", r)}</div>
       <h3>${esc(r.topic)}</h3>
-      <dl><dt>ผลการสอน</dt><dd>${esc(r.result)}</dd><dt>ปัญหา</dt><dd>${esc(r.problem)}</dd><dt>แนวทางแก้ไข</dt><dd>${esc(r.solution)}</dd></dl>
-      </article>`).join("")}</div>` : empty());
+      <dl><dt>ผลการสอน</dt><dd>${esc(r.result) || "-"}</dd><dt>ปัญหา</dt><dd>${esc(r.problem) || "-"}</dd><dt>แนวทางแก้ไข</dt><dd>${esc(r.solution) || "-"}</dd></dl>
+      </article>`).join("")}</div>` : empty("ยังไม่มีบันทึก กด \"เขียนบันทึกหลังสอน\" หลังสอนเสร็จ"));
 };
-App.adders.reflections = () => openForm("บันทึกหลังสอน", [
-  { key: "date", label: "วันที่", type: "date", value: today(), required: true }, { key: "subject", label: "วิชา" }, { key: "room", label: "ห้อง" },
-  { key: "topic", label: "เรื่องที่สอน", required: true }, { key: "result", label: "ผลการสอน", type: "textarea" },
-  { key: "problem", label: "ปัญหาที่พบ", type: "textarea" }, { key: "solution", label: "แนวทางแก้ไข", type: "textarea" }, visField,
-], (r) => addTo("reflections", r));
 
 const gradeOf = (t) => (t >= 80 ? "4" : t >= 75 ? "3.5" : t >= 70 ? "3" : t >= 65 ? "2.5" : t >= 60 ? "2" : t >= 55 ? "1.5" : t >= 50 ? "1" : "0");
+const DEFAULT_PARTS = [{ label: "เก็บก่อนกลางภาค", max: 30 }, { label: "กลางภาค", max: 20 }, { label: "เก็บหลังกลางภาค", max: 20 }, { label: "ปลายภาค", max: 30 }];
+const studentsSorted = () => [...arr("students")].sort((a, b) => Number(a.no) - Number(b.no));
 App.pages["admin/grades"] = () => {
-  const g = App.DATA.grades || {};
-  const parts = g.parts || [];
-  const studs = arr("students");
-  const rows = studs.map((s) => {
-    const sc = g.scores?.[s.no] || [];
+  const g = (App.DATA.grades = App.DATA.grades || { subject: "", room: "", parts: DEFAULT_PARTS, scores: {} });
+  g.parts = g.parts?.length ? g.parts : DEFAULT_PARTS;
+  g.scores = g.scores || {};
+  const rows = studentsSorted().map((s) => {
+    const sc = g.scores[s.no] || [];
     const total = sc.reduce((a, b) => a + (Number(b) || 0), 0);
-    return { ...s, sc, total, grade: gradeOf(total) };
+    return { ...s, sc, total, grade: sc.length ? gradeOf(total) : "-" };
   });
-  const dist = ["4", "3.5", "3", "2.5", "2", "1.5", "1", "0"].map((k) => [k, rows.filter((r) => r.grade === k).length]);
+  const graded = rows.filter((r) => r.grade !== "-");
+  const dist = ["4", "3.5", "3", "2.5", "2", "1.5", "1", "0"].map((k) => [k, graded.filter((r) => r.grade === k).length]);
   const maxN = Math.max(1, ...dist.map((d) => d[1]));
-  const avg = rows.length ? (rows.reduce((a, r) => a + r.total, 0) / rows.length).toFixed(1) : 0;
-  return head("การวัดผล (ปพ.5)", `${esc(g.subject)} ห้อง ${esc(g.room)} คะแนนเฉลี่ย ${avg} จาก 100 ตัดเกรดอัตโนมัติ`) +
-    table([{ label: "เลขที่", key: "no", cls: "num" }, { label: "ชื่อ", key: "name" },
-      ...parts.map((p, i) => ({ label: `${esc(p.label)} (${p.max})`, cls: "num", render: (r) => esc(r.sc[i] ?? "") })),
-      { label: "รวม", cls: "num strong", render: (r) => r.total }, { label: "เกรด", cls: "num", render: (r) => `<span class="grade g${r.grade.replace(".", "")}">${r.grade}</span>` }], rows) +
-    `<h2>การกระจายเกรด</h2><div class="bars">${dist.map(([k, n]) => `
-      <div class="bar-row"><span>${k}</span><div class="bar"><i style="width:${(n / maxN) * 100}%"></i></div><b>${n}</b></div>`).join("")}</div>
-    <p class="meta">เกณฑ์: 80 ขึ้นไป = 4, 75 = 3.5, 70 = 3, 65 = 2.5, 60 = 2, 55 = 1.5, 50 = 1, ต่ำกว่า 50 = 0 ระยะ 9 จะเพิ่มคุณลักษณะอันพึงประสงค์ อ่าน คิดวิเคราะห์ เขียน และติดตาม 0 ร มส.</p>`;
+  const avg = graded.length ? (graded.reduce((a, r) => a + r.total, 0) / graded.length).toFixed(1) : "-";
+  return head("การวัดผล (ปพ.5)", `${esc(g.subject || "ยังไม่ได้ตั้งวิชา")} ห้อง ${esc(g.room || "-")} คะแนนเฉลี่ย ${avg} จาก 100 ตัดเกรดอัตโนมัติ`,
+    `<button class="btn ghost" data-act="editCourse">ตั้งค่าวิชา</button>`) +
+    (rows.length ? table([{ label: "เลขที่", key: "no", cls: "num" }, { label: "ชื่อ", key: "name" },
+      ...g.parts.map((p, i) => ({ label: `${esc(p.label)} (${p.max})`, cls: "num", render: (r) => esc(r.sc[i] ?? "") })),
+      { label: "รวม", cls: "num strong", render: (r) => (r.sc.length ? r.total : "") },
+      { label: "เกรด", cls: "num", render: (r) => (r.grade === "-" ? "" : `<span class="grade g${r.grade.replace(".", "")}">${r.grade}</span>`) },
+      { label: "", cls: "nowrap", render: (r) => `<span class="acts"><button class="ico" data-act="editScore" data-no="${esc(r.no)}">กรอกคะแนน</button></span>` }], rows)
+      : empty(`ยังไม่มีรายชื่อนักเรียน เพิ่มได้ที่เมนู <a href="#/attendance">รายชื่อและเช็กชื่อ</a>`)) +
+    (graded.length ? `<h2>การกระจายเกรด</h2><div class="bars">${dist.map(([k, n]) => `
+      <div class="bar-row"><span>${k}</span><div class="bar"><i style="width:${(n / maxN) * 100}%"></i></div><b>${n}</b></div>`).join("")}</div>` : "") +
+    `<p class="meta">เกณฑ์: 80 ขึ้นไป = 4, 75 = 3.5, 70 = 3, 65 = 2.5, 60 = 2, 55 = 1.5, 50 = 1, ต่ำกว่า 50 = 0 ระยะ 9 จะเพิ่มคุณลักษณะอันพึงประสงค์ อ่าน คิดวิเคราะห์ เขียน และติดตาม 0 ร มส.</p>`;
 };
+App.actions.editScore = (b) => {
+  const g = App.DATA.grades;
+  const s = arr("students").find((x) => String(x.no) === b.dataset.no);
+  const sc = g.scores[s.no] || [];
+  openForm(`คะแนน เลขที่ ${s.no} ${s.name}`, g.parts.map((p, i) => ({ key: `p${i}`, label: `${p.label} (เต็ม ${p.max})`, type: "number", value: sc[i] ?? "" })),
+    async (r) => {
+      const old = g.scores[s.no];
+      g.scores[s.no] = g.parts.map((p, i) => Math.min(Number(p.max), Math.max(0, Number(r[`p${i}`]) || 0)));
+      try { await saveKV("grades"); } catch (e) { g.scores[s.no] = old; throw e; }
+    });
+};
+App.actions.editCourse = () => editKV("ตั้งค่าวิชา", "grades", [
+  { key: "subject", label: "รหัสและชื่อวิชา", hint: "เช่น ค31102 คณิตศาสตร์พื้นฐาน" }, { key: "room", label: "ห้อง" },
+  { key: "partsText", label: "สัดส่วนคะแนน", type: "textarea", rows: 5, hint: "บรรทัดละส่วน รูปแบบ ชื่อ = คะแนนเต็ม รวมกันควรได้ 100",
+    get: (o) => (o.parts?.length ? o.parts : DEFAULT_PARTS).map((p) => `${p.label} = ${p.max}`).join("\n") },
+], (o, r) => {
+  o.subject = r.subject;
+  o.room = r.room;
+  const parts = splitList(r.partsText.replace(/,/g, "\n")).map((line) => {
+    const [label, max] = line.split("=").map((x) => x.trim());
+    return { label, max: Number(max) || 0 };
+  }).filter((p) => p.label && p.max > 0);
+  if (parts.length) o.parts = parts;
+});
 
 App.pages["admin/supervision"] = listPage({
-  key: "supervision", title: "นิเทศ / Open Class", sub: "ผลการนิเทศจากผู้บริหารและเพื่อนครู", add: "เพิ่มผลการนิเทศ",
-  cols: [dateCol(), { label: "ประเภท", render: (r) => `<span class="tag">${esc(r.type)}</span>` }, { label: "ผู้นิเทศ", key: "by" },
-    { label: "เรื่อง", key: "topic" }, { label: "ผล / ข้อเสนอแนะ", key: "result" }, visCol],
+  key: "supervision", title: "นิเทศ / Open Class", sub: "ผลการนิเทศจากผู้บริหารและเพื่อนครู",
+  cols: [dateCol(), tagCol("ประเภท", "type"), { label: "ผู้นิเทศ", key: "by" }, { label: "เรื่อง", key: "topic" }, { label: "ผล / ข้อเสนอแนะ", key: "result" }],
 });
-App.adders.supervision = () => openForm("เพิ่มผลการนิเทศ", [
-  { key: "date", label: "วันที่", type: "date", required: true }, { key: "type", label: "ประเภท", options: ["นิเทศชั้นเรียน", "Open Class", "Lesson Study"] },
-  { key: "by", label: "ผู้นิเทศ" }, { key: "topic", label: "เรื่อง" }, { key: "result", label: "ผล / ข้อเสนอแนะ", type: "textarea" }, visField,
-], (r) => addTo("supervision", r));
 
 // ---------- นักเรียน ----------
 const ATT = ["มา", "สาย", "ลา", "ขาด"];
 const attCls = { "มา": "a-ok", "สาย": "a-late", "ลา": "a-leave", "ขาด": "a-miss" };
 App.pages["admin/attendance"] = () => {
-  const dates = arr("attendanceDates");
-  const att = App.DATA.attendance || {};
-  const studs = arr("students");
-  return head("รายชื่อและเช็กชื่อ", `${esc(studs[0]?.room || "")} ${studs.length} คน แตะช่องเพื่อเปลี่ยนสถานะ`) +
-    `<p class="private-note">ข้อมูลนักเรียนเป็นข้อมูลส่วนบุคคล (PDPA) ระบบจะเก็บแบบส่วนตัวเสมอ ไม่แสดงในหน้าสาธารณะ</p>` +
-    `<div class="table-wrap"><table class="data att"><thead><tr><th class="num">เลขที่</th><th>ชื่อ</th>${dates.map((d) => `<th class="num">${thDate(d).replace(/ \d{4}$/, "")}</th>`).join("")}<th class="num">มาเรียน</th></tr></thead><tbody>
+  const dates = (App.DATA.attendanceDates = App.DATA.attendanceDates || []);
+  const att = (App.DATA.attendance = App.DATA.attendance || {});
+  const studs = studentsSorted();
+  const recent = dates.slice(-10);
+  const offset = dates.length - recent.length;
+  return head("รายชื่อและเช็กชื่อ", `${studs.length} คน แตะช่องเพื่อเปลี่ยนสถานะ บันทึกอัตโนมัติ`,
+    `<button class="btn" data-act="addDay">+ เช็กชื่อวันนี้</button><button class="btn ghost" data-add="students">+ เพิ่มนักเรียน</button>`) +
+    `<p class="private-note">ข้อมูลนักเรียนเป็นข้อมูลส่วนบุคคล (PDPA) ระบบเก็บแบบส่วนตัวเสมอ ไม่แสดงในหน้าสาธารณะ</p>` +
+    (studs.length ? `<div class="table-wrap"><table class="data att"><thead><tr><th class="num">เลขที่</th><th>ชื่อ</th>${recent.map((d) => `<th class="num">${thDate(d).replace(/ \d{4}$/, "")}</th>`).join("")}<th class="num">มาเรียน</th><th></th></tr></thead><tbody>
     ${studs.map((s) => {
       const row = att[s.no] || [];
-      const pct = row.length ? Math.round((row.filter((x) => x === "มา" || x === "สาย").length / row.length) * 100) : 0;
-      return `<tr><td class="num">${s.no}</td><td>${esc(s.name)}</td>${dates.map((d, j) => `<td class="num"><button class="att-btn ${attCls[row[j]] || ""}" data-act="att" data-s="${s.no}" data-j="${j}">${esc(row[j] || "-")}</button></td>`).join("")}<td class="num ${pct < 80 ? "warn" : ""}">${pct}%</td></tr>`;
+      const marked = row.filter(Boolean);
+      const pct = marked.length ? Math.round((marked.filter((x) => x === "มา" || x === "สาย").length / marked.length) * 100) : null;
+      return `<tr><td class="num">${esc(s.no)}</td><td>${esc(s.name)}</td>${recent.map((d, j) => `<td class="num"><button class="att-btn ${attCls[row[offset + j]] || ""}" data-act="att" data-s="${esc(s.no)}" data-j="${offset + j}">${esc(row[offset + j] || "-")}</button></td>`).join("")}<td class="num ${pct !== null && pct < 80 ? "warn" : ""}">${pct === null ? "-" : pct + "%"}</td><td class="nowrap">${tools("students", s)}</td></tr>`;
     }).join("")}</tbody></table></div>
-    <p class="meta">มาเรียนต่ำกว่า 80% จะขึ้นสีแดง เพื่อเตือนเรื่องสิทธิ์สอบ (มส.)</p>`;
+    <p class="meta">แสดง 10 วันล่าสุด มาเรียนต่ำกว่า 80% จะขึ้นสีแดง เพื่อเตือนเรื่องสิทธิ์สอบ (มส.)</p>` : empty("ยังไม่มีรายชื่อ กด \"+ เพิ่มนักเรียน\""));
 };
 App.actions.att = (b) => {
-  const row = (App.DATA.attendance[b.dataset.s] = App.DATA.attendance[b.dataset.s] || []);
+  const att = App.DATA.attendance;
+  const row = (att[b.dataset.s] = att[b.dataset.s] || []);
   row[b.dataset.j] = ATT[(ATT.indexOf(row[b.dataset.j]) + 1) % ATT.length];
-  App.render();
+  saveKVLater("attendance");
+  render();
+};
+App.actions.addDay = async () => {
+  const dates = App.DATA.attendanceDates;
+  const d = today();
+  if (dates.includes(d)) return toast("มีคอลัมน์ของวันนี้แล้ว");
+  dates.push(d);
+  for (const s of arr("students")) {
+    const row = (App.DATA.attendance[s.no] = App.DATA.attendance[s.no] || []);
+    row[dates.length - 1] = "มา";
+  }
+  try { await Promise.all([saveKV("attendanceDates"), saveKV("attendance")]); toast("เพิ่มวันนี้แล้ว ทุกคนเริ่มที่ \"มา\""); } catch (e) { toast(e.message); }
+  render();
 };
 
 App.pages["admin/care"] = () => {
@@ -188,88 +420,48 @@ App.pages["admin/care"] = () => {
       <div class="stat" style="--sc:${C.coral}"><b>${count("กลุ่มมีปัญหา")}</b><span>กลุ่มมีปัญหา</span></div>
       <div class="stat" style="--sc:${C.sky}"><b>${rows.filter((r) => r.visit).length}</b><span>เยี่ยมบ้านแล้ว</span></div>
     </div>` +
-    table([{ label: "นักเรียน", key: "student" }, { label: "SDQ", key: "sdq" }, { label: "คัดกรอง", render: (r) => `<span class="tag">${esc(r.screen)}</span>` },
-      { label: "เยี่ยมบ้าน", render: (r) => (r.visit ? thDate(r.visit) : `<span class="meta">ยังไม่เยี่ยม</span>`), cls: "nowrap" }, { label: "บันทึก", key: "note" }], rows);
+    table([{ label: "นักเรียน", key: "student" }, { label: "SDQ", key: "sdq" }, tagCol("คัดกรอง", "screen"),
+      { label: "เยี่ยมบ้าน", render: (r) => (r.visit ? thDate(r.visit) : `<span class="meta">ยังไม่เยี่ยม</span>`), cls: "nowrap" }, { label: "บันทึก", key: "note" },
+      { label: "", render: (r) => tools("care", r), cls: "nowrap" }], rows);
 };
-App.adders.care = () => openForm("บันทึกการดูแลช่วยเหลือ", [
-  { key: "student", label: "นักเรียน", required: true }, { key: "sdq", label: "ผล SDQ", options: ["ปกติ", "เสี่ยง", "มีปัญหา"] },
-  { key: "screen", label: "ผลคัดกรอง", options: ["กลุ่มปกติ", "กลุ่มเสี่ยง", "กลุ่มมีปัญหา"] }, { key: "visit", label: "วันที่เยี่ยมบ้าน", type: "date" },
-  { key: "note", label: "บันทึก", type: "textarea" },
-], (r) => arr("care").unshift({ ...r, vis: "private" }));
 
 App.pages["admin/activities"] = listPage({
-  key: "activities", title: "กิจกรรมพัฒนาผู้เรียน", sub: "ลูกเสือ ชุมนุม แนะแนว กิจกรรมเพื่อสังคม", filter: "type", add: "เพิ่มกิจกรรม",
-  cols: [{ label: "กิจกรรม", key: "title" }, { label: "ประเภท", render: (r) => `<span class="tag">${esc(r.type)}</span>` }, { label: "ชั้น", key: "room" },
-    { label: "ชั่วโมง", key: "hours", cls: "num" }, { label: "ผ่าน", key: "passed", cls: "num" }, visCol],
+  key: "activities", title: "กิจกรรมพัฒนาผู้เรียน", sub: "ลูกเสือ ชุมนุม แนะแนว กิจกรรมเพื่อสังคม", filter: "type",
+  cols: [{ label: "กิจกรรม", key: "title" }, tagCol("ประเภท", "type"), { label: "ชั้น", key: "room" },
+    { label: "ชั่วโมง", key: "hours", cls: "num" }, { label: "ผ่าน", key: "passed", cls: "num" }],
 });
-App.adders.activities = () => openForm("เพิ่มกิจกรรม", [
-  { key: "title", label: "ชื่อกิจกรรม", required: true }, { key: "type", label: "ประเภท", options: ["ลูกเสือ/เนตรนารี", "ชุมนุม", "แนะแนว", "กิจกรรมเพื่อสังคม"] },
-  { key: "room", label: "ชั้น" }, { key: "hours", label: "ชั่วโมง", type: "number" }, { key: "passed", label: "ผ่าน (เช่น 30/32)" }, visField,
-], (r) => addTo("activities", r));
 
 // ---------- งานในหน้าที่ ----------
 App.pages["admin/responsibilities"] = listPage({
-  key: "responsibilities", title: "งานที่รับผิดชอบ", sub: "คำสั่งแต่งตั้ง งานฝ่าย เวร และงานที่ปรึกษา", filter: "type", add: "เพิ่มงาน",
-  cols: [{ label: "งาน", key: "title" }, { label: "ประเภท", render: (r) => `<span class="tag">${esc(r.type)}</span>` },
-    { label: "ปีการศึกษา", key: "year", cls: "num" }, { label: "รายละเอียด", key: "detail" }, visCol],
+  key: "responsibilities", title: "งานที่รับผิดชอบ", sub: "คำสั่งแต่งตั้ง งานฝ่าย เวร และงานที่ปรึกษา", filter: "type",
+  cols: [{ label: "งาน", key: "title" }, tagCol("ประเภท", "type"), { label: "ปีการศึกษา", key: "year", cls: "num" }, { label: "รายละเอียด", key: "detail" }],
 });
-App.adders.responsibilities = () => openForm("เพิ่มงานที่รับผิดชอบ", [
-  { key: "title", label: "ชื่องาน", required: true }, { key: "type", label: "ประเภท", options: ["คำสั่ง", "งานฝ่าย", "งานที่ปรึกษา", "เวร", "โครงการ"] },
-  { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" }, visField,
-], (r) => addTo("responsibilities", r));
 
 App.pages["admin/projects"] = () => {
   const rows = list("projects");
   const baht = (n) => Number(n || 0).toLocaleString("th-TH");
   return head("โครงการและงบประมาณ", `${rows.length} โครงการ`, addBtn("projects", "เพิ่มโครงการ")) +
-    `<div class="grid">${rows.map((r) => {
+    (rows.length ? `<div class="grid">${rows.map((r) => {
       const pct = r.budget ? Math.min(100, Math.round((r.used / r.budget) * 100)) : 0;
-      return `<div class="card"><span class="tag">${esc(r.status)}</span> ${visBadge(r.vis)}<h3 style="margin-top:8px">${esc(r.title)}</h3>
+      return `<div class="card"><span class="tag">${esc(r.status)}</span><h3 style="margin-top:8px">${esc(r.title)}</h3>
         <div class="meter"><i style="width:${pct}%"></i></div>
         <div class="meta">ใช้ไป ${baht(r.used)} จาก ${baht(r.budget)} บาท (${pct}%)</div>
-        ${r.result ? `<p class="meta">${esc(r.result)}</p>` : ""}</div>`;
-    }).join("")}</div>`;
+        ${r.result ? `<p class="meta">${esc(r.result)}</p>` : ""}${tools("projects", r)}</div>`;
+    }).join("")}</div>` : empty());
 };
-App.adders.projects = () => openForm("เพิ่มโครงการ", [
-  { key: "title", label: "ชื่อโครงการ", required: true }, { key: "budget", label: "งบประมาณ (บาท)", type: "number" }, { key: "used", label: "ใช้ไปแล้ว (บาท)", type: "number" },
-  { key: "status", label: "สถานะ", options: ["ยังไม่เริ่ม", "กำลังดำเนินการ", "เสร็จสิ้น"] }, { key: "result", label: "ผลการดำเนินงาน", type: "textarea" }, visField,
-], (r) => addTo("projects", r));
 
 App.pages["admin/documents"] = listPage({
-  key: "documents", title: "หนังสือราชการ", sub: "หนังสือรับ หนังสือส่ง และคำสั่ง", filter: "kind", add: "เพิ่มหนังสือ",
-  cols: [dateCol(), { label: "เลขที่", key: "no", cls: "nowrap" }, { label: "ประเภท", render: (r) => `<span class="tag">${esc(r.kind)}</span>` },
-    { label: "จาก", key: "from" }, { label: "เรื่อง", key: "title" }],
+  key: "documents", title: "หนังสือราชการ", sub: "หนังสือรับ หนังสือส่ง และคำสั่ง", filter: "kind",
+  cols: [dateCol(), { label: "เลขที่", key: "no", cls: "nowrap" }, tagCol("ประเภท", "kind"), { label: "จาก", key: "from" },
+    { label: "เรื่อง", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) }],
 });
-App.adders.documents = () => openForm("เพิ่มหนังสือราชการ", [
-  { key: "no", label: "เลขที่", required: true }, { key: "date", label: "ลงวันที่", type: "date" }, { key: "kind", label: "ประเภท", options: ["หนังสือรับ", "หนังสือส่ง", "คำสั่ง"] },
-  { key: "from", label: "จาก" }, { key: "title", label: "เรื่อง", required: true }, { key: "link", label: "ลิงก์ไฟล์", type: "url" },
-], (r) => arr("documents").unshift(r));
 
 App.pages["admin/meetings"] = () => {
   const rows = [...arr("meetings")].sort(byDateDesc);
   return head("บันทึกการประชุม", `${rows.length} ครั้ง`, addBtn("meetings", "บันทึกการประชุม")) +
-    `<div class="stack">${rows.map((r) => `<div class="card item"><div class="item-body"><h3>${esc(r.title)}</h3><div class="meta">${esc(r.summary)}</div></div>
-      <div class="item-side meta">${thDate(r.date)}</div></div>`).join("")}</div>`;
+    (rows.length ? `<div class="stack">${rows.map((r) => `<div class="card item"><div class="item-body"><h3>${esc(r.title)}</h3><div class="meta">${esc(r.summary)}</div>${tools("meetings", r)}</div>
+      <div class="item-side meta">${thDate(r.date)}</div></div>`).join("")}</div>` : empty());
 };
-App.adders.meetings = () => openForm("บันทึกการประชุม", [
-  { key: "date", label: "วันที่", type: "date", value: today() }, { key: "title", label: "การประชุม", required: true }, { key: "summary", label: "สรุป / มติ", type: "textarea" },
-], (r) => arr("meetings").unshift(r));
-
-// ---------- พัฒนาตนเองและผลงาน (หน้าใช้ร่วมกับผู้เข้าชม) ----------
-App.adders.trainings = () => openForm("เพิ่มการอบรม / PLC", [
-  { key: "title", label: "หลักสูตร / หัวข้อ", required: true }, { key: "organizer", label: "หน่วยงานที่จัด" }, { key: "date", label: "วันที่", type: "date" },
-  { key: "hours", label: "จำนวนชั่วโมง", type: "number" }, { key: "format", label: "รูปแบบ", options: ["ออนไซต์", "ออนไลน์", "PLC"] },
-  { key: "certificate", label: "ลิงก์เกียรติบัตร", type: "url" }, visField,
-], (r) => addTo("trainings", r));
-App.adders.certificates = () => openForm("เพิ่มเกียรติบัตร / รางวัล", [
-  { key: "title", label: "ชื่อเกียรติบัตร / รางวัล", required: true }, { key: "issuer", label: "ผู้มอบ" }, { key: "date", label: "วันที่", type: "date" },
-  { key: "type", label: "ประเภท", options: ["เกียรติบัตร", "รางวัล", "รางวัลนักเรียน"] }, { key: "level", label: "ระดับ", options: ["โรงเรียน", "เขตพื้นที่", "จังหวัด", "ภาค", "ประเทศ"] },
-  { key: "image", label: "ลิงก์ภาพ (ระยะ 3 จะอัปโหลดได้)", type: "url" }, visField,
-], (r) => addTo("certificates", r));
-App.adders.works = () => openForm("เพิ่มผลงาน", [
-  { key: "title", label: "ชื่อผลงาน", required: true }, { key: "type", label: "ประเภท", options: ["นวัตกรรม", "วิจัยในชั้นเรียน", "สื่อการสอน", "บทความ"] },
-  { key: "year", label: "ปีการศึกษา", value: "2569" }, { key: "description", label: "รายละเอียด", type: "textarea" }, { key: "link", label: "ลิงก์", type: "url" }, visField,
-], (r) => addTo("works", r));
 
 // ---------- ประเมิน ----------
 App.pages["admin/evidence"] = ({ q }) => {
@@ -278,33 +470,30 @@ App.pages["admin/evidence"] = ({ q }) => {
   const shown = rows.filter((r) => cur === "ทั้งหมด" || (r.pa || []).includes(cur));
   return head("คลังหลักฐาน", "หลักฐานทุกชิ้นแท็กไว้ว่าใช้กับตัวชี้วัด PA และหัวข้อ SAR ข้อไหน", addBtn("evidence", "เพิ่มหลักฐาน")) +
     filterBar(PA_CODES.filter((c) => rows.some((r) => (r.pa || []).includes(c))), cur, "tag") +
-    table([{ label: "หลักฐาน", key: "title" }, { label: "มาจาก", key: "source" },
+    table([{ label: "หลักฐาน", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) },
+      { label: "มาจาก", key: "source" },
       { label: "ตัวชี้วัด PA", render: (r) => (r.pa || []).map((c) => `<span class="tag">${esc(c)}</span>`).join(" ") },
-      { label: "หัวข้อ SAR", key: "sar" }, visCol], shown);
+      { label: "หัวข้อ SAR", key: "sar" }, { label: "", render: (r) => tools("evidence", r), cls: "nowrap" }], shown);
 };
-App.adders.evidence = () => openForm("เพิ่มหลักฐาน", [
-  { key: "title", label: "ชื่อหลักฐาน", required: true }, { key: "source", label: "มาจากเมนู", options: ["แผนการสอน", "บันทึกหลังสอน", "สื่อ", "การวัดผล", "นิเทศ", "ดูแลช่วยเหลือ", "การพัฒนาตนเอง", "อื่นๆ"] },
-  { key: "pa", label: "ตัวชี้วัด PA (คั่นด้วยจุลภาค เช่น 1.3, 1.6)" },
-  { key: "sar", label: "หัวข้อ SAR", options: ["การจัดการเรียนการสอน", "ผลสัมฤทธิ์ทางการเรียน", "งานที่ได้รับมอบหมาย", "การพัฒนาตนเอง", "ผลงาน"] }, visField,
-], (r) => addTo("evidence", { ...r, pa: String(r.pa).split(/[,\s]+/).filter((c) => PA_CODES.includes(c)) }));
 
 App.pages["admin/pa"] = () => {
   const ev = list("evidence");
   const covered = PA_CODES.filter((c) => ev.some((e) => (e.pa || []).includes(c))).length;
   const pct = Math.round((covered / PA_CODES.length) * 100);
   const isAdmin = App.mode === "admin";
-  return head(isAdmin ? "PA ข้อตกลงในการพัฒนางาน" : "หลักฐานตามตัวชี้วัด PA", `ปีการศึกษา 2569 มีหลักฐานแล้ว ${covered} จาก ${PA_CODES.length} ตัวชี้วัด`,
-    isAdmin ? `<a class="btn ghost" href="#/admin/evidence">ไปที่คลังหลักฐาน</a>` : "") +
+  return head(isAdmin ? "PA ข้อตกลงในการพัฒนางาน" : "หลักฐานตามตัวชี้วัด PA", `มีหลักฐานแล้ว ${covered} จาก ${PA_CODES.length} ตัวชี้วัด`,
+    isAdmin ? `<a class="btn ghost" href="#/evidence">ไปที่คลังหลักฐาน</a><a class="btn ghost" href="#/settings">แก้ตัวชี้วัด</a>` : "") +
     `<div class="meter big"><i style="width:${pct}%"></i></div>` +
     PA.map((d) => `<section class="panel"><h2>ด้านที่ ${d.no} ${esc(d.title)}</h2>
       <div class="stack">${d.items.map(([code, name]) => {
         const items = ev.filter((e) => (e.pa || []).includes(code));
         return `<div class="pa-row ${items.length ? "has" : ""}"><span class="pa-code">${code}</span><div class="item-body"><b>${esc(name)}</b>
-          ${items.length ? `<ul>${items.map((e) => `<li>${esc(e.title)} ${isAdmin ? visBadge(e.vis) : ""}</li>`).join("")}</ul>` : `<div class="meta">ยังไม่มีหลักฐาน</div>`}</div>
+          ${items.length ? `<ul>${items.map((e) => `<li>${safeUrl(e.link) ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)} ${isAdmin ? `<span class="vis ${e.vis === "public" ? "v-public" : "v-private"}">${VIS_LABEL[e.vis]}</span>` : ""}</li>`).join("")}</ul>` : `<div class="meta">ยังไม่มีหลักฐาน</div>`}</div>
           <span class="pa-count">${items.length}</span></div>`;
       }).join("")}</div></section>`).join("") +
-    `<p class="meta">ตัวชี้วัดตามเกณฑ์ ว 9/2564 สำหรับตำแหน่งครู ปรับให้ตรงกับแบบฟอร์มของโรงเรียนได้ในระยะ 7</p>`;
+    `<p class="meta">${PA === DEFAULT_PA ? "ตัวชี้วัดตามเกณฑ์ ว 9/2564 สำหรับตำแหน่งครู" : "ตัวชี้วัดที่ครูกำหนดเอง"}</p>`;
 };
+App.pages.pa = App.pages["admin/pa"];
 
 App.pages["admin/sar"] = () => {
   const p = App.DATA.profile || {};
@@ -318,72 +507,283 @@ App.pages["admin/sar"] = () => {
   const notes = App.DATA.sarNotes || {};
   const sec = (no, title, body) => `<section class="panel sar"><h2><span class="pa-code">${no}</span>${title}</h2>${body}</section>`;
   const ul = (xs) => (xs.length ? `<ul>${xs.map((x) => `<li>${x}</li>`).join("")}</ul>` : empty());
-  return head("SAR รายงานการประเมินตนเอง", `ปีการศึกษา 2569 ข้อมูลดึงจากทุกเมนูอัตโนมัติ`,
-    `<button class="btn" data-act="print">พิมพ์ / บันทึกเป็น PDF</button>`) +
+  return head("SAR รายงานการประเมินตนเอง", "ข้อมูลดึงจากทุกเมนูอัตโนมัติ",
+    `<button class="btn" data-act="print">พิมพ์ / บันทึกเป็น PDF</button><button class="btn ghost" data-act="editSar">แก้จุดเด่น จุดที่ควรพัฒนา</button>`) +
     sec("1", "ข้อมูลพื้นฐาน", `<dl class="kv"><dt>ชื่อ</dt><dd>${esc(p.name)}</dd><dt>ตำแหน่ง</dt><dd>${esc(p.position)} ${esc(p.academicStanding)}</dd>
       <dt>โรงเรียน</dt><dd>${esc(p.school)}</dd><dt>กลุ่มสาระ</dt><dd>${esc(p.learningArea)}</dd><dt>หน้าที่พิเศษ</dt><dd>${esc(p.homeroom)}</dd></dl>`) +
     sec("2", "ภาระงานสอน", `<p>ภาคเรียนที่ ${esc(s.term)} สอน ${(s.classes || []).length} คาบต่อสัปดาห์ ในรายวิชา ${esc((p.subjects || []).join(", "))}</p>`) +
     sec("3", "ผลสัมฤทธิ์ทางการเรียน", totals.length
-      ? `<p>${esc(g.subject)} ห้อง ${esc(g.room)} นักเรียน ${totals.length} คน ได้ผลการเรียน 3 ขึ้นไป ${good} คน (${Math.round((good / totals.length) * 100)}%)</p>` : empty()) +
+      ? `<p>${esc(g.subject)} ห้อง ${esc(g.room)} นักเรียน ${totals.length} คน ได้ผลการเรียน 3 ขึ้นไป ${good} คน (${Math.round((good / totals.length) * 100)}%)</p>` : empty("ยังไม่มีคะแนน")) +
     sec("4", "งานที่ได้รับมอบหมาย", ul(list("responsibilities").map((r) => esc(r.title)))) +
     sec("5", "การดูแลช่วยเหลือนักเรียน", `<p>คัดกรองนักเรียน ${care.length} คน เยี่ยมบ้าน ${care.filter((c) => c.visit).length} คน ส่งต่อ ${care.filter((c) => c.screen === "กลุ่มมีปัญหา").length} คน</p>`) +
     sec("6", "การพัฒนาตนเอง", `<p>รวม ${hours} ชั่วโมง ${tr.length} รายการ</p>` + ul(tr.map((t) => `${esc(t.title)} (${esc(t.hours)} ชม.)`))) +
     sec("7", "ผลงานและรางวัล", ul([...list("works").map((w) => esc(w.title)), ...list("certificates").filter((c) => c.type !== "เกียรติบัตร").map((c) => esc(c.title))])) +
-    sec("8", "จุดเด่น จุดที่ควรพัฒนา และแนวทางพัฒนา", `<dl class="kv"><dt>จุดเด่น</dt><dd>${esc(notes.strengths)}</dd><dt>จุดที่ควรพัฒนา</dt><dd>${esc(notes.improve)}</dd><dt>แนวทางพัฒนา</dt><dd>${esc(notes.plan)}</dd></dl>`) +
+    sec("8", "จุดเด่น จุดที่ควรพัฒนา และแนวทางพัฒนา", `<dl class="kv"><dt>จุดเด่น</dt><dd>${esc(notes.strengths) || "-"}</dd><dt>จุดที่ควรพัฒนา</dt><dd>${esc(notes.improve) || "-"}</dd><dt>แนวทางพัฒนา</dt><dd>${esc(notes.plan) || "-"}</dd></dl>`) +
     `<p class="meta">หัวข้อจะปรับให้ตรงกับแบบฟอร์ม SAR ของโรงเรียนในระยะ 8 ระยะ 10 จะมี AI ช่วยร่างข้อความ</p>`;
 };
 App.actions.print = () => window.print();
+App.actions.editSar = () => editKV("จุดเด่น จุดที่ควรพัฒนา และแนวทางพัฒนา", "sarNotes", [
+  { key: "strengths", label: "จุดเด่น", type: "textarea", rows: 4 }, { key: "improve", label: "จุดที่ควรพัฒนา", type: "textarea", rows: 4 },
+  { key: "plan", label: "แนวทางพัฒนา", type: "textarea", rows: 4 },
+]);
 
 // ---------- ส่วนตัวและตั้งค่า ----------
 App.pages["admin/leaves"] = () => {
   const rows = arr("leaves");
   const sum = (t) => rows.filter((r) => r.type === t).reduce((a, r) => a + (Number(r.days) || 0), 0);
-  return head("การลา", "สถิติวันลาสะสมในปีงบประมาณ", addBtn("leaves", "บันทึกการลา")) +
+  return head("การลา", "สถิติวันลาสะสม", addBtn("leaves", "บันทึกการลา")) +
     `<div class="stats">${["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ"].map((t, i) =>
       `<div class="stat" style="--sc:${[C.coral, C.gold, C.mint, C.sky][i]}"><b>${sum(t)}</b><span>${t} (วัน)</span></div>`).join("")}</div>` +
-    table([{ label: "ประเภท", render: (r) => `<span class="tag">${esc(r.type)}</span>` }, dateCol("from", "ตั้งแต่"), dateCol("to", "ถึง"),
-      { label: "วัน", key: "days", cls: "num" }, { label: "เหตุผล", key: "reason" }], rows);
+    table([tagCol("ประเภท", "type"), dateCol("from", "ตั้งแต่"), dateCol("to", "ถึง"),
+      { label: "วัน", key: "days", cls: "num" }, { label: "เหตุผล", key: "reason" }, { label: "", render: (r) => tools("leaves", r), cls: "nowrap" }], rows);
 };
-App.adders.leaves = () => openForm("บันทึกการลา", [
-  { key: "type", label: "ประเภท", options: ["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ"] }, { key: "from", label: "ตั้งแต่", type: "date", required: true },
-  { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number" }, { key: "reason", label: "เหตุผล" },
-], (r) => arr("leaves").unshift(r));
+
+App.pages["admin/profile"] = () => {
+  const p = App.DATA.profile || {};
+  const rowsKV = [["ชื่อ-นามสกุล", p.name], ["ตำแหน่ง", p.position], ["วิทยฐานะ", p.academicStanding], ["โรงเรียน", p.school], ["สังกัด", p.office],
+    ["กลุ่มสาระ", p.learningArea], ["วิชาที่สอน", (p.subjects || []).join(", ")], ["หน้าที่พิเศษ", p.homeroom], ["อีเมลติดต่อ (แสดงสาธารณะ)", p.contactEmail],
+    ["ลิงก์รูปโปรไฟล์", p.photo], ["ปรัชญาการสอน", p.philosophy]];
+  return head("โปรไฟล์", "ข้อมูลนี้แสดงในหน้าแรกของหน้าสาธารณะ", `<button class="btn" data-act="editProfile">แก้ไขโปรไฟล์</button>`) +
+    `<section class="panel"><dl class="kv">${rowsKV.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v) || `<span class="meta">-</span>`}</dd>`).join("")}</dl></section>
+    <h2>ประวัติการศึกษา</h2>` +
+    table([{ label: "วุฒิ", key: "degree" }, { label: "สถาบัน", key: "institution" }, { label: "ปี", key: "year", cls: "num" }], p.education || []) +
+    `<p class="meta">ห้ามใส่เลขบัตรประชาชน เบอร์โทร หรือที่อยู่ เพราะโปรไฟล์ทั้งหมดแสดงในหน้าสาธารณะ</p>`;
+};
+App.actions.editProfile = () => editKV("แก้ไขโปรไฟล์", "profile", [
+  { key: "name", label: "ชื่อ-นามสกุล", required: true }, { key: "position", label: "ตำแหน่ง", hint: "เช่น ครู" },
+  { key: "academicStanding", label: "วิทยฐานะ", hint: "เช่น ครูชำนาญการ" }, { key: "school", label: "โรงเรียน" }, { key: "office", label: "สังกัด" },
+  { key: "learningArea", label: "กลุ่มสาระ" }, { key: "subjects", label: "วิชาที่สอน", hint: "คั่นด้วยจุลภาค", get: (o) => (o.subjects || []).join(", ") },
+  { key: "homeroom", label: "หน้าที่พิเศษ", hint: "เช่น ครูที่ปรึกษา ม.4/2" }, { key: "contactEmail", label: "อีเมลติดต่อ (แสดงสาธารณะ เว้นว่างได้)", type: "email" },
+  { key: "photo", label: "ลิงก์รูปโปรไฟล์", type: "url" }, { key: "philosophy", label: "ปรัชญาการสอน", type: "textarea" },
+  { key: "education", label: "ประวัติการศึกษา", type: "textarea", rows: 4, hint: "บรรทัดละวุฒิ รูปแบบ วุฒิ | สถาบัน | ปี",
+    get: (o) => (o.education || []).map((e) => [e.degree, e.institution, e.year].join(" | ")).join("\n") },
+], (o, r) => {
+  Object.assign(o, r, {
+    subjects: splitList(r.subjects),
+    education: String(r.education || "").split("\n").map((l) => l.split("|").map((x) => x.trim())).filter((x) => x[0])
+      .map(([degree, institution = "", year = ""]) => ({ degree, institution, year })),
+  });
+});
 
 App.pages["admin/career"] = () => {
   const p = App.DATA.profile || {};
   const rows = [...arr("career")].sort(byDateDesc);
   return head("ประวัติและวิทยฐานะ", `${esc(p.position)} ${esc(p.academicStanding)}`, addBtn("career", "เพิ่มเหตุการณ์")) +
-    `<ol class="timeline">${rows.map((r) => `<li><b>${thDate(r.date)}</b><span>${esc(r.event)}</span></li>`).join("")}</ol>
-    <h2>ประวัติการศึกษา</h2>` +
-    table([{ label: "วุฒิ", key: "degree" }, { label: "สถาบัน", key: "institution" }, { label: "ปี", key: "year", cls: "num" }], p.education || []) +
+    (rows.length ? `<ol class="timeline">${rows.map((r) => `<li><b>${thDate(r.date)}</b><span>${esc(r.event)}</span>${tools("career", r)}</li>`).join("")}</ol>` : empty()) +
     `<p class="meta">ระยะ 10 จะเพิ่มเครื่องราชอิสริยาภรณ์และเส้นทางเลื่อนวิทยฐานะ</p>`;
 };
-App.adders.career = () => openForm("เพิ่มเหตุการณ์", [
-  { key: "date", label: "วันที่", type: "date", required: true }, { key: "event", label: "เหตุการณ์ (เช่น เลื่อนวิทยฐานะ ย้ายโรงเรียน)", required: true },
-], (r) => arr("career").unshift(r));
 
 const SHARE_KEYS = [["responsibilities", "งานที่รับผิดชอบ"], ["plans", "แผนการสอนและสื่อ"], ["reflections", "บันทึกหลังสอน"], ["supervision", "ผลการนิเทศ"],
   ["activities", "กิจกรรมพัฒนาผู้เรียน"], ["projects", "โครงการ"], ["trainings", "อบรม / PLC"], ["certificates", "เกียรติบัตรและรางวัล"],
-  ["works", "ผลงาน"], ["evidence", "หลักฐาน"], ["reports", "SAR / PA"]];
+  ["works", "ผลงาน"], ["evidence", "หลักฐาน"], ["reports", "รายงาน SAR / PA"]];
 App.pages["admin/sharing"] = () => {
   const n = (k, v) => arr(k).filter((i) => i.vis === v).length;
   const site = location.origin;
-  return head("การเผยแพร่", "เลือกว่ารายการไหนแสดงในหน้าสาธารณะ ค่าเริ่มต้นของรายการใหม่คือส่วนตัว") +
+  return head("การเผยแพร่", "แตะป้าย \"ส่วนตัว / สาธารณะ\" ในแต่ละรายการเพื่อสลับ ค่าเริ่มต้นของรายการใหม่คือส่วนตัว", addBtn("reports", "เพิ่มรายงาน SAR / PA")) +
     `<div class="cols">
       <section class="panel"><h2>หน้าสาธารณะ</h2>
         <p>ทุกคนที่มีลิงก์เปิดดูได้ รวมถึงผู้บริหารและกรรมการประเมิน</p>
-        <p class="meta">ลิงก์: <a href="${esc(site)}/">${esc(site)}/</a></p>
-        <a class="btn ghost" href="#/">ดูหน้าสาธารณะ</a></section>
+        <p class="meta">ลิงก์: <a href="${esc(site)}/" target="_blank" rel="noopener">${esc(site)}/</a></p>
+        <a class="btn ghost" href="/" target="_blank" rel="noopener">เปิดหน้าสาธารณะ</a></section>
       <section class="panel"><h2>QR Code</h2>
         <div class="qr-ph">QR Code<br><span class="meta">สร้างอัตโนมัติในระยะ 6</span></div>
         <p class="meta">ใช้ติดหน้าแฟ้มหรือสไลด์นำเสนอ สแกนแล้วเปิดหน้าสาธารณะ</p></section>
     </div>
-    <h2>สรุปการเผยแพร่แต่ละเมนู</h2>` +
+    <h2>รายงาน SAR / PA ที่เผยแพร่</h2>` +
+    table([{ label: "รายงาน", render: (r) => (safeUrl(r.link) ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.title)}</a>` : esc(r.title)) },
+      tagCol("ประเภท", "type"), { label: "ปีการศึกษา", key: "year", cls: "num" }, { label: "", render: (r) => tools("reports", r), cls: "nowrap" }], arr("reports")) +
+    `<h2>สรุปการเผยแพร่แต่ละเมนู</h2>` +
     table([{ label: "เมนู", render: (r) => r[1] }, { label: "สาธารณะ", cls: "num", render: (r) => n(r[0], "public") },
       { label: "ส่วนตัว", cls: "num", render: (r) => n(r[0], "private") }], SHARE_KEYS) +
-    `<p class="meta">ข้อมูลนักเรียน คะแนน การเช็กชื่อ การดูแลช่วยเหลือ การลา และหนังสือราชการ เป็นส่วนตัวเสมอ</p>`;
+    `<p class="meta">ข้อมูลนักเรียน คะแนน การเช็กชื่อ การดูแลช่วยเหลือ การลา หนังสือราชการ และบันทึกการประชุม เป็นส่วนตัวเสมอ</p>`;
 };
 
-App.pages.pa = App.pages["admin/pa"];
+App.pages["admin/backup"] = () =>
+  head("สำรองข้อมูล", "ดาวน์โหลดข้อมูลทั้งหมดเก็บไว้ แนะนำเดือนละครั้ง") +
+  `<div class="cols">
+    <section class="panel"><h2>ดาวน์โหลดไฟล์สำรอง</h2>
+      <p>ได้ไฟล์ .json หนึ่งไฟล์ เก็บไว้ใน Google Drive ได้ ไฟล์นี้มีข้อมูลส่วนตัวทั้งหมด อย่าแชร์ให้คนอื่น</p>
+      <a class="btn" href="/api/admin/export" download>ดาวน์โหลดไฟล์สำรอง</a></section>
+    <section class="panel"><h2>กู้คืนจากไฟล์สำรอง</h2>
+      <p>ข้อมูลทั้งหมดตอนนี้จะถูก<b>แทนที่</b>ด้วยข้อมูลในไฟล์</p>
+      <label class="field">เลือกไฟล์ .json<input type="file" id="restoreFile" accept="application/json,.json"></label>
+      <button class="btn ghost" data-act="restore">กู้คืนข้อมูล</button></section>
+  </div>
+  <section class="panel"><h2>เริ่มใหม่ด้วยข้อมูลตัวอย่าง</h2>
+    <p>ลบข้อมูลทั้งหมดแล้วใส่ข้อมูลตัวอย่างแทน ใช้ตอนอยากลองระบบ</p>
+    <button class="btn ghost danger" data-act="resetDemo">ลบทั้งหมดแล้วใส่ข้อมูลตัวอย่าง</button></section>`;
+App.actions.restore = async () => {
+  const f = $("#restoreFile").files[0];
+  if (!f) return toast("เลือกไฟล์สำรองก่อน");
+  let data;
+  try { data = JSON.parse(await f.text()); } catch { return toast("ไฟล์นี้ไม่ใช่ไฟล์สำรองที่ถูกต้อง"); }
+  if (!confirm("ข้อมูลทั้งหมดตอนนี้จะถูกแทนที่ด้วยข้อมูลในไฟล์ ดำเนินการต่อไหม?")) return;
+  try { await api("POST", "/api/admin/import?replace=1", data); toast("กู้คืนแล้ว"); await App.bootAdmin(); } catch (e) { toast(e.message); }
+};
+App.actions.resetDemo = async () => {
+  if (!confirm("ข้อมูลทั้งหมดจะถูกลบและแทนด้วยข้อมูลตัวอย่าง แนะนำให้ดาวน์โหลดไฟล์สำรองก่อน ดำเนินการต่อไหม?")) return;
+  try {
+    await api("POST", "/api/admin/import?replace=1", await (await fetch(DEMO_URL, { cache: "no-cache" })).json());
+    toast("ใส่ข้อมูลตัวอย่างแล้ว");
+    await App.bootAdmin();
+  } catch (e) { toast(e.message); }
+};
+
+// ---------- ตั้งค่าเว็บ: ครูปรับแต่งเองได้ทั้งหมด ----------
+const settingsObj = () => (App.DATA.settings = App.DATA.settings || {});
+const saveSettings = async (mutate) => {
+  const st = settingsObj();
+  const backup = JSON.stringify(st);
+  mutate(st);
+  try { await saveKV("settings"); } catch (e) { App.DATA.settings = JSON.parse(backup); throw e; }
+  App.setData(App.DATA);
+};
+const MODE_LABEL = { public: "หน้าสาธารณะ", admin: "หน้าครู" };
+const menuRows = () => Object.entries(App.navBase()).flatMap(([mode, groups]) =>
+  groups.flatMap((g) => g.items.map((i) => ({ ...i, mode, group: g.group || "" }))));
+
+App.pages["admin/settings"] = () => {
+  const st = settingsObj();
+  const menus = st.menus || {};
+  const optionFields = Object.entries(FORMS).flatMap(([key, F]) =>
+    F.fields.filter((f) => f.options && f.key !== "vis").map((f) => ({ key, f, name: F.name, custom: !!st.options?.[`${key}.${f.key}`] })));
+  return head("ตั้งค่าเว็บ", "ปรับชื่อเว็บ เมนู สี ตัวเลือกในฟอร์ม และตัวชี้วัด PA ได้เอง การตั้งค่าบันทึกทันที") +
+    `<section class="panel"><h2 class="row-head">ชื่อเว็บ <button class="btn ghost small" data-act="setTitle">แก้ไข</button></h2>
+      <p>${esc(st.siteTitle || "") || `<span class="meta">ยังไม่ได้ตั้ง (ใช้ชื่อครูแทน)</span>`}</p>
+      <p class="meta">แสดงบนแท็บเบราว์เซอร์และตอนแชร์ลิงก์</p></section>` +
+    `<h2>เมนู</h2><p class="meta">เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ</p>` +
+    table([{ label: "หน้า", render: (r) => MODE_LABEL[r.mode] }, { label: "กลุ่ม", key: "group" },
+      { label: "ชื่อเมนู", render: (r) => `<span class="swatch" style="background:${esc(menus[r.route]?.c || r.c)}"></span>${esc(menus[r.route]?.label || r.label)}` },
+      { label: "สถานะ", render: (r) => (LOCKED_ROUTES.has(r.route) ? `<span class="meta">ซ่อนไม่ได้</span>` : menus[r.route]?.hidden ? `<span class="vis v-private">ซ่อนอยู่</span>` : `<span class="vis v-public">แสดง</span>`) },
+      { label: "", cls: "nowrap", render: (r) => `<span class="acts"><button class="ico" data-act="setMenu" data-route="${esc(r.route)}">ปรับ</button></span>` }], menuRows()) +
+    `<h2>ตัวเลือกในฟอร์ม</h2><p class="meta">เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน</p>` +
+    table([{ label: "เมนู", key: "name" }, { label: "ช่อง", render: (r) => esc(r.f.label) },
+      { label: "ตัวเลือก", render: (r) => optionsFor(r.key, r.f).map((o) => `<span class="tag">${esc(o)}</span>`).join(" ") + (r.custom ? ` <span class="meta">(แก้แล้ว)</span>` : "") },
+      { label: "", cls: "nowrap", render: (r) => `<span class="acts"><button class="ico" data-act="setOptions" data-key="${r.key}" data-field="${r.f.key}">แก้ไข</button></span>` }], optionFields) +
+    `<section class="panel" style="margin-top:20px"><h2 class="row-head">ตัวชี้วัด PA <button class="btn ghost small" data-act="setPA">แก้ไข</button></h2>
+      <p>${PA === DEFAULT_PA ? "ใช้ค่าตั้งต้นตาม ว 9/2564 (15 ตัวชี้วัด)" : `กำหนดเอง ${PA_CODES.length} ตัวชี้วัด`}</p>
+      <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section>` +
+    `<section class="panel"><h2>คืนค่าตั้งต้น</h2><p>ล้างการตั้งค่าทั้งหมดในหน้านี้ ข้อมูลอื่นไม่หาย</p>
+      <button class="btn ghost danger" data-act="resetSettings">คืนค่าตั้งต้นทั้งหมด</button></section>`;
+};
+App.actions.setTitle = () => editKV("ชื่อเว็บ", "settings", [{ key: "siteTitle", label: "ชื่อเว็บ", hint: "เช่น แฟ้มสะสมผลงาน ครูสมศรี" }],
+  (o, r) => { o.siteTitle = r.siteTitle; });
+App.actions.setMenu = (b) => {
+  const route = b.dataset.route;
+  const base = menuRows().find((r) => r.route === route);
+  const cur = settingsObj().menus?.[route] || {};
+  const fields = [
+    { key: "label", label: "ชื่อเมนู", value: cur.label || base.label, required: true },
+    { key: "c", label: "สีประจำเมนู", type: "color", value: cur.c || base.c },
+  ];
+  if (!LOCKED_ROUTES.has(route)) fields.push({ key: "show", label: "แสดงเมนูนี้ไหม", options: ["แสดง", "ซ่อน"], value: cur.hidden ? "ซ่อน" : "แสดง" });
+  openForm(`ปรับเมนู "${base.label}"`, fields, (r) => saveSettings((st) => {
+    st.menus = st.menus || {};
+    st.menus[route] = {
+      ...(r.label !== base.label ? { label: r.label } : {}),
+      ...(r.c.toLowerCase() !== base.c.toLowerCase() ? { c: r.c } : {}),
+      ...(r.show === "ซ่อน" ? { hidden: true } : {}),
+    };
+    if (!Object.keys(st.menus[route]).length) delete st.menus[route];
+  }));
+};
+App.actions.setOptions = (b) => {
+  const { key, field } = b.dataset;
+  const f = FORMS[key].fields.find((x) => x.key === field);
+  openForm(`ตัวเลือก: ${FORMS[key].name} / ${f.label}`, [
+    { key: "list", label: "ตัวเลือก", type: "textarea", rows: 8, hint: "บรรทัดละตัวเลือก เว้นว่างทั้งหมด = กลับไปใช้ค่าตั้งต้น", value: optionsFor(key, f).join("\n") },
+  ], (r) => saveSettings((st) => {
+    st.options = st.options || {};
+    const list = r.list.split("\n").map((x) => x.trim()).filter(Boolean);
+    if (list.length && list.join("|") !== f.options.join("|")) st.options[`${key}.${field}`] = list;
+    else delete st.options[`${key}.${field}`];
+  }));
+};
+App.actions.setPA = () => openForm("ตัวชี้วัด PA", [
+  { key: "pa", label: "ตัวชี้วัด", type: "textarea", rows: 18, value: paToText(PA),
+    hint: "บรรทัดที่ขึ้นต้นด้วย # คือชื่อด้าน บรรทัดอื่นคือ รหัส | ชื่อตัวชี้วัด เว้นว่างทั้งหมด = กลับไปใช้ ว 9/2564" },
+], (r) => saveSettings((st) => {
+  const parsed = paFromText(r.pa);
+  if (parsed.length && r.pa.trim() !== paToText(DEFAULT_PA).trim()) st.paText = r.pa; else delete st.paText;
+}));
+App.actions.resetSettings = async () => {
+  if (!confirm("คืนค่าตั้งต้นของชื่อเว็บ เมนู ตัวเลือก และตัวชี้วัด PA ทั้งหมดใช่ไหม?")) return;
+  try { await saveSettings((st) => { for (const k of Object.keys(st)) delete st[k]; }); toast("คืนค่าตั้งต้นแล้ว"); render(); } catch (e) { toast(e.message); }
+};
+
+// ---------- เข้าสู่ระบบ และเริ่มต้นครั้งแรก ----------
+App.banner = () =>
+  App.mode === "admin" && JSON.stringify(App.DATA).includes("(ตัวอย่าง)")
+    ? `<div class="notice">ยังมีข้อมูลตัวอย่างอยู่ แก้หรือลบรายการที่ขึ้นต้นด้วย "(ตัวอย่าง)" ก่อนให้คนอื่นดูหน้าสาธารณะ</div>`
+    : "";
+
+const screen = (html) => {
+  document.body.dataset.auth = "out";
+  main.innerHTML = `<div class="auth-wrap"><div class="auth-card">${html}</div></div>`;
+};
+
+App.showLogin = (msg = "") => {
+  screen(`<div class="avatar big">ค</div><h1>หน้าครู</h1><p class="meta">ใส่รหัสผ่านที่ตั้งไว้ใน Cloudflare</p>
+    <form id="loginForm"><label class="field">รหัสผ่าน<input type="password" id="pw" autocomplete="current-password" required></label>
+    <p class="auth-err" id="loginErr">${esc(msg)}</p><button class="btn wide">เข้าสู่ระบบ</button></form>
+    <a class="meta" href="/">กลับหน้าสาธารณะ</a>`);
+  $("#pw").focus();
+  $("#loginForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector("button");
+    btn.disabled = true;
+    try {
+      await api("POST", "/api/login", { password: $("#pw").value });
+      await App.bootAdmin();
+    } catch (err) {
+      $("#loginErr").textContent = err.message;
+      btn.disabled = false;
+    }
+  };
+};
+
+const BLANK = {
+  profile: { name: "", position: "ครู", academicStanding: "", school: "", subjects: [], education: [] },
+  schedule: { term: "", classes: [], periods: ["08:30–09:20", "09:20–10:10", "10:20–11:10", "11:10–12:00", "13:00–13:50", "13:50–14:40", "14:40–15:30"].map((time, i) => ({ no: i + 1, time })) },
+  grades: { subject: "", room: "", parts: DEFAULT_PARTS, scores: {} },
+  attendance: {}, attendanceDates: [], sarNotes: {},
+};
+const showSetup = () => {
+  screen(`<h1>ยินดีต้อนรับ</h1><p>ฐานข้อมูลยังว่าง เลือกวิธีเริ่มต้น</p>
+    <div class="stack">
+      <button class="btn wide" data-setup="blank">เริ่มจากว่าง แล้วกรอกข้อมูลจริง</button>
+      <button class="btn ghost wide" data-setup="demo">เริ่มด้วยข้อมูลตัวอย่าง (ลองใช้ก่อน ลบทีหลังได้)</button>
+    </div>`);
+  main.querySelectorAll("[data-setup]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    try {
+      const src = b.dataset.setup === "demo" ? await (await fetch(DEMO_URL, { cache: "no-cache" })).json() : BLANK;
+      await api("POST", "/api/admin/import", src);
+      if (b.dataset.setup === "blank") location.hash = "#/profile";
+      await App.bootAdmin();
+    } catch (e) { toast(e.message); b.disabled = false; }
+  }));
+};
+
+App.bootAdmin = async () => {
+  let data;
+  try {
+    data = await api("GET", "/api/admin/data");
+  } catch (e) {
+    if (e.status === 401) return App.showLogin();
+    return screen(`<h1>เชื่อมต่อฐานข้อมูลไม่ได้</h1><p>${esc(e.message)}</p><button class="btn" onclick="location.reload()">ลองใหม่</button>`);
+  }
+  if (data._empty) return showSetup();
+  delete data._empty;
+  document.body.dataset.auth = "in";
+  App.setData(data);
+  render();
+};
+
+$("#logoutBtn")?.addEventListener("click", async () => {
+  await api("POST", "/api/logout").catch(() => {});
+  App.DATA = null;
+  App.showLogin("ออกจากระบบแล้ว");
+});
 
 App.boot();
