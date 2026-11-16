@@ -227,7 +227,6 @@ table.sched { border-collapse: separate; border-spacing: 4px; width: 100%; min-w
 
 .vis { display: inline-block; font-size: .75rem; padding: 2px 10px; border-radius: 999px; font-weight: 500; white-space: nowrap; }
 .v-public { background: #e2f7ee; color: #0b6b4c; }
-.v-review { background: #e6e9fd; color: #2a37a8; }
 .v-private { background: #eef0f3; color: #4b5563; }
 
 /* ตารางข้อมูล */

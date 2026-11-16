@@ -1,4 +1,5 @@
-// แฟ้มสะสมผลงานครู — แกนหลัก: เมนูตามโหมด, router, ส่วนประกอบที่ใช้ร่วมกัน, หน้าผู้เข้าชม
+// แฟ้มสะสมผลงานครู — 2 มุมมอง: สาธารณะ (#/) และครู (#/admin)
+// แกนหลัก: เมนูตามโหมด, router, ส่วนประกอบที่ใช้ร่วมกัน, หน้าผู้เข้าชม
 // ตอนนี้อ่านข้อมูลตัวอย่างจาก JSON  ระยะ 2 จะเปลี่ยน DATA_URL เป็น API ที่ต่อกับ D1
 const DATA_URL = "/data/demo.json";
 const DAYS = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์"];
@@ -19,18 +20,8 @@ App.NAV = {
     { route: "certificates", label: "เกียรติบัตรและรางวัล", c: C.gold },
     { route: "trainings", label: "การพัฒนาตนเอง", c: C.mint },
     { route: "works", label: "ผลงานเด่น", c: C.pink },
+    { route: "pa", label: "หลักฐานตามตัวชี้วัด PA", c: C.indigo },
     { route: "reports", label: "SAR / PA", c: C.indigo },
-  ] }],
-  review: [{ items: [
-    { route: "review", label: "หน้าแรก", c: C.violet },
-    { route: "review/pa", label: "หลักฐานตามตัวชี้วัด PA", c: C.indigo },
-    { route: "review/sar", label: "SAR", c: C.indigo },
-    { route: "review/supervision", label: "ผลการนิเทศ", c: C.sky },
-    { route: "review/certificates", label: "เกียรติบัตรและรางวัล", c: C.gold },
-    { route: "review/trainings", label: "การพัฒนาตนเอง", c: C.mint },
-    { route: "review/works", label: "ผลงาน", c: C.pink },
-    { route: "review/responsibilities", label: "งานที่รับผิดชอบ", c: C.coral },
-    { route: "review/feedback", label: "ให้ข้อเสนอแนะ", c: C.teal },
   ] }],
   admin: [
     { group: "ภาพรวม", items: [{ route: "admin", label: "แดชบอร์ด", c: C.violet }] },
@@ -101,14 +92,14 @@ const initials = (name) => (name || "?").trim().charAt(0);
 const byDateDesc = (a, b) => String(b.date || "").localeCompare(String(a.date || ""));
 const empty = (msg = "ยังไม่มีข้อมูล") => `<p class="empty">${msg}</p>`;
 
-// ข้อมูลตามสิทธิ์ของโหมด: ผู้เข้าชมเห็น public, ผู้ประเมินเห็น public + review, ครูเห็นทั้งหมด
-const VIS_ALLOWED = { public: ["public"], review: ["public", "review"], admin: ["public", "review", "private"] };
+// ข้อมูลตามสิทธิ์ของโหมด: หน้าสาธารณะเห็นเฉพาะ public, ครูเห็นทั้งหมด
+const VIS_ALLOWED = { public: ["public"], admin: ["public", "private"] };
 const list = (key) => {
   const arr = Array.isArray(App.DATA?.[key]) ? App.DATA[key] : [];
   return arr.filter((i) => !i.vis || VIS_ALLOWED[App.mode].includes(i.vis));
 };
 
-const VIS = { public: ["สาธารณะ", "v-public"], review: ["ผู้ประเมิน", "v-review"], private: ["ส่วนตัว", "v-private"] };
+const VIS = { public: ["สาธารณะ", "v-public"], private: ["ส่วนตัว", "v-private"] };
 const visBadge = (v) => (v && VIS[v] ? `<span class="vis ${VIS[v][1]}">${VIS[v][0]}</span>` : "");
 
 const head = (title, sub = "", actions = "") =>
@@ -164,12 +155,11 @@ const openForm = (title, fields, onSave) => {
   dlg.showModal();
 };
 
-// ---------- หน้าผู้เข้าชม (ใช้ซ้ำในโหมดผู้ประเมิน) ----------
+// ---------- หน้าสาธารณะ (โหมดครูใช้ซ้ำบางหน้า) ----------
 App.pages[""] = () => {
   const p = App.DATA.profile || {};
   const hours = list("trainings").reduce((s, t) => s + (Number(t.hours) || 0), 0);
   const photo = safeUrl(p.photo);
-  const base = App.mode === "review" ? "review/" : "";
   return `
     <header class="band hero">
       <div class="hero-photo ${photo ? "photo" : ""}" style="${photo ? `background-image:url('${esc(photo)}')` : ""}">${photo ? "" : esc(initials(p.name))}</div>
@@ -183,10 +173,10 @@ App.pages[""] = () => {
     </header>
     ${p.philosophy ? `<blockquote class="quote"><b>ปรัชญาการสอน</b>${esc(p.philosophy)}</blockquote>` : ""}
     <div class="stats">
-      <a class="stat" style="--sc:${C.coral}" href="#/${base}responsibilities"><b>${list("responsibilities").length}</b><span>งานที่รับผิดชอบ</span></a>
-      <a class="stat" style="--sc:${C.gold}" href="#/${base}certificates"><b>${list("certificates").length}</b><span>เกียรติบัตรและรางวัล</span></a>
-      <a class="stat" style="--sc:${C.mint}" href="#/${base}trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
-      <a class="stat" style="--sc:${C.pink}" href="#/${base}works"><b>${list("works").length}</b><span>ผลงานเด่น</span></a>
+      <a class="stat" style="--sc:${C.coral}" href="#/responsibilities"><b>${list("responsibilities").length}</b><span>งานที่รับผิดชอบ</span></a>
+      <a class="stat" style="--sc:${C.gold}" href="#/certificates"><b>${list("certificates").length}</b><span>เกียรติบัตรและรางวัล</span></a>
+      <a class="stat" style="--sc:${C.mint}" href="#/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
+      <a class="stat" style="--sc:${C.pink}" href="#/works"><b>${list("works").length}</b><span>ผลงานเด่น</span></a>
     </div>
     ${(p.education || []).length ? `
       <h2>ประวัติการศึกษา</h2>
@@ -301,13 +291,13 @@ App.pages.reports = () => {
 function parseHash() {
   const raw = location.hash.replace(/^#\/?/, "");
   const [path, qs = ""] = raw.split("?");
-  const mode = path.startsWith("admin") ? "admin" : path.startsWith("review") ? "review" : "public";
+  const mode = path.startsWith("admin") ? "admin" : "public";
   const route = navItem(path) || App.pages[path] ? path : mode === "public" ? "" : mode;
   return { route, mode, q: Object.fromEntries(new URLSearchParams(qs)) };
 }
 
-// หน้าที่ใช้ร่วมกันระหว่างโหมด: review/certificates → certificates
-const pageFor = (route) => App.pages[route] || App.pages[route.replace(/^(review|admin)\//, "")];
+// หน้าที่ใช้ร่วมกันระหว่างโหมด: admin/certificates → certificates
+const pageFor = (route) => App.pages[route] || App.pages[route.replace(/^admin\//, "")];
 
 function buildNav(mode) {
   $("#nav").innerHTML = App.NAV[mode].map((g) =>
@@ -325,9 +315,7 @@ function render() {
   const page = pageFor(route);
   const banner = mode === "admin"
     ? `<div class="notice">โหมดครู (ต้นแบบ): ข้อมูลทั้งหมดเป็นตัวอย่าง ปุ่มเพิ่มข้อมูลใช้ทดลองได้แต่ยังไม่บันทึกถาวร ระยะ 2 จะต่อฐานข้อมูลและล็อกหน้านี้ด้วย Cloudflare Access</div>`
-    : mode === "review"
-      ? `<div class="notice">โหมดผู้ประเมิน (ต้นแบบ): ระยะ 6 จะเปิดให้เข้าได้เฉพาะอีเมลที่ครูอนุญาต</div>`
-      : "";
+    : "";
   main.innerHTML = banner + (page ? page({ q, route }) : empty("ไม่พบหน้านี้"));
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   const label = navItem(route)?.label || "";

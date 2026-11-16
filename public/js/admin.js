@@ -1,9 +1,9 @@
-// โหมดครูและโหมดผู้ประเมิน (ต้นแบบ) — ทุกหน้าใช้ข้อมูลตัวอย่างจาก demo.json
+// โหมดครู (ต้นแบบ) — ทุกหน้าใช้ข้อมูลตัวอย่างจาก demo.json
 // ปุ่ม "+ เพิ่ม" เพิ่มเข้าหน่วยความจำชั่วคราว ระยะ 2 จะบันทึกลงฐานข้อมูล D1
 
-const VIS_OPTS = ["ส่วนตัว", "ผู้ประเมิน", "สาธารณะ"];
-const VIS_CODE = { "ส่วนตัว": "private", "ผู้ประเมิน": "review", "สาธารณะ": "public" };
-const visField = { key: "vis", label: "ใครเห็นรายการนี้", options: VIS_OPTS };
+const VIS_OPTS = ["ส่วนตัว", "สาธารณะ"];
+const VIS_CODE = { "ส่วนตัว": "private", "สาธารณะ": "public" };
+const visField = { key: "vis", label: "แสดงในหน้าสาธารณะไหม", options: VIS_OPTS };
 const arr = (key) => (App.DATA[key] = App.DATA[key] || []);
 const addTo = (key, rec) => arr(key).unshift({ ...rec, ...(rec.vis ? { vis: VIS_CODE[rec.vis] || rec.vis } : {}) });
 const addBtn = (key, label) => `<button class="btn" data-add="${key}">+ ${label}</button>`;
@@ -162,7 +162,7 @@ App.pages["admin/attendance"] = () => {
   const att = App.DATA.attendance || {};
   const studs = arr("students");
   return head("รายชื่อและเช็กชื่อ", `${esc(studs[0]?.room || "")} ${studs.length} คน แตะช่องเพื่อเปลี่ยนสถานะ`) +
-    `<p class="private-note">ข้อมูลนักเรียนเป็นข้อมูลส่วนบุคคล (PDPA) ระบบจะเก็บแบบส่วนตัวเสมอ ไม่แสดงในหน้าผู้เข้าชมหรือผู้ประเมิน</p>` +
+    `<p class="private-note">ข้อมูลนักเรียนเป็นข้อมูลส่วนบุคคล (PDPA) ระบบจะเก็บแบบส่วนตัวเสมอ ไม่แสดงในหน้าสาธารณะ</p>` +
     `<div class="table-wrap"><table class="data att"><thead><tr><th class="num">เลขที่</th><th>ชื่อ</th>${dates.map((d) => `<th class="num">${thDate(d).replace(/ \d{4}$/, "")}</th>`).join("")}<th class="num">มาเรียน</th></tr></thead><tbody>
     ${studs.map((s) => {
       const row = att[s.no] || [];
@@ -316,7 +316,6 @@ App.pages["admin/sar"] = () => {
   const good = totals.filter((t) => t >= 70).length;
   const care = arr("care");
   const notes = App.DATA.sarNotes || {};
-  const isAdmin = App.mode === "admin";
   const sec = (no, title, body) => `<section class="panel sar"><h2><span class="pa-code">${no}</span>${title}</h2>${body}</section>`;
   const ul = (xs) => (xs.length ? `<ul>${xs.map((x) => `<li>${x}</li>`).join("")}</ul>` : empty());
   return head("SAR รายงานการประเมินตนเอง", `ปีการศึกษา 2569 ข้อมูลดึงจากทุกเมนูอัตโนมัติ`,
@@ -327,9 +326,7 @@ App.pages["admin/sar"] = () => {
     sec("3", "ผลสัมฤทธิ์ทางการเรียน", totals.length
       ? `<p>${esc(g.subject)} ห้อง ${esc(g.room)} นักเรียน ${totals.length} คน ได้ผลการเรียน 3 ขึ้นไป ${good} คน (${Math.round((good / totals.length) * 100)}%)</p>` : empty()) +
     sec("4", "งานที่ได้รับมอบหมาย", ul(list("responsibilities").map((r) => esc(r.title)))) +
-    sec("5", "การดูแลช่วยเหลือนักเรียน", isAdmin
-      ? `<p>คัดกรองนักเรียน ${care.length} คน เยี่ยมบ้าน ${care.filter((c) => c.visit).length} คน ส่งต่อ ${care.filter((c) => c.screen === "กลุ่มมีปัญหา").length} คน</p>`
-      : `<p class="meta">สรุปเป็นตัวเลขโดยไม่เปิดเผยรายชื่อนักเรียน</p><p>คัดกรองนักเรียน ${care.length} คน เยี่ยมบ้าน ${care.filter((c) => c.visit).length} คน</p>`) +
+    sec("5", "การดูแลช่วยเหลือนักเรียน", `<p>คัดกรองนักเรียน ${care.length} คน เยี่ยมบ้าน ${care.filter((c) => c.visit).length} คน ส่งต่อ ${care.filter((c) => c.screen === "กลุ่มมีปัญหา").length} คน</p>`) +
     sec("6", "การพัฒนาตนเอง", `<p>รวม ${hours} ชั่วโมง ${tr.length} รายการ</p>` + ul(tr.map((t) => `${esc(t.title)} (${esc(t.hours)} ชม.)`))) +
     sec("7", "ผลงานและรางวัล", ul([...list("works").map((w) => esc(w.title)), ...list("certificates").filter((c) => c.type !== "เกียรติบัตร").map((c) => esc(c.title))])) +
     sec("8", "จุดเด่น จุดที่ควรพัฒนา และแนวทางพัฒนา", `<dl class="kv"><dt>จุดเด่น</dt><dd>${esc(notes.strengths)}</dd><dt>จุดที่ควรพัฒนา</dt><dd>${esc(notes.improve)}</dd><dt>แนวทางพัฒนา</dt><dd>${esc(notes.plan)}</dd></dl>`) +
@@ -367,47 +364,26 @@ App.adders.career = () => openForm("เพิ่มเหตุการณ์",
 
 const SHARE_KEYS = [["responsibilities", "งานที่รับผิดชอบ"], ["plans", "แผนการสอนและสื่อ"], ["reflections", "บันทึกหลังสอน"], ["supervision", "ผลการนิเทศ"],
   ["activities", "กิจกรรมพัฒนาผู้เรียน"], ["projects", "โครงการ"], ["trainings", "อบรม / PLC"], ["certificates", "เกียรติบัตรและรางวัล"],
-  ["works", "ผลงาน"], ["evidence", "หลักฐาน"], ["reports", "SAR / PA"], ["care", "ดูแลช่วยเหลือนักเรียน"]];
+  ["works", "ผลงาน"], ["evidence", "หลักฐาน"], ["reports", "SAR / PA"]];
 App.pages["admin/sharing"] = () => {
   const n = (k, v) => arr(k).filter((i) => i.vis === v).length;
   const site = location.origin;
-  return head("การเผยแพร่และสิทธิ์", "กำหนดว่าใครเห็นอะไร ค่าเริ่มต้นของรายการใหม่คือส่วนตัว") +
+  return head("การเผยแพร่", "เลือกว่ารายการไหนแสดงในหน้าสาธารณะ ค่าเริ่มต้นของรายการใหม่คือส่วนตัว") +
     `<div class="cols">
-      <section class="panel"><h2>ดูในมุมของคนอื่น</h2>
-        <div class="stack"><a class="btn ghost" href="#/">ดูแบบผู้เข้าชมทั่วไป</a><a class="btn ghost" href="#/review">ดูแบบผู้ประเมิน</a></div>
-        <p class="meta">ลิงก์หน้าสาธารณะ: <a href="${esc(site)}/">${esc(site)}/</a></p>
-        <div class="qr-ph">QR Code<br><span class="meta">สร้างอัตโนมัติในระยะ 6</span></div></section>
-      <section class="panel"><h2>ผู้ประเมินที่ได้รับอนุญาต</h2>` +
-        table([{ label: "ชื่อ", key: "name" }, { label: "อีเมล", key: "email" }, dateCol("until", "หมดสิทธิ์")], arr("reviewers")) +
-        `<button class="btn" data-add="reviewers" style="margin-top:12px">+ เพิ่มผู้ประเมิน</button>
-        <p class="meta">ระยะ 6 จะใช้รายชื่อนี้ตั้งค่า Cloudflare Access ให้เข้าหน้า /review ได้เฉพาะอีเมลเหล่านี้</p></section>
+      <section class="panel"><h2>หน้าสาธารณะ</h2>
+        <p>ทุกคนที่มีลิงก์เปิดดูได้ รวมถึงผู้บริหารและกรรมการประเมิน</p>
+        <p class="meta">ลิงก์: <a href="${esc(site)}/">${esc(site)}/</a></p>
+        <a class="btn ghost" href="#/">ดูหน้าสาธารณะ</a></section>
+      <section class="panel"><h2>QR Code</h2>
+        <div class="qr-ph">QR Code<br><span class="meta">สร้างอัตโนมัติในระยะ 6</span></div>
+        <p class="meta">ใช้ติดหน้าแฟ้มหรือสไลด์นำเสนอ สแกนแล้วเปิดหน้าสาธารณะ</p></section>
     </div>
-    <h2>สรุปการมองเห็นแต่ละเมนู</h2>` +
+    <h2>สรุปการเผยแพร่แต่ละเมนู</h2>` +
     table([{ label: "เมนู", render: (r) => r[1] }, { label: "สาธารณะ", cls: "num", render: (r) => n(r[0], "public") },
-      { label: "ผู้ประเมิน", cls: "num", render: (r) => n(r[0], "review") }, { label: "ส่วนตัว", cls: "num", render: (r) => n(r[0], "private") }], SHARE_KEYS) +
-    `<p class="meta">ข้อมูลนักเรียน คะแนน การเช็กชื่อ การลา และหนังสือราชการ เป็นส่วนตัวเสมอ</p>`;
+      { label: "ส่วนตัว", cls: "num", render: (r) => n(r[0], "private") }], SHARE_KEYS) +
+    `<p class="meta">ข้อมูลนักเรียน คะแนน การเช็กชื่อ การดูแลช่วยเหลือ การลา และหนังสือราชการ เป็นส่วนตัวเสมอ</p>`;
 };
-App.adders.reviewers = () => openForm("เพิ่มผู้ประเมิน", [
-  { key: "name", label: "ชื่อ / ตำแหน่ง", required: true }, { key: "email", label: "อีเมล", type: "email", required: true }, { key: "until", label: "หมดสิทธิ์วันที่", type: "date" },
-], (r) => arr("reviewers").unshift(r));
 
-// ---------- โหมดผู้ประเมิน ----------
-App.pages.review = App.pages[""];
-App.pages["review/pa"] = App.pages["admin/pa"];
-App.pages["review/sar"] = App.pages["admin/sar"];
-App.pages["review/supervision"] = () =>
-  head("ผลการนิเทศ", "ผลการนิเทศชั้นเรียนและ Open Class") +
-  table([dateCol(), { label: "ประเภท", render: (r) => `<span class="tag">${esc(r.type)}</span>` }, { label: "ผู้นิเทศ", key: "by" },
-    { label: "เรื่อง", key: "topic" }, { label: "ผล / ข้อเสนอแนะ", key: "result" }], list("supervision"));
-App.pages["review/feedback"] = () =>
-  head("ให้ข้อเสนอแนะ", "ข้อความนี้ครูเห็นคนเดียว") +
-  `<section class="panel"><label class="field">ข้อเสนอแนะถึงครู<textarea id="fbText" rows="6" placeholder="เช่น ควรเพิ่มหลักฐานตัวชี้วัด 2.4"></textarea></label>
-   <button class="btn" data-act="feedback">ส่งข้อเสนอแนะ</button></section>`;
-App.actions.feedback = () => {
-  const t = $("#fbText");
-  if (!t.value.trim()) return toast("พิมพ์ข้อเสนอแนะก่อนส่ง");
-  t.value = "";
-  toast("ส่งแล้ว (ต้นแบบ: ระยะ 6 จะส่งถึงครูจริง)");
-};
+App.pages.pa = App.pages["admin/pa"];
 
 App.boot();
