@@ -31,7 +31,7 @@ App.NAV = {
     { route: "reports", label: "SAR / PA", c: C.indigo },
   ] }],
   admin: [
-    { group: "ภาพรวม", items: [{ route: "admin", label: "แดชบอร์ด", c: C.violet }] },
+    { group: "ภาพรวม", items: [{ route: "admin", label: "แดชบอร์ด", c: C.violet }, { route: "admin/home", label: "จัดหน้าแรก", c: C.violet }] },
     { group: "การสอน", items: [
       { route: "admin/schedule", label: "ตารางสอน", c: C.sky },
       { route: "admin/plans", label: "แผนการสอนและสื่อ", c: C.sky },
@@ -323,40 +323,7 @@ const api = async (method, path, body) => {
 const tools = (key, item) => (App.mode === "admin" && App.itemTools ? App.itemTools(key, item) : "");
 
 // ---------- หน้าสาธารณะ (โหมดครูใช้ซ้ำบางหน้า) ----------
-App.pages[""] = () => {
-  const p = App.DATA.profile || {};
-  const hours = list("trainings").reduce((s, t) => s + (Number(t.hours) || 0), 0);
-  const photo = safeUrl(p.photo);
-  const hs = App.heroStyle ? App.heroStyle() : { cls: "", style: "", slogan: "" };
-  return `
-    <header class="band hero ${hs.cls}" style="${hs.style}">
-      <div class="hero-photo ${photo ? "photo" : ""}" style="${photo ? `background-image:url('${esc(photo)}')` : ""}">${photo ? "" : esc(initials(p.name))}</div>
-      <div>
-        <h1>${esc(p.name)}</h1>
-        <div class="who">${esc([p.position, p.academicStanding].filter(Boolean).join(" "))}<br>${esc(p.school)}${p.office ? `<br><span class="meta">${esc(p.office)}</span>` : ""}</div>
-        <div class="chips">
-          ${[p.learningArea, ...(p.subjects || []), p.homeroom].filter(Boolean).map((s) => `<span class="tag solid">${esc(s)}</span>`).join("")}
-        </div>
-        ${hs.slogan ? `<p class="slogan">${esc(hs.slogan)}</p>` : ""}
-      </div>
-    </header>
-    ${App.slideshowHTML ? App.slideshowHTML() : ""}
-    ${p.philosophy ? `<blockquote class="quote"><b>ปรัชญาการสอน</b>${esc(p.philosophy)}</blockquote>` : ""}
-    <div class="stats">
-      <a class="stat" style="--sc:${C.coral}" href="#/responsibilities"><b>${list("responsibilities").length}</b><span>งานที่รับผิดชอบ</span></a>
-      <a class="stat" style="--sc:${C.gold}" href="#/certificates"><b>${list("certificates").length}</b><span>เกียรติบัตรและรางวัล</span></a>
-      <a class="stat" style="--sc:${C.mint}" href="#/trainings"><b>${hours}</b><span>ชั่วโมงพัฒนาตนเอง</span></a>
-      <a class="stat" style="--sc:${C.pink}" href="#/works"><b>${list("works").length}</b><span>ผลงานเด่น</span></a>
-    </div>
-    ${App.badgesHTML ? App.badgesHTML(true) : ""}
-    ${(p.education || []).length ? `
-      <h2>ประวัติการศึกษา</h2>
-      <div class="stack">${p.education.map((e) => `
-        <div class="card item"><div class="item-body"><h3>${esc(e.degree)}</h3><div class="meta">${esc(e.institution)}</div></div>
-        <div class="item-side meta">${esc(e.year)}</div></div>`).join("")}</div>` : ""}
-    ${p.contactEmail ? `<p class="meta" style="margin-top:24px">ติดต่อ: <a href="mailto:${esc(p.contactEmail)}">${esc(p.contactEmail)}</a></p>` : ""}
-  `;
-};
+// หน้าแรกสาธารณะ (แบบบล็อก จัดเองได้) อยู่ใน homepage.js
 
 App.pages.responsibilities = ({ q }) => {
   const items = list("responsibilities");
@@ -489,6 +456,7 @@ function render() {
   const page = pageFor(route);
   main.innerHTML = (App.banner ? App.banner() : "") + (page ? page({ q, route }) : empty("ไม่พบหน้านี้"));
   App.wireSlideshow?.();
+  App.afterRender?.();
   document.querySelectorAll(".nav a").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   const label = navItem(route)?.label || "";
   $("#topbarTitle").textContent = label;

@@ -334,3 +334,23 @@ export async function publicSurvey(db, site, id) {
   return JSON.parse(row.data);
 }
 export const ipHash = (request, salt) => hmac(`ip:${salt}`, clientIp(request));
+
+// สรุปคะแนนความพึงพอใจของแบบประเมินที่เปิดสาธารณะ (เฉพาะค่าเฉลี่ยและจำนวนผู้ตอบ ไม่มีความคิดเห็น) ใช้ในบล็อกหน้าแรก
+export async function surveySummaries(db, site) {
+  const surveys = (await db.prepare(`SELECT id, data FROM items WHERE site = ? AND collection = 'surveys' AND vis = 'public' ORDER BY id DESC`).bind(site).all()).results || [];
+  const out = [];
+  for (const s of surveys) {
+    const data = JSON.parse(s.data);
+    const n = surveyQuestions(data).length;
+    const rows = (await db.prepare(`SELECT answers FROM survey_responses WHERE site = ? AND survey_id = ?`).bind(site, s.id).all()).results || [];
+    let counted = 0, sum = 0;
+    for (const r of rows) {
+      const a = JSON.parse(r.answers);
+      if (a.length !== n || !n) continue;
+      counted++;
+      sum += a.reduce((x, y) => x + y, 0) / n;
+    }
+    out.push({ id: s.id, title: data.title || "", target: data.target || "", counted, overall: counted ? Math.round((sum / counted) * 100) / 100 : 0 });
+  }
+  return out;
+}
