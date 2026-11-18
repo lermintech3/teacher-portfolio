@@ -666,3 +666,63 @@ details.folder summary b { font-family: var(--display); color: var(--c-deep); }
 .set-opt:first-of-type { border-top: 0; padding-top: 2px; }
 .set-opt .row-head { margin-bottom: 6px; }
 .set-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ================= PA: สีประจำด้าน (--a) ================= */
+/* Hero: แสงสีของทั้ง 3 ด้าน */
+.pa-hero {
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .13) 1px, transparent 0) 0 0 / 22px 22px,
+    radial-gradient(38% 70% at 88% 18%, rgba(240, 96, 58, .55) 0%, transparent 70%),
+    radial-gradient(40% 80% at 62% 110%, rgba(11, 159, 143, .55) 0%, transparent 70%),
+    radial-gradient(50% 90% at 8% 0%, rgba(214, 64, 159, .45) 0%, transparent 70%),
+    linear-gradient(135deg, #2b1f8f 0%, #4a2fd0 55%, #3b2aa8 100%);
+}
+.pa-hero-stats div { position: relative; overflow: hidden; }
+.pa-hero-stats div::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; }
+.pa-hero-stats div:nth-child(1)::before { background: linear-gradient(90deg, #ffb35c, #f0603a); }
+.pa-hero-stats div:nth-child(2)::before { background: linear-gradient(90deg, #5ee6c8, #0b9f8f); }
+.pa-hero-stats div:nth-child(3)::before { background: linear-gradient(90deg, #f7a1d8, #d6409f); }
+
+/* แท็บ */
+.pa-tabs button[style] .pa-tab-no { background: color-mix(in srgb, var(--a) 14%, #fff); color: var(--a); }
+.pa-tabs button[style]:hover { background: color-mix(in srgb, var(--a) 8%, transparent); color: color-mix(in srgb, var(--a) 70%, #000); }
+.pa-tabs button[style][aria-selected="true"] { background: linear-gradient(135deg, var(--a), color-mix(in srgb, var(--a) 72%, #000)); color: #fff; box-shadow: 0 8px 18px -10px var(--a); }
+.pa-tabs button[style][aria-selected="true"] .pa-tab-no { background: rgba(255, 255, 255, .25); color: #fff; }
+.pa-tabs .pa-tab-all[aria-selected="true"] { background: linear-gradient(120deg, #6c4cf1, #0b9f8f 55%, #f0603a); box-shadow: 0 8px 18px -10px #6c4cf1; }
+
+/* ปุ่มขยายทั้งหมด */
+.pa-tools .pa-all { color: #6c4cf1; background: color-mix(in srgb, #6c4cf1 7%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, #6c4cf1 25%, transparent); }
+
+/* หัวข้อด้าน */
+.pa-aspect-head { flex-direction: row; align-items: center; gap: 14px; border-bottom: 0; position: relative; }
+.pa-aspect-head::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--a), color-mix(in srgb, var(--a) 30%, transparent) 40%, transparent); }
+.pa-aspect-head > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pa-aspect-head .pa-eyebrow { color: var(--a); }
+.pa-aspect-no { flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 1.35rem; color: #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--a) 80%, #fff), var(--a) 50%, color-mix(in srgb, var(--a) 70%, #000)); box-shadow: 0 10px 20px -10px var(--a); }
+
+/* ตัวชี้วัด */
+.pa-aspect .pa-ind { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 14%, var(--line)), inset 4px 0 0 var(--a); }
+.pa-aspect .pa-ind:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 35%, var(--line)), inset 4px 0 0 var(--a); }
+.pa-aspect .pa-ind.open { background: linear-gradient(180deg, color-mix(in srgb, var(--a) 6%, var(--surface)), var(--surface) 140px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 35%, var(--line)), inset 4px 0 0 var(--a), 0 20px 40px -28px var(--a); }
+.pa-aspect .pa-ind-code { color: var(--a); background: color-mix(in srgb, var(--a) 11%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 25%, transparent); }
+.pa-aspect .pa-ind.open .pa-ind-code { color: #fff; background: linear-gradient(135deg, var(--a), color-mix(in srgb, var(--a) 70%, #000)); box-shadow: 0 6px 14px -8px var(--a); }
+.pa-aspect .pa-ind.open .pa-chev { background: color-mix(in srgb, var(--a) 14%, #fff); color: var(--a); }
+.pa-aspect .ev-stack > span { box-shadow: 0 0 0 2px var(--surface); }
+.pa-aspect-empty { border-color: color-mix(in srgb, var(--a, var(--c)) 35%, transparent);
+  background: repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--a, var(--c)) 6%, transparent) 10px 20px), color-mix(in srgb, var(--a, var(--c)) 4%, var(--surface)); }
+.pa-aspect-empty b { color: var(--a, var(--ink)); }
+
+/* แผงรายละเอียด: ตัวชี้วัดใช้สีของด้าน */
+.ev-d-ind[style] { background: color-mix(in srgb, var(--a) 9%, #fff); box-shadow: inset 3px 0 0 var(--a); }
+.ev-d-ind[style] b { background: var(--a); }
+.ev-d-head { background: linear-gradient(90deg, color-mix(in srgb, var(--k) 8%, var(--surface)), var(--surface) 60%); }
+.ev-d-btn { background: linear-gradient(135deg, var(--k), color-mix(in srgb, var(--k) 70%, #000)); border: 0; color: #fff; }
+
+@media (max-width: 640px) {
+  .pa-aspect-no { width: 40px; height: 40px; font-size: 1.15rem; border-radius: 12px; }
+}
+@media print {
+  .pa-hero { background: none; }
+}
