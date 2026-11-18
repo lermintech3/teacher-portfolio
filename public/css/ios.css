@@ -198,3 +198,14 @@ dialog.ios-picker.closing { animation: ios-fade .18s ease forwards; }
   dialog.ios-picker { width: 100%; max-width: 100%; margin: 0; inset: auto 0 0 0; border-radius: 14px 14px 0 0; }
   dialog.ios-picker[open] { animation: ios-up .38s var(--ios-ease); }
 }
+
+/* ---------- ชิปเลือกได้หลายข้อ (ตัวชี้วัด PA) ---------- */
+.ios-chips { display: flex; flex-direction: column; gap: 10px; padding: 6px 0 4px; }
+.ios-chip-title { display: block; font-size: .78rem; color: var(--muted, #5f5c78); margin-bottom: 6px; }
+.ios-chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.ios-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; border: 0; border-radius: 999px; padding: 6px 12px 6px 6px; background: var(--paper, #f7f6fc); box-shadow: inset 0 0 0 1px var(--line, #e6e3f3); font: inherit; font-size: .85rem; color: inherit; cursor: pointer; text-align: left; }
+.ios-chip b { flex: none; font-family: var(--display); font-size: .8rem; padding: 1px 8px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--line, #e6e3f3); }
+.ios-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ios-chip[aria-pressed="true"] { background: var(--c, #6c4cf1); color: #fff; box-shadow: none; }
+.ios-chip[aria-pressed="true"] b { background: rgba(255, 255, 255, .22); color: #fff; box-shadow: none; }
+.ios-chip:focus-visible { outline: 3px solid var(--c, #6c4cf1); outline-offset: 2px; }

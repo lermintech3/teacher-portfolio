@@ -288,13 +288,97 @@ table.data { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .meter.big { height: 14px; margin: 0 0 20px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); }
 
 /* PA */
-.pa-row { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: start; padding: 12px 14px; border-radius: 14px; background: var(--paper); }
-.pa-row.has { background: var(--c-tint); }
-.pa-row ul { margin: 4px 0 0; padding-left: 18px; font-size: .92rem; }
-.pa-code { font-family: var(--display); font-weight: 700; background: var(--c-deep); color: #fff; border-radius: 10px; padding: 2px 10px; display: inline-block; margin-right: 10px; }
-.pa-row .pa-code { margin: 0; }
-.pa-count { font-family: var(--display); font-weight: 700; font-size: 1.3rem; color: var(--c-deep); }
-.pa-row:not(.has) .pa-code { background: #b9b6cf; }
+.pa-code { font-family: var(--display); font-weight: 700; background: var(--c-deep); color: #fff; border-radius: 10px; padding: 2px 10px; display: inline-block; margin-right: 10px; font-size: .95rem; }
+
+/* ---------- PA: แท็บ / สถิติ ---------- */
+.pa-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 4px; margin: 0 0 18px; background: var(--surface); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); scrollbar-width: none; }
+.pa-tabs button { flex: none; display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; font: inherit; font-family: var(--display); font-weight: 500; color: var(--muted); padding: 8px 14px; border-radius: 12px; cursor: pointer; white-space: nowrap; }
+.pa-tabs button:hover { color: var(--ink); background: var(--paper); }
+.pa-tabs button[aria-selected="true"] { background: var(--c-deep); color: #fff; }
+.pa-tabs i { font-style: normal; font-size: .78rem; padding: 0 8px; border-radius: 999px; background: var(--paper); color: var(--muted); }
+.pa-tabs button[aria-selected="true"] i { background: rgba(255, 255, 255, .2); color: #fff; }
+.pa-tab-no { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 8px; background: var(--c-soft); color: var(--c-deep); font-family: var(--display); font-weight: 700; font-size: .85em; margin-right: 8px; }
+.pa-tabs .pa-tab-no { margin: 0; }
+.pa-tabs button[aria-selected="true"] .pa-tab-no { background: rgba(255, 255, 255, .22); color: #fff; }
+.pa-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.pa-stats div { background: var(--surface); border-radius: 18px; padding: 14px 18px; box-shadow: inset 0 0 0 1px var(--line); }
+.pa-stats b { display: block; font-family: var(--display); font-size: 1.8rem; line-height: 1.1; color: var(--c-deep); }
+.pa-stats span { font-size: .85rem; color: var(--muted); }
+.pa-empty { text-align: center; padding: 40px 20px; }
+
+/* ---------- PA สาธารณะ: ด้าน → ตัวชี้วัด → การ์ดหลักฐาน ---------- */
+.pa-aspect + .pa-aspect { margin-top: 28px; }
+.pa-aspect-title { display: flex; align-items: center; margin: 0 0 12px; }
+.pa-ind { background: var(--surface); border-radius: 20px; padding: 16px; box-shadow: inset 0 0 0 1px var(--line); margin-bottom: 12px; }
+.pa-ind-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+.pa-ind-head h3 { flex: 1; margin: 0; font-size: 1rem; line-height: 1.45; }
+.pa-ind-head .pa-code { margin: 0; }
+.pa-n { font-size: .8rem; color: var(--muted); white-space: nowrap; padding-top: 3px; }
+
+.ev-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.ev-grid.compact { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin-top: 12px; }
+.ev-card { display: flex; flex-direction: column; background: var(--surface); border-radius: 16px; box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; transition: transform .15s ease, box-shadow .15s ease; }
+.ev-card:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--c-soft), 0 10px 24px -14px rgba(40, 30, 110, .45); }
+.ev-open { all: unset; display: flex; flex-direction: column; flex: 1; cursor: pointer; color: inherit; }
+div.ev-open { cursor: default; }
+.ev-open:focus-visible { outline: 3px solid var(--c); outline-offset: -3px; border-radius: 16px; }
+.ev-thumb { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(135deg, var(--c-tint), var(--c-soft)); display: grid; place-items: center; overflow: hidden; }
+.ev-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ev-icon { font-size: 2rem; opacity: .75; }
+.ev-thumb.k-video::after { content: "▶"; position: absolute; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgba(0, 0, 0, .55); color: #fff; font-size: 1rem; padding-left: 3px; box-sizing: border-box; }
+.ev-kind { position: absolute; left: 8px; top: 8px; font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: var(--ink); z-index: 1; }
+.ev-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.ev-title { font-family: var(--display); font-weight: 500; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ev-desc { margin: 0; font-size: .85rem; color: var(--muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ev-meta { font-size: .78rem; color: var(--muted); }
+.ev-tools { padding: 0 10px 10px; }
+.ev-tools .acts { display: flex; flex-wrap: wrap; gap: 4px; }
+.ev-grid.compact .ev-thumb { aspect-ratio: 2 / 1; }
+.ev-grid.compact .ev-icon { font-size: 1.5rem; }
+
+/* ---------- PA หน้าครู: สถานะรายตัวชี้วัด ---------- */
+.pa-overview .meter.big { margin: 0 0 12px; background: var(--paper); box-shadow: none; }
+.pa-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.pa-overview .meta { margin: 8px 0 0; }
+.st { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--muted); }
+.st i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.st-public i { background: #12a87a; }
+.st-private i { background: #e3a008; }
+.st-none i { background: #c9c6db; }
+.pa-row { padding: 12px 14px; border-radius: 16px; background: var(--paper); box-shadow: inset 4px 0 0 #c9c6db; }
+.pa-row.st-public { box-shadow: inset 4px 0 0 #12a87a; background: var(--c-tint); }
+.pa-row.st-private { box-shadow: inset 4px 0 0 #e3a008; }
+.pa-row-head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; }
+.pa-row-head .pa-code { margin: 0; }
+.pa-row-head .item-body { display: flex; flex-direction: column; gap: 2px; }
+.pa-row.st-none .pa-code { background: #b9b6cf; }
+
+/* ---------- ตัวเปิดดูหลักฐาน ---------- */
+.ev-viewer { border: 0; padding: 0; width: min(1000px, 94vw); height: min(86vh, 900px); border-radius: 18px; overflow: hidden; display: none; flex-direction: column; background: var(--surface); }
+.ev-viewer[open] { display: flex; }
+.ev-viewer::backdrop { background: rgba(22, 20, 46, .8); }
+.ev-viewer-bar { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; border-bottom: 1px solid var(--line); }
+.ev-viewer-bar b { flex: 1; font-family: var(--display); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-viewer-bar a { font-size: .85rem; white-space: nowrap; }
+.ev-viewer-bar button { border: 0; background: var(--paper); width: 34px; height: 34px; border-radius: 50%; font-size: 1.3rem; line-height: 1; cursor: pointer; color: var(--ink); }
+.ev-viewer-body { flex: 1; display: grid; place-items: center; background: #1d1b2e; }
+.ev-viewer-body iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.ev-viewer-body img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+@media (max-width: 640px) {
+  .pa-stats b { font-size: 1.4rem; }
+  .pa-stats div { padding: 10px 12px; }
+  .ev-grid, .ev-grid.compact { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ev-body { padding: 8px 10px 10px; }
+  .pa-ind { padding: 12px; }
+  .pa-row-head { grid-template-columns: auto 1fr; }
+  .pa-row-head .btn { grid-column: 1 / -1; justify-self: start; }
+  .ev-viewer { width: 100vw; height: 100dvh; max-width: none; max-height: none; border-radius: 0; }
+}
+@media print {
+  .pa-tabs, .ev-tools, .pa-row-head .btn { display: none; }
+  .ev-card { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+}
 
 .sar h2 { display: flex; align-items: center; }
 .sar ul { margin: 0; padding-left: 20px; }
