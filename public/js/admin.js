@@ -612,20 +612,37 @@ const PA_SVG = {
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M8 7h7M8 11h5"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  media: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M10 8l4 2-4 2z" fill="currentColor" stroke="none"/>',
+  assess: '<path d="M5 20V11M11 20V5M17 20v-7M3 20h18"/>',
+  supervise: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/>',
+  care: '<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/>',
+  develop: '<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c3 2 9 2 12 0v-5M22 9v6"/>',
 };
 const paIcon = (k, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PA_SVG[k]}</svg>`;
 // ชนิด → [ป้าย, ไอคอน, สี]
 const PA_KIND = { video: ["วิดีโอ", "video", "#e5484d"], drive: ["ไฟล์", "file", "#4f63d2"], doc: ["เอกสาร", "file", "#2f6fde"], slides: ["สไลด์", "slides", "#e08a00"],
   sheet: ["ตาราง", "sheet", "#1f9d61"], image: ["รูปภาพ", "image", "#0e9aa7"], pdf: ["PDF", "pdf", "#d14343"], link: ["ลิงก์", "link", "#6c4cf1"], none: ["หลักฐาน", "folder", "#7c7a99"] };
 
+// หลักฐานที่ไม่มีไฟล์แนบ: ใช้ไอคอนและสีตามเมนูที่มา ทำเป็นหน้าปกเต็มกรอบ
+const PA_SRC = { "แผนการสอน": ["book", "#6c4cf1"], "บันทึกหลังสอน": ["pen", "#0e9aa7"], "สื่อ": ["media", "#e08a00"], "การวัดผล": ["assess", "#d9480f"],
+  "นิเทศ": ["supervise", "#1f9d61"], "ดูแลช่วยเหลือ": ["care", "#d6336c"], "การพัฒนาตนเอง": ["develop", "#2f6fde"] };
+const evLook = (e) => {
+  const m = paMedia(e.link);
+  const [kindLabel, kIcon, kColor] = PA_KIND[m.kind];
+  const src = m.kind === "none" ? PA_SRC[e.source] : null;
+  return { m, kindLabel, label: src ? e.source : kindLabel, icon: src ? src[0] : kIcon, color: src ? src[1] : kColor };
+};
+const evCover = (l) => `<span class="ev-cover" aria-hidden="true">${paIcon(l.icon, "ev-cover-art")}<small>หลักฐาน PA</small><b>${esc(l.label)}</b></span>`;
+
 let EV_CUR = []; // หลักฐานของหน้าที่แสดงอยู่ ใช้หาข้อมูลตอนเปิดแผงรายละเอียด
 const evCard = (e, isAdmin, i = 0) => {
-  const m = paMedia(e.link);
-  const [kindLabel, icon, color] = PA_KIND[m.kind];
+  const l = evLook(e), { m, kindLabel, color } = l;
   const thumb = m.thumb ? `<img src="${esc(m.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
   const date = e.date ? `<span>${paIcon("cal", "ev-mi")}${esc(thDate(e.date))}</span>` : "";
   const src = e.source && e.source !== "อื่นๆ" ? `<span>${esc(e.source)}</span>` : "";
-  const body = `<div class="ev-thumb k-${m.kind}${thumb ? " has-img" : ""}">${paIcon(icon, "ev-icon")}${thumb}${m.kind === "video" ? '<span class="ev-play" aria-hidden="true"></span>' : ""}<span class="ev-kind">${kindLabel}</span></div>
+  const body = `<div class="ev-thumb k-${m.kind}${thumb ? " has-img" : ""}">${evCover(l)}${thumb}${m.kind === "video" ? '<span class="ev-play" aria-hidden="true"></span>' : ""}<span class="ev-kind">${kindLabel}</span></div>
     <div class="ev-body"><b class="ev-title">${esc(e.title)}</b>${e.description ? `<p class="ev-desc">${esc(e.description)}</p>` : ""}
       ${date || src ? `<div class="ev-meta">${date}${src}</div>` : ""}
       ${!isAdmin ? `<span class="ev-cta">${m.kind === "video" ? "ดูวิดีโอ" : "ดูรายละเอียด"}<i aria-hidden="true">→</i></span>` : ""}</div>`;
@@ -633,7 +650,7 @@ const evCard = (e, isAdmin, i = 0) => {
 };
 // ภาพย่อเล็กซ้อนกันในแถวตัวชี้วัดที่ยังพับอยู่
 const evStack = (items) => `<span class="ev-stack" aria-hidden="true">${items.slice(0, 3).map((e) => {
-  const m = paMedia(e.link); const [, icon, color] = PA_KIND[m.kind];
+  const { m, icon, color } = evLook(e);
   return `<span style="--k:${color}">${paIcon(icon)}${m.thumb ? `<img src="${esc(m.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>`;
 }).join("")}${items.length > 3 ? `<span class="more">+${items.length - 3}</span>` : ""}</span>`;
 const PA_OPEN = new Set();
@@ -774,8 +791,7 @@ const evDrawer = () => {
 App.actions.evView = (b) => {
   const e = EV_CUR[Number(b.dataset.i)];
   if (!e) return;
-  const m = paMedia(e.link);
-  const [kindLabel, icon, color] = PA_KIND[m.kind];
+  const { m, kindLabel, icon, color } = evLook(e);
   const link = safeUrl(e.link);
   const d = evDrawer();
   d.style.setProperty("--k", color);
