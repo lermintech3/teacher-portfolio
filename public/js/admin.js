@@ -637,6 +637,10 @@ const evStack = (items) => `<span class="ev-stack" aria-hidden="true">${items.sl
   return `<span style="--k:${color}">${paIcon(icon)}${m.thumb ? `<img src="${esc(m.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>`;
 }).join("")}${items.length > 3 ? `<span class="more">+${items.length - 3}</span>` : ""}</span>`;
 const PA_OPEN = new Set();
+// สีประจำแต่ละด้าน (วนซ้ำถ้าครูกำหนดด้านเพิ่ม)
+const PA_COLORS = ["#6c4cf1", "#0b9f8f", "#f0603a", "#d6409f", "#2f80ed"];
+const paColor = (no) => PA_COLORS[Math.max(0, PA.findIndex((d) => d.no === no)) % PA_COLORS.length];
+const paColorOf = (code) => paColor((PA.find((d) => d.items.some(([c]) => c === code)) || {}).no);
 let paOpenInit = false;
 const evSort = (a, b) => String(b.date || "").localeCompare(String(a.date || ""));
 
@@ -647,13 +651,15 @@ App.pages["admin/pa"] = ({ q }) => {
   const of = (code) => ev.filter((e) => (e.pa || []).includes(code)).sort(evSort);
   const status = (code) => { const it = of(code); return !it.length ? "none" : it.some((e) => e.vis === "public") ? "public" : "private"; };
   const cur = PA.some((d) => d.no === q.d) ? q.d : "all";
-  const tabs = (aspects, count) => aspects.length < 2 ? "" : `<div class="pa-tabs" role="tablist">${[{ no: "all", title: "ทั้งหมด" }, ...aspects].map((d) =>
-    `<button role="tab" aria-selected="${d.no === cur}" data-act="paTab" data-d="${d.no}">${d.no === "all" ? "ทั้งหมด" : `<span class="pa-tab-no">${d.no}</span>${esc(d.title.replace(/^ด้าน/, ""))}`}<i>${count(d)}</i></button>`).join("")}</div>`;
+  const tabs = (aspects, count) => aspects.length < 2 ? "" : `<div class="pa-tabs" role="tablist" style="--n:${aspects.length}">${[{ no: "all", title: "ทั้งหมด" }, ...aspects].map((d) =>
+    `<button role="tab" class="${d.no === "all" ? "pa-tab-all" : ""}"${d.no === "all" ? "" : ` style="--a:${paColor(d.no)}"`} aria-selected="${d.no === cur}" data-act="paTab" data-d="${d.no}">${d.no === "all"
+      ? `<span class="pa-tab-t">ทั้งหมด</span>`
+      : `<span class="pa-tab-no">${d.no}</span><span class="pa-tab-t">${esc(d.title.replace(/^ด้าน/, ""))}</span>`}<i>${count(d)}</i></button>`).join("")}</div>`;
   const shownAspects = (aspects) => aspects.filter((d) => cur === "all" || d.no === cur);
 
   if (!isAdmin) {
     // หน้าสาธารณะ: ไม่แสดงข้อที่ยังไม่มีหลักฐาน และไม่โชว์เปอร์เซ็นต์ความครบ
-    const aspects = PA.map((d) => ({ ...d, items: d.items.filter(([c]) => of(c).length) })).filter((d) => d.items.length);
+    const aspects = PA.map((d) => ({ ...d, items: d.items.filter(([c]) => of(c).length) })); // แสดงครบทุกด้าน ด้านที่ยังว่างจะมีข้อความแจ้ง
     const codes = aspects.flatMap((d) => d.items.map(([c]) => c));
     const total = new Set(ev.filter((e) => (e.pa || []).some((c) => codes.includes(c)))).size;
     if (!total) return head("หลักฐานตามตัวชี้วัด PA", "ข้อตกลงในการพัฒนางาน") + `<div class="panel pa-empty"><b>กำลังรวบรวมหลักฐาน</b><p class="meta">หลักฐานตามตัวชี้วัดจะแสดงที่นี่เมื่อครูเผยแพร่</p></div>`;
@@ -668,13 +674,15 @@ App.pages["admin/pa"] = ({ q }) => {
         <p class="pa-hero-who">${p.name ? `<b>${esc(p.name)}</b>` : ""}${who ? `<span>${who}</span>` : ""}</p>
         ${p.learningArea || last ? `<p class="pa-hero-sub">${[p.learningArea && esc(p.learningArea), last && `อัปเดตล่าสุด ${esc(thDate(last))}`].filter(Boolean).join(" · ")}</p>` : ""}
       </div>
-      <dl class="pa-hero-stats"><div><dt>หลักฐาน</dt><dd>${total}</dd></div><div><dt>ตัวชี้วัด</dt><dd>${codes.length}</dd></div><div><dt>ด้าน</dt><dd>${aspects.length}</dd></div></dl>
+      <dl class="pa-hero-stats"><div><dt>หลักฐาน</dt><dd>${total}</dd></div><div><dt>ตัวชี้วัด</dt><dd>${codes.length}</dd></div><div><dt>ด้าน</dt><dd>${PA.length}</dd></div></dl>
     </header>`;
     if (!paOpenInit) { paOpenInit = true; if (codes[0]) PA_OPEN.add(codes[0]); } // เปิดข้อแรกไว้ให้เห็นว่ากดได้
     const vis = shownAspects(aspects).flatMap((d) => d.items.map(([c]) => c));
     const allOpen = vis.every((c) => PA_OPEN.has(c));
-    return hero + `<div class="pa-bar">${tabs(aspects, cnt)}<button class="pa-all" data-act="paAll" aria-pressed="${allOpen}">${allOpen ? "ย่อทั้งหมด" : "ขยายทั้งหมด"}</button></div>` +
-      shownAspects(aspects).map((d) => `<section class="pa-aspect"><header class="pa-aspect-head"><span class="pa-eyebrow">ด้านที่ ${esc(d.no)}</span><h2>${esc(d.title)}</h2></header>
+    return hero + `<div class="pa-bar">${tabs(aspects, cnt)}</div>` +
+      (vis.length ? `<div class="pa-tools"><span>แตะตัวชี้วัดเพื่อดูหลักฐาน</span><button class="pa-all" data-act="paAll" aria-pressed="${allOpen}">${allOpen ? "ย่อทั้งหมด" : "ขยายทั้งหมด"}</button></div>` : "") +
+      shownAspects(aspects).map((d) => `<section class="pa-aspect" style="--a:${paColor(d.no)}"><header class="pa-aspect-head"><span class="pa-aspect-no">${esc(d.no)}</span><div><span class="pa-eyebrow">ด้านที่ ${esc(d.no)}${d.items.length ? ` · ${d.items.length} ตัวชี้วัด` : ""}</span><h2>${esc(d.title)}</h2></div></header>
+        ${d.items.length ? "" : `<div class="pa-aspect-empty"><b>อยู่ระหว่างรวบรวมหลักฐาน</b><span>หลักฐานของด้านนี้จะแสดงที่นี่เมื่อครูเผยแพร่</span></div>`}
         <div class="pa-acc">${d.items.map(([code, name]) => { const it = of(code); const open = PA_OPEN.has(code); return `<article class="pa-ind${open ? " open" : ""}" id="pa-${esc(code)}" data-code="${esc(code)}">
           <button type="button" class="pa-ind-toggle" data-act="paToggle" aria-expanded="${open}" aria-controls="pa-p-${esc(code)}">
             <span class="pa-ind-code">${esc(code)}</span>
@@ -781,7 +789,7 @@ App.actions.evView = (b) => {
   d.querySelector(".ev-d-info").innerHTML =
     (e.description ? `<p class="ev-d-desc">${esc(e.description)}</p>` : "") +
     `<dl>${row("วันที่", e.date ? esc(thDate(e.date)) : "")}${row("ที่มา", e.source && e.source !== "อื่นๆ" ? esc(e.source) : "")}${row("หัวข้อ SAR", esc(e.sar || ""))}</dl>` +
-    ((e.pa || []).length ? `<div class="ev-d-pa"><span class="pa-eyebrow">ใช้เป็นหลักฐานตัวชี้วัด</span>${e.pa.map((c) => `<div class="ev-d-ind"><b>${esc(c)}</b><span>${esc(names[c] || "")}</span></div>`).join("")}</div>` : "") +
+    ((e.pa || []).length ? `<div class="ev-d-pa"><span class="pa-eyebrow">ใช้เป็นหลักฐานตัวชี้วัด</span>${e.pa.map((c) => `<div class="ev-d-ind" style="--a:${paColorOf(c)}"><b>${esc(c)}</b><span>${esc(names[c] || "")}</span></div>`).join("")}</div>` : "") +
     (link ? `<a class="btn ev-d-btn" href="${esc(link)}" target="_blank" rel="noopener">${m.kind === "link" ? "เปิดลิงก์" : "เปิดในแท็บใหม่"} <span aria-hidden="true">↗</span></a>` : "");
   d.querySelector(".ev-d-main").scrollTop = 0;
   d.classList.remove("closing");
