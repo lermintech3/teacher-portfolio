@@ -59,9 +59,9 @@ const HB = {
       return hbHead("ผลงานและเกียรติบัตรเด่น") + `<div class="feat-grid">${items.map((x) => {
         const img = safeUrl(x.img);
         return `<article class="feat" style="--c:${x.c}">
-          ${img ? `<button class="feat-img" data-img="${esc(img)}" data-cap="${esc(x.title)}" style="background-image:url('${esc(img)}')" aria-label="ดูภาพ ${esc(x.title)}"></button>` : `<a class="feat-img none" href="#/${x.route}" aria-hidden="true" tabindex="-1">${x.icon}</a>`}
+          ${x.k[0] === "w" ? App.docCover({ link: x.link, tag: x.tag, title: x.title, sub: x.sub, desc: x.desc, cls: "feat-img doc" }) : img ? `<button class="feat-img" data-img="${esc(img)}" data-cap="${esc(x.title)}" style="background-image:url('${esc(img)}')" aria-label="ดูภาพ ${esc(x.title)}"></button>` : `<a class="feat-img none" href="#/${x.route}" aria-hidden="true" tabindex="-1">${x.icon}</a>`}
           <div class="feat-body"><span class="tag">${esc(x.tag)}</span>${x.level ? ` <span class="tag solid">${esc(x.level)}</span>` : ""}<h3>${esc(x.title)}</h3><div class="meta">${esc(x.sub)}</div>
-          ${x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener">ดูผลงาน</a>` : ""}</div></article>`;
+          ${x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener" ${App.docAttrs({ title: x.title, tag: x.tag, sub: x.sub, desc: x.desc })}>ดูผลงาน</a>` : ""}</div></article>`;
       }).join("")}</div>`;
     },
   },
@@ -155,7 +155,7 @@ function featuredPool() {
   return [
     ...list("certificates").map((x) => ({ k: `c${x.id}`, title: x.title, sub: [x.issuer, thDate(x.date)].filter(Boolean).join(" "), date: x.date, img: x.image, tag: x.type || "เกียรติบัตร", level: x.level,
       rank: (LEVEL_ORDER[x.level] || 0) + (x.type && x.type !== "เกียรติบัตร" ? 1 : 0), c: C.gold, route: "certificates", icon: "🏅" })),
-    ...list("works").map((x) => ({ k: `w${x.id}`, title: x.title, sub: x.year ? `ปีการศึกษา ${x.year}` : "", date: x.year, link: safeUrl(x.link), tag: x.type || "ผลงาน", rank: 2, c: C.pink, route: "works", icon: "✦" })),
+    ...list("works").map((x) => ({ k: `w${x.id}`, title: x.title, sub: x.year ? `ปีการศึกษา ${x.year}` : "", date: x.year, link: safeUrl(x.link), desc: x.description || "", tag: x.type || "ผลงาน", rank: 2, c: C.pink, route: "works", icon: "✦" })),
   ];
 }
 
