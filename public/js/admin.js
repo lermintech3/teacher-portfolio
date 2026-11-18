@@ -602,20 +602,38 @@ const paMedia = (url) => {
   if (/\.pdf(\?|#|$)/i.test(u)) return { kind: "pdf", embed: u };
   return { kind: "link" };
 };
-const PA_KIND = { video: ["วิดีโอ", "▶"], drive: ["ไฟล์", "📄"], doc: ["เอกสาร", "📝"], slides: ["สไลด์", "📊"], sheet: ["ตาราง", "📈"], image: ["รูปภาพ", "🖼"], pdf: ["PDF", "📕"], link: ["ลิงก์", "🔗"], none: ["หลักฐาน", "📁"] };
+const PA_SVG = {
+  video: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" stroke="none"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  pdf: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><text x="12" y="17.5" text-anchor="middle" font-size="5.5" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui">PDF</text>',
+  slides: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M8 12l3-3 2 2 3-3"/>',
+  sheet: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+};
+const paIcon = (k, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PA_SVG[k]}</svg>`;
+// ชนิด → [ป้าย, ไอคอน, สี]
+const PA_KIND = { video: ["วิดีโอ", "video", "#e5484d"], drive: ["ไฟล์", "file", "#4f63d2"], doc: ["เอกสาร", "file", "#2f6fde"], slides: ["สไลด์", "slides", "#e08a00"],
+  sheet: ["ตาราง", "sheet", "#1f9d61"], image: ["รูปภาพ", "image", "#0e9aa7"], pdf: ["PDF", "pdf", "#d14343"], link: ["ลิงก์", "link", "#6c4cf1"], none: ["หลักฐาน", "folder", "#7c7a99"] };
 
 const evCard = (e, isAdmin) => {
   const m = paMedia(e.link);
-  const [kindLabel, icon] = PA_KIND[m.kind];
+  const [kindLabel, icon, color] = PA_KIND[m.kind];
   const thumb = m.thumb ? `<img src="${esc(m.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
-  const meta = [e.source && e.source !== "อื่นๆ" ? e.source : "", e.date ? thDate(e.date) : ""].filter(Boolean).map(esc).join(" · ");
-  const body = `<div class="ev-thumb k-${m.kind}"><span class="ev-icon" aria-hidden="true">${icon}</span>${thumb}<span class="ev-kind">${kindLabel}</span></div>
-    <div class="ev-body"><b class="ev-title">${esc(e.title)}</b>${e.description ? `<p class="ev-desc">${esc(e.description)}</p>` : ""}${meta ? `<span class="ev-meta">${meta}</span>` : ""}</div>`;
+  const date = e.date ? `<span>${paIcon("cal", "ev-mi")}${esc(thDate(e.date))}</span>` : "";
+  const src = e.source && e.source !== "อื่นๆ" ? `<span>${esc(e.source)}</span>` : "";
+  const canOpen = !!(m.embed || m.img || m.kind === "link");
+  const body = `<div class="ev-thumb k-${m.kind}${thumb ? " has-img" : ""}">${paIcon(icon, "ev-icon")}${thumb}${m.kind === "video" ? '<span class="ev-play" aria-hidden="true"></span>' : ""}<span class="ev-kind">${kindLabel}</span></div>
+    <div class="ev-body"><b class="ev-title">${esc(e.title)}</b>${e.description ? `<p class="ev-desc">${esc(e.description)}</p>` : ""}
+      ${date || src ? `<div class="ev-meta">${date}${src}</div>` : ""}
+      ${canOpen && !isAdmin ? `<span class="ev-cta">${m.kind === "link" ? "เปิดลิงก์" : m.kind === "video" ? "ดูวิดีโอ" : "ดูหลักฐาน"}<i aria-hidden="true">→</i></span>` : ""}</div>`;
   const opener = m.embed || m.img
     ? `<button type="button" class="ev-open" data-act="evView" data-src="${esc(m.embed || "")}" data-img="${esc(m.img || "")}" data-link="${esc(safeUrl(e.link))}" data-cap="${esc(e.title)}">${body}</button>`
     : m.kind === "link" ? `<a class="ev-open" href="${esc(safeUrl(e.link))}" target="_blank" rel="noopener">${body}</a>`
     : `<div class="ev-open">${body}</div>`;
-  return `<article class="ev-card">${opener}${isAdmin ? `<div class="ev-tools">${tools("evidence", e)}</div>` : ""}</article>`;
+  return `<article class="ev-card" style="--k:${color}">${opener}${isAdmin ? `<div class="ev-tools">${tools("evidence", e)}</div>` : ""}</article>`;
 };
 const evSort = (a, b) => String(b.date || "").localeCompare(String(a.date || ""));
 
@@ -636,12 +654,24 @@ App.pages["admin/pa"] = ({ q }) => {
     const total = new Set(ev.filter((e) => (e.pa || []).some((c) => codes.includes(c)))).size;
     if (!total) return head("หลักฐานตามตัวชี้วัด PA", "ข้อตกลงในการพัฒนางาน") + `<div class="panel pa-empty"><b>กำลังรวบรวมหลักฐาน</b><p class="meta">หลักฐานตามตัวชี้วัดจะแสดงที่นี่เมื่อครูเผยแพร่</p></div>`;
     const cnt = (d) => d.no === "all" ? total : new Set(d.items.flatMap(([c]) => of(c))).size;
-    return head("หลักฐานตามตัวชี้วัด PA", `ข้อตกลงในการพัฒนางาน${PA === DEFAULT_PA ? " ตามเกณฑ์ ว 9/2564" : ""}`) +
-      `<div class="pa-stats"><div><b>${total}</b><span>ชิ้นงานหลักฐาน</span></div><div><b>${codes.length}</b><span>ตัวชี้วัด</span></div><div><b>${aspects.length}</b><span>ด้าน</span></div></div>` +
-      tabs(aspects, cnt) +
-      shownAspects(aspects).map((d) => `<section class="pa-aspect"><h2 class="pa-aspect-title"><span class="pa-tab-no">${d.no}</span>${esc(d.title)}</h2>
-        ${d.items.map(([code, name]) => { const it = of(code); return `<div class="pa-ind"><div class="pa-ind-head"><span class="pa-code">${esc(code)}</span><h3>${esc(name)}</h3><span class="pa-n">${it.length} ชิ้น</span></div>
-          <div class="ev-grid">${it.map((e) => evCard(e, false)).join("")}</div></div>`; }).join("")}</section>`).join("");
+    const p = App.DATA.profile || {};
+    const last = ev.map((e) => e.date).filter(Boolean).sort().at(-1);
+    const who = [p.academicStanding || p.position, p.school].filter(Boolean).map(esc).join(" · ");
+    const hero = `<header class="pa-hero">
+      <div class="pa-hero-main">
+        <span class="pa-eyebrow">Performance Agreement${PA === DEFAULT_PA ? " · ว 9/2564" : ""}</span>
+        <h1>หลักฐานตามตัวชี้วัด PA</h1>
+        <p class="pa-hero-who">${p.name ? `<b>${esc(p.name)}</b>` : ""}${who ? `<span>${who}</span>` : ""}</p>
+        ${p.learningArea || last ? `<p class="pa-hero-sub">${[p.learningArea && esc(p.learningArea), last && `อัปเดตล่าสุด ${esc(thDate(last))}`].filter(Boolean).join(" · ")}</p>` : ""}
+      </div>
+      <dl class="pa-hero-stats"><div><dt>หลักฐาน</dt><dd>${total}</dd></div><div><dt>ตัวชี้วัด</dt><dd>${codes.length}</dd></div><div><dt>ด้าน</dt><dd>${aspects.length}</dd></div></dl>
+    </header>`;
+    return hero + tabs(aspects, cnt) +
+      shownAspects(aspects).map((d) => `<section class="pa-aspect"><header class="pa-aspect-head"><span class="pa-eyebrow">ด้านที่ ${esc(d.no)}</span><h2>${esc(d.title)}</h2></header>
+        ${d.items.map(([code, name]) => { const it = of(code); return `<article class="pa-ind" id="pa-${esc(code)}">
+          <div class="pa-ind-side"><span class="pa-ind-code">${esc(code)}</span><h3>${esc(name)}</h3><span class="pa-n">${it.length} ชิ้นงาน</span></div>
+          <div class="ev-grid">${it.map((e) => evCard(e, false)).join("")}</div></article>`; }).join("")}</section>`).join("") +
+      `<p class="pa-foot">${PA === DEFAULT_PA ? "ตัวชี้วัดตามหลักเกณฑ์ ก.ค.ศ. ว 9/2564 สำหรับตำแหน่งครู" : "ตัวชี้วัดตามข้อตกลงในการพัฒนางานของสถานศึกษา"} · แตะการ์ดเพื่อเปิดดูหลักฐาน</p>`;
   }
 
   // หน้าครู
