@@ -59,7 +59,7 @@ const HB = {
       return hbHead("ผลงานและเกียรติบัตรเด่น") + `<div class="feat-grid">${items.map((x) => {
         const img = safeUrl(x.img);
         return `<article class="feat" style="--c:${x.c}">
-          ${img ? `<button class="feat-img" data-img="${esc(img)}" data-cap="${esc(x.title)}" style="background-image:url('${esc(img)}')" aria-label="ดูภาพ ${esc(x.title)}"></button>` : `<a class="feat-img none" href="#/${x.route}" aria-hidden="true" tabindex="-1">${x.icon}</a>`}
+          ${x.k[0] === "w" ? workCover(x) : img ? `<button class="feat-img" data-img="${esc(img)}" data-cap="${esc(x.title)}" style="background-image:url('${esc(img)}')" aria-label="ดูภาพ ${esc(x.title)}"></button>` : `<a class="feat-img none" href="#/${x.route}" aria-hidden="true" tabindex="-1">${x.icon}</a>`}
           <div class="feat-body"><span class="tag">${esc(x.tag)}</span>${x.level ? ` <span class="tag solid">${esc(x.level)}</span>` : ""}<h3>${esc(x.title)}</h3><div class="meta">${esc(x.sub)}</div>
           ${x.link ? `<a href="${esc(x.link)}" target="_blank" rel="noopener">ดูผลงาน</a>` : ""}</div></article>`;
       }).join("")}</div>`;
@@ -151,6 +151,24 @@ const HB = {
 const HB_DEFAULT = ["hero", "quote", "stats", "slideshow", "featured", "albums", "facebook", "timeline", "survey", "video", "badges", "about"];
 
 // ผลงานและเกียรติบัตรที่เลือกมาโชว์ได้
+// ผลงาน: ใช้หน้าแรกของไฟล์ใน Google Drive (PDF, Word, สไลด์, รูป) เป็นภาพปก ถ้าดึงไม่ได้ใช้หน้าปกไล่สีตามประเภท
+const WORK_LOOK = { "นวัตกรรม": "#6c4cf1", "วิจัยในชั้นเรียน": "#2f6fde", "สื่อการสอน": "#e08a00", "บทความ": "#0e9aa7" };
+const workThumb = (u) => {
+  if (!u) return "";
+  const m = paMedia(u);
+  if (m.thumb) return m.thumb.replace("sz=w640", "sz=w800");
+  const id = (u.match(/docs\.google\.com\/\w+\/d\/([\w-]{20,})/) || [])[1];
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : "";
+};
+const workCover = (x) => {
+  const m = paMedia(x.link), [kindLabel, icon] = PA_KIND[m.kind];
+  const thumb = workThumb(x.link);
+  const cover = `<span class="ev-cover" style="--k:${WORK_LOOK[x.tag] || C.pink}">${paIcon(m.kind === "none" ? "folder" : icon, "ev-cover-art")}<small>${esc(m.kind === "none" ? "ผลงาน" : kindLabel)}</small><b>${esc(x.tag)}</b></span>`;
+  const inner = cover + (thumb ? `<img src="${esc(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "");
+  return x.link ? `<a class="feat-img doc" href="${esc(x.link)}" target="_blank" rel="noopener" aria-label="เปิดผลงาน ${esc(x.title)}">${inner}</a>`
+    : `<a class="feat-img doc" href="#/works" aria-hidden="true" tabindex="-1">${inner}</a>`;
+};
+
 function featuredPool() {
   return [
     ...list("certificates").map((x) => ({ k: `c${x.id}`, title: x.title, sub: [x.issuer, thDate(x.date)].filter(Boolean).join(" "), date: x.date, img: x.image, tag: x.type || "เกียรติบัตร", level: x.level,
