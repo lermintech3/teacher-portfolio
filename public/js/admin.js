@@ -117,8 +117,10 @@ const FORMS = {
     { key: "link", label: "ไฟล์รายงาน (PDF)", type: "file", category: "reports", accept: ".pdf,application/pdf" }, visField] },
   evidence: { name: "หลักฐาน", fields: [
     { key: "title", label: "ชื่อหลักฐาน", required: true },
+    { key: "pa", label: "ตัวชี้วัด PA", type: "chips", groups: () => PA.map((d) => ({ title: `ด้านที่ ${d.no} ${d.title}`, items: d.items })), hint: "แตะเลือกได้หลายข้อ" },
+    { key: "date", label: "วันที่", type: "date", value: "today" },
+    { key: "description", label: "คำอธิบายสั้นๆ", type: "textarea", rows: 2, hint: "แสดงใต้ชื่อหลักฐานในหน้าสาธารณะ เช่น ใช้กับนักเรียน ม.4/2 ภาคเรียนที่ 1" },
     { key: "source", label: "มาจากเมนู", options: ["แผนการสอน", "บันทึกหลังสอน", "สื่อ", "การวัดผล", "นิเทศ", "ดูแลช่วยเหลือ", "การพัฒนาตนเอง", "อื่นๆ"] },
-    { key: "pa", label: "ตัวชี้วัด PA", hint: "คั่นด้วยจุลภาค เช่น 1.3, 1.6" },
     { key: "sar", label: "หัวข้อ SAR", options: ["การจัดการเรียนการสอน", "ผลสัมฤทธิ์ทางการเรียน", "งานที่ได้รับมอบหมาย", "การพัฒนาตนเอง", "ผลงาน"] },
     { key: "link", label: "ไฟล์หลักฐาน", type: "file", category: "evidence" }, visField],
     map: (r) => ({ ...r, pa: splitList(r.pa).filter((c) => PA_CODES.includes(c)) }) },
@@ -138,13 +140,13 @@ const formValue = (f, item) => {
   return Array.isArray(item[f.key]) ? item[f.key].join(", ") : item[f.key];
 };
 
-App.editItem = (key, item) => {
+App.editItem = (key, item, preset = {}) => {
   const F = FORMS[key];
   const fields = F.fields
     .filter((f) => !(f.key === "vis" && PRIVATE_ONLY.has(key)))
     .map((f) => {
       const options = f.key === "vis" ? f.options : optionsFor(key, f);
-      const value = formValue(f, item);
+      const value = !item && preset[f.key] !== undefined ? preset[f.key] : formValue(f, item);
       // ค่าเดิมที่ไม่อยู่ในตัวเลือกใหม่ ยังเลือกได้ ไม่หาย
       return { ...f, options: options && value && !options.includes(value) ? [value, ...options] : options, value };
     });
@@ -585,24 +587,207 @@ App.pages["admin/evidence"] = ({ q }) => {
       { label: "หัวข้อ SAR", key: "sar" }, { label: "", render: (r) => tools("evidence", r), cls: "nowrap" }], shown);
 };
 
-App.pages["admin/pa"] = () => {
-  const ev = list("evidence");
-  const covered = PA_CODES.filter((c) => ev.some((e) => (e.pa || []).includes(c))).length;
-  const pct = Math.round((covered / PA_CODES.length) * 100);
+// ---------- หน้า PA: สาธารณะ = โชว์เฉพาะข้อที่มีหลักฐานแบบการ์ด / ครู = ภาพรวมสถานะ + เพิ่มหลักฐานรายข้อ ----------
+// แปลงลิงก์หลักฐานเป็น { kind, thumb, embed } เพื่อทำภาพตัวอย่างและเปิดดูในหน้าเดียว
+const paMedia = (url) => {
+  const u = safeUrl(url);
+  if (!u) return { kind: "none" };
+  const yt = (u.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([\w-]{11})/) || [])[1];
+  if (yt) return { kind: "video", thumb: `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`, embed: `https://www.youtube-nocookie.com/embed/${yt}?rel=0` };
+  const dId = (u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=|thumbnail\?(?:.*&)?id=)([\w-]{20,})/) || [])[1];
+  if (dId) return { kind: "drive", thumb: `https://drive.google.com/thumbnail?id=${dId}&sz=w640`, embed: `https://drive.google.com/file/d/${dId}/preview` };
+  const gDoc = u.match(/docs\.google\.com\/(document|presentation|spreadsheets)\/d\/([\w-]{20,})/);
+  if (gDoc) return { kind: gDoc[1] === "presentation" ? "slides" : gDoc[1] === "spreadsheets" ? "sheet" : "doc", embed: `https://docs.google.com/${gDoc[1]}/d/${gDoc[2]}/preview` };
+  if (/\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(u) || /googleusercontent\.com/i.test(u)) return { kind: "image", thumb: u, img: u };
+  if (/\.pdf(\?|#|$)/i.test(u)) return { kind: "pdf", embed: u };
+  return { kind: "link" };
+};
+const PA_SVG = {
+  video: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" stroke="none"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  pdf: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><text x="12" y="17.5" text-anchor="middle" font-size="5.5" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui">PDF</text>',
+  slides: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M8 12l3-3 2 2 3-3"/>',
+  sheet: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M4 15h16M10 4v16"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+};
+const paIcon = (k, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PA_SVG[k]}</svg>`;
+// ชนิด → [ป้าย, ไอคอน, สี]
+const PA_KIND = { video: ["วิดีโอ", "video", "#e5484d"], drive: ["ไฟล์", "file", "#4f63d2"], doc: ["เอกสาร", "file", "#2f6fde"], slides: ["สไลด์", "slides", "#e08a00"],
+  sheet: ["ตาราง", "sheet", "#1f9d61"], image: ["รูปภาพ", "image", "#0e9aa7"], pdf: ["PDF", "pdf", "#d14343"], link: ["ลิงก์", "link", "#6c4cf1"], none: ["หลักฐาน", "folder", "#7c7a99"] };
+
+let EV_CUR = []; // หลักฐานของหน้าที่แสดงอยู่ ใช้หาข้อมูลตอนเปิดแผงรายละเอียด
+const evCard = (e, isAdmin, i = 0) => {
+  const m = paMedia(e.link);
+  const [kindLabel, icon, color] = PA_KIND[m.kind];
+  const thumb = m.thumb ? `<img src="${esc(m.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "";
+  const date = e.date ? `<span>${paIcon("cal", "ev-mi")}${esc(thDate(e.date))}</span>` : "";
+  const src = e.source && e.source !== "อื่นๆ" ? `<span>${esc(e.source)}</span>` : "";
+  const body = `<div class="ev-thumb k-${m.kind}${thumb ? " has-img" : ""}">${paIcon(icon, "ev-icon")}${thumb}${m.kind === "video" ? '<span class="ev-play" aria-hidden="true"></span>' : ""}<span class="ev-kind">${kindLabel}</span></div>
+    <div class="ev-body"><b class="ev-title">${esc(e.title)}</b>${e.description ? `<p class="ev-desc">${esc(e.description)}</p>` : ""}
+      ${date || src ? `<div class="ev-meta">${date}${src}</div>` : ""}
+      ${!isAdmin ? `<span class="ev-cta">${m.kind === "video" ? "ดูวิดีโอ" : "ดูรายละเอียด"}<i aria-hidden="true">→</i></span>` : ""}</div>`;
+  return `<article class="ev-card" style="--k:${color};--i:${i}"><button type="button" class="ev-open" data-act="evView" data-i="${EV_CUR.indexOf(e)}" aria-haspopup="dialog">${body}</button>${isAdmin ? `<div class="ev-tools">${tools("evidence", e)}</div>` : ""}</article>`;
+};
+// ภาพย่อเล็กซ้อนกันในแถวตัวชี้วัดที่ยังพับอยู่
+const evStack = (items) => `<span class="ev-stack" aria-hidden="true">${items.slice(0, 3).map((e) => {
+  const m = paMedia(e.link); const [, icon, color] = PA_KIND[m.kind];
+  return `<span style="--k:${color}">${paIcon(icon)}${m.thumb ? `<img src="${esc(m.thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>`;
+}).join("")}${items.length > 3 ? `<span class="more">+${items.length - 3}</span>` : ""}</span>`;
+const PA_OPEN = new Set();
+let paOpenInit = false;
+const evSort = (a, b) => String(b.date || "").localeCompare(String(a.date || ""));
+
+App.pages["admin/pa"] = ({ q }) => {
   const isAdmin = App.mode === "admin";
-  return head(isAdmin ? "PA ข้อตกลงในการพัฒนางาน" : "หลักฐานตามตัวชี้วัด PA", `มีหลักฐานแล้ว ${covered} จาก ${PA_CODES.length} ตัวชี้วัด`,
-    isAdmin ? `<a class="btn ghost" href="#/evidence">ไปที่คลังหลักฐาน</a><a class="btn ghost" href="#/settings">แก้ตัวชี้วัด</a>` : "") +
-    `<div class="meter big"><i style="width:${pct}%"></i></div>` +
-    PA.map((d) => `<section class="panel"><h2>ด้านที่ ${d.no} ${esc(d.title)}</h2>
-      <div class="stack">${d.items.map(([code, name]) => {
-        const items = ev.filter((e) => (e.pa || []).includes(code));
-        return `<div class="pa-row ${items.length ? "has" : ""}"><span class="pa-code">${code}</span><div class="item-body"><b>${esc(name)}</b>
-          ${items.length ? `<ul>${items.map((e) => `<li>${safeUrl(e.link) ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)} ${isAdmin ? `<span class="vis ${e.vis === "public" ? "v-public" : "v-private"}">${VIS_LABEL[e.vis]}</span>` : ""}</li>`).join("")}</ul>` : `<div class="meta">ยังไม่มีหลักฐาน</div>`}</div>
-          <span class="pa-count">${items.length}</span></div>`;
-      }).join("")}</div></section>`).join("") +
+  const ev = list("evidence");
+  EV_CUR = ev;
+  const of = (code) => ev.filter((e) => (e.pa || []).includes(code)).sort(evSort);
+  const status = (code) => { const it = of(code); return !it.length ? "none" : it.some((e) => e.vis === "public") ? "public" : "private"; };
+  const cur = PA.some((d) => d.no === q.d) ? q.d : "all";
+  const tabs = (aspects, count) => aspects.length < 2 ? "" : `<div class="pa-tabs" role="tablist">${[{ no: "all", title: "ทั้งหมด" }, ...aspects].map((d) =>
+    `<button role="tab" aria-selected="${d.no === cur}" data-act="paTab" data-d="${d.no}">${d.no === "all" ? "ทั้งหมด" : `<span class="pa-tab-no">${d.no}</span>${esc(d.title.replace(/^ด้าน/, ""))}`}<i>${count(d)}</i></button>`).join("")}</div>`;
+  const shownAspects = (aspects) => aspects.filter((d) => cur === "all" || d.no === cur);
+
+  if (!isAdmin) {
+    // หน้าสาธารณะ: ไม่แสดงข้อที่ยังไม่มีหลักฐาน และไม่โชว์เปอร์เซ็นต์ความครบ
+    const aspects = PA.map((d) => ({ ...d, items: d.items.filter(([c]) => of(c).length) })).filter((d) => d.items.length);
+    const codes = aspects.flatMap((d) => d.items.map(([c]) => c));
+    const total = new Set(ev.filter((e) => (e.pa || []).some((c) => codes.includes(c)))).size;
+    if (!total) return head("หลักฐานตามตัวชี้วัด PA", "ข้อตกลงในการพัฒนางาน") + `<div class="panel pa-empty"><b>กำลังรวบรวมหลักฐาน</b><p class="meta">หลักฐานตามตัวชี้วัดจะแสดงที่นี่เมื่อครูเผยแพร่</p></div>`;
+    const cnt = (d) => d.no === "all" ? total : new Set(d.items.flatMap(([c]) => of(c))).size;
+    const p = App.DATA.profile || {};
+    const last = ev.map((e) => e.date).filter(Boolean).sort().at(-1);
+    const who = [p.academicStanding || p.position, p.school].filter(Boolean).map(esc).join(" · ");
+    const hero = `<header class="pa-hero">
+      <div class="pa-hero-main">
+        <span class="pa-eyebrow">Performance Agreement${PA === DEFAULT_PA ? " · ว 9/2564" : ""}</span>
+        <h1>หลักฐานตามตัวชี้วัด PA</h1>
+        <p class="pa-hero-who">${p.name ? `<b>${esc(p.name)}</b>` : ""}${who ? `<span>${who}</span>` : ""}</p>
+        ${p.learningArea || last ? `<p class="pa-hero-sub">${[p.learningArea && esc(p.learningArea), last && `อัปเดตล่าสุด ${esc(thDate(last))}`].filter(Boolean).join(" · ")}</p>` : ""}
+      </div>
+      <dl class="pa-hero-stats"><div><dt>หลักฐาน</dt><dd>${total}</dd></div><div><dt>ตัวชี้วัด</dt><dd>${codes.length}</dd></div><div><dt>ด้าน</dt><dd>${aspects.length}</dd></div></dl>
+    </header>`;
+    if (!paOpenInit) { paOpenInit = true; if (codes[0]) PA_OPEN.add(codes[0]); } // เปิดข้อแรกไว้ให้เห็นว่ากดได้
+    const vis = shownAspects(aspects).flatMap((d) => d.items.map(([c]) => c));
+    const allOpen = vis.every((c) => PA_OPEN.has(c));
+    return hero + `<div class="pa-bar">${tabs(aspects, cnt)}<button class="pa-all" data-act="paAll" aria-pressed="${allOpen}">${allOpen ? "ย่อทั้งหมด" : "ขยายทั้งหมด"}</button></div>` +
+      shownAspects(aspects).map((d) => `<section class="pa-aspect"><header class="pa-aspect-head"><span class="pa-eyebrow">ด้านที่ ${esc(d.no)}</span><h2>${esc(d.title)}</h2></header>
+        <div class="pa-acc">${d.items.map(([code, name]) => { const it = of(code); const open = PA_OPEN.has(code); return `<article class="pa-ind${open ? " open" : ""}" id="pa-${esc(code)}" data-code="${esc(code)}">
+          <button type="button" class="pa-ind-toggle" data-act="paToggle" aria-expanded="${open}" aria-controls="pa-p-${esc(code)}">
+            <span class="pa-ind-code">${esc(code)}</span>
+            <span class="pa-ind-text"><b>${esc(name)}</b><small>${it.length} ชิ้นงาน</small></span>
+            ${evStack(it)}
+            <span class="pa-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+          </button>
+          <div class="pa-ind-panel" id="pa-p-${esc(code)}" role="region"><div><div class="ev-grid">${it.map((e, i) => evCard(e, false, i)).join("")}</div></div></div></article>`; }).join("")}</div></section>`).join("") +
+      `<p class="pa-foot">${PA === DEFAULT_PA ? "ตัวชี้วัดตามหลักเกณฑ์ ก.ค.ศ. ว 9/2564 สำหรับตำแหน่งครู" : "ตัวชี้วัดตามข้อตกลงในการพัฒนางานของสถานศึกษา"} · แตะตัวชี้วัดเพื่อดูหลักฐาน แตะการ์ดเพื่อดูรายละเอียด</p>`;
+  }
+
+  // หน้าครู
+  const st = Object.fromEntries(PA_CODES.map((c) => [c, status(c)]));
+  const n = (s) => PA_CODES.filter((c) => st[c] === s).length;
+  const pct = Math.round(((PA_CODES.length - n("none")) / (PA_CODES.length || 1)) * 100);
+  const ST_LABEL = { none: "ยังไม่มีหลักฐาน", private: "มีแต่ยังไม่เผยแพร่", public: "เผยแพร่แล้ว" };
+  const cnt = (d) => d.no === "all" ? PA_CODES.length - n("none") + "/" + PA_CODES.length
+    : d.items.filter(([c]) => st[c] !== "none").length + "/" + d.items.length;
+  return head("PA ข้อตกลงในการพัฒนางาน", `มีหลักฐานแล้ว ${PA_CODES.length - n("none")} จาก ${PA_CODES.length} ตัวชี้วัด`,
+      `<a class="btn ghost" href="#/evidence">คลังหลักฐาน</a><a class="btn ghost" href="#/settings">แก้ตัวชี้วัด</a>${addBtn("evidence", "เพิ่มหลักฐาน")}`) +
+    `<div class="panel pa-overview"><div class="meter big"><i style="width:${pct}%"></i></div>
+      <div class="pa-legend">${["public", "private", "none"].map((s) => `<span class="st st-${s}"><i></i>${ST_LABEL[s]} <b>${n(s)}</b></span>`).join("")}</div>
+      ${n("private") ? `<p class="meta">ตัวชี้วัดที่ "มีแต่ยังไม่เผยแพร่" จะไม่แสดงในหน้าสาธารณะ แตะป้าย "ส่วนตัว" ที่หลักฐานเพื่อเผยแพร่</p>` : ""}</div>` +
+    tabs(PA, cnt) +
+    shownAspects(PA).map((d) => `<section class="panel"><h2><span class="pa-tab-no">${d.no}</span>${esc(d.title)}</h2>
+      <div class="stack">${d.items.map(([code, name]) => { const it = of(code); return `<div class="pa-row st-${st[code]}">
+        <div class="pa-row-head"><span class="pa-code">${esc(code)}</span><div class="item-body"><b>${esc(name)}</b><span class="st st-${st[code]}"><i></i>${ST_LABEL[st[code]]}${it.length ? ` · ${it.length} ชิ้น` : ""}</span></div>
+          <button class="btn ghost small" data-act="paAdd" data-code="${esc(code)}">+ เพิ่ม</button></div>
+        ${it.length ? `<div class="ev-grid compact">${it.map((e, i) => evCard(e, true, i)).join("")}</div>` : ""}</div>`; }).join("")}</div></section>`).join("") +
     `<p class="meta">${PA === DEFAULT_PA ? "ตัวชี้วัดตามเกณฑ์ ว 9/2564 สำหรับตำแหน่งครู" : "ตัวชี้วัดที่ครูกำหนดเอง"}</p>`;
 };
 App.pages.pa = App.pages["admin/pa"];
+
+App.actions.paTab = (b) => {
+  const { route, q } = parseHash();
+  if (b.dataset.d === "all") delete q.d; else q.d = b.dataset.d;
+  const qs = new URLSearchParams(q).toString();
+  location.hash = `#/${route}${qs ? "?" + qs : ""}`;
+};
+App.actions.paAdd = (b) => App.editItem("evidence", null, { pa: b.dataset.code });
+
+// พับ/ขยายตัวชี้วัด (ไม่วาดหน้าใหม่ เพื่อให้แอนิเมชันลื่น)
+const paSetOpen = (art, open) => {
+  art.classList.toggle("open", open);
+  art.querySelector(".pa-ind-toggle").setAttribute("aria-expanded", String(open));
+  if (open) PA_OPEN.add(art.dataset.code); else PA_OPEN.delete(art.dataset.code);
+};
+const paSyncAll = () => {
+  const b = $(".pa-all"); if (!b) return;
+  const all = [...document.querySelectorAll(".pa-ind")].every((a) => a.classList.contains("open"));
+  b.setAttribute("aria-pressed", String(all)); b.textContent = all ? "ย่อทั้งหมด" : "ขยายทั้งหมด";
+};
+App.actions.paToggle = (b) => { const art = b.closest(".pa-ind"); paSetOpen(art, !art.classList.contains("open")); paSyncAll(); };
+App.actions.paAll = (b) => {
+  const open = b.getAttribute("aria-pressed") !== "true";
+  document.querySelectorAll(".pa-ind").forEach((a) => paSetOpen(a, open));
+  paSyncAll();
+};
+
+// แผงรายละเอียดหลักฐาน: เลื่อนออกจากขวา (จอใหญ่) / จากล่าง (มือถือ)
+const evDrawer = () => {
+  let d = document.getElementById("evViewer");
+  if (d) return d;
+  d = document.createElement("dialog");
+  d.id = "evViewer"; d.className = "ev-drawer"; d.setAttribute("aria-labelledby", "evDTitle");
+  d.innerHTML = `<div class="ev-d-grip" aria-hidden="true"></div>
+    <header class="ev-d-head"><span class="ev-d-kind"></span><h2 id="evDTitle"></h2><button type="button" class="ev-d-close" aria-label="ปิด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <div class="ev-d-main"><div class="ev-d-media"></div><aside class="ev-d-info"></aside></div>`;
+  document.body.append(d);
+  const close = () => {
+    if (!d.open || d.classList.contains("closing")) return;
+    d.classList.remove("show"); d.classList.add("closing");
+    const done = () => { d.classList.remove("closing"); d.close(); d.querySelector(".ev-d-media").innerHTML = ""; };
+    matchMedia("(prefers-reduced-motion: reduce)").matches ? done() : setTimeout(done, 320);
+  };
+  d.querySelector(".ev-d-close").onclick = close;
+  d.addEventListener("click", (e) => { if (e.target === d) close(); });
+  d.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
+  // ปัดลงเพื่อปิดบนมือถือ
+  let y0 = null;
+  const grip = d.querySelector(".ev-d-grip"), headEl = d.querySelector(".ev-d-head");
+  [grip, headEl].forEach((el) => {
+    el.addEventListener("touchstart", (e) => { y0 = e.touches[0].clientY; }, { passive: true });
+    el.addEventListener("touchmove", (e) => { if (y0 === null) return; const dy = Math.max(0, e.touches[0].clientY - y0); d.style.transform = dy ? `translateY(${dy}px)` : ""; }, { passive: true });
+    el.addEventListener("touchend", (e) => { const dy = e.changedTouches[0].clientY - (y0 ?? 0); y0 = null; d.style.transform = ""; if (dy > 90) close(); });
+  });
+  return d;
+};
+App.actions.evView = (b) => {
+  const e = EV_CUR[Number(b.dataset.i)];
+  if (!e) return;
+  const m = paMedia(e.link);
+  const [kindLabel, icon, color] = PA_KIND[m.kind];
+  const link = safeUrl(e.link);
+  const d = evDrawer();
+  d.style.setProperty("--k", color);
+  d.querySelector(".ev-d-kind").innerHTML = `${paIcon(icon)}${kindLabel}`;
+  d.querySelector("#evDTitle").textContent = e.title || "";
+  d.querySelector(".ev-d-media").innerHTML = m.img ? `<img src="${esc(m.img)}" alt="${esc(e.title)}">`
+    : m.embed ? `<iframe src="${esc(m.embed)}" title="${esc(e.title || "หลักฐาน")}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen onload="this.classList.add('ok')"></iframe>`
+    : `<div class="ev-d-ph">${paIcon(icon)}<span>${link ? "ไฟล์นี้เปิดดูในหน้านี้ไม่ได้ กดปุ่มด้านล่างเพื่อเปิด" : "ไม่มีไฟล์แนบ"}</span></div>`;
+  const names = Object.fromEntries(PA.flatMap((x) => x.items));
+  const row = (label, val) => val ? `<div class="ev-d-row"><dt>${label}</dt><dd>${val}</dd></div>` : "";
+  d.querySelector(".ev-d-info").innerHTML =
+    (e.description ? `<p class="ev-d-desc">${esc(e.description)}</p>` : "") +
+    `<dl>${row("วันที่", e.date ? esc(thDate(e.date)) : "")}${row("ที่มา", e.source && e.source !== "อื่นๆ" ? esc(e.source) : "")}${row("หัวข้อ SAR", esc(e.sar || ""))}</dl>` +
+    ((e.pa || []).length ? `<div class="ev-d-pa"><span class="pa-eyebrow">ใช้เป็นหลักฐานตัวชี้วัด</span>${e.pa.map((c) => `<div class="ev-d-ind"><b>${esc(c)}</b><span>${esc(names[c] || "")}</span></div>`).join("")}</div>` : "") +
+    (link ? `<a class="btn ev-d-btn" href="${esc(link)}" target="_blank" rel="noopener">${m.kind === "link" ? "เปิดลิงก์" : "เปิดในแท็บใหม่"} <span aria-hidden="true">↗</span></a>` : "");
+  d.querySelector(".ev-d-main").scrollTop = 0;
+  d.classList.remove("closing");
+  d.showModal();
+  requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add("show")));
+};
 
 App.pages["admin/sar"] = () => {
   const p = App.DATA.profile || {};

@@ -178,6 +178,7 @@
   const kindOf = (f) => {
     if (f.type === "file") return "file";
     if (f.type === "gallery") return "gallery";
+    if (f.type === "chips") return "chips";
     if (f.toggle) return "toggle";
     if (f.type === "check") return "check";
     if (f.options) {
@@ -239,6 +240,15 @@
         return `<div class="ios-cell">${fileField(f, id, v)}</div>`;
       case "gallery":
         return `<div class="ios-cell">${window.galleryField(f, id, v)}</div>`;
+      case "chips": {
+        // เลือกได้หลายข้อ: groups = [{title, items: [[ค่า, คำอธิบาย]]}] หรือฟังก์ชันที่คืนค่านี้
+        const groups = typeof f.groups === "function" ? f.groups() : f.groups || [];
+        const sel = new Set(String(v).split(/[,\s]+/).filter(Boolean));
+        return `<div class="ios-cell">${head(f)}<div class="ios-chips" data-target="${id}">
+          ${groups.map((g) => `<div class="ios-chip-group">${g.title ? `<span class="ios-chip-title">${e(g.title)}</span>` : ""}
+            <div class="ios-chip-list">${g.items.map(([c, n]) => `<button type="button" class="ios-chip" aria-pressed="${sel.has(c)}" data-v="${e(c)}" title="${e(n)}"><b>${e(c)}</b><span>${e(n)}</span></button>`).join("")}</div></div>`).join("")}
+          </div>${hidden(f, id, [...sel].join(", "))}</div>`;
+      }
       default: {
         const t = f.type === "number" ? "text" : f.type || "text";
         const mode = f.type === "number" ? 'inputmode="decimal" pattern="[0-9.,]*"' : f.type === "email" ? 'inputmode="email" autocapitalize="off"' : f.type === "url" ? 'inputmode="url" autocapitalize="off"' : "";
@@ -261,6 +271,15 @@
   }
 
   function wire(root) {
+    root.querySelectorAll(".ios-chips").forEach((box) => {
+      const input = document.getElementById(box.dataset.target);
+      box.onclick = (ev) => {
+        const b = ev.target.closest(".ios-chip");
+        if (!b) return;
+        b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true"));
+        setHidden(input, [...box.querySelectorAll('.ios-chip[aria-pressed="true"]')].map((x) => x.dataset.v).join(", "));
+      };
+    });
     root.querySelectorAll(".ios-switch").forEach((sw) => {
       const input = document.getElementById(sw.dataset.target);
       sw.onclick = () => {
