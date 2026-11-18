@@ -215,17 +215,17 @@ const fileField = (f, id, val) => {
   </div>`;
 };
 
-// ย่อรูปก่อนอัปโหลด: ด้านยาวไม่เกิน 1600px บันทึกเป็น JPEG
+// ย่อรูปก่อนอัปโหลด: ด้านยาวไม่เกิน 1280px คุณภาพ 80% บันทึกเป็น JPEG
 const shrinkImage = (file) => new Promise((resolve) => {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return resolve(file);
   const img = new Image();
   img.onload = () => {
-    const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-    if (scale === 1 && file.size < 600 * 1024) return resolve(file);
+    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    if (scale === 1 && file.size < 300 * 1024) return resolve(file);
     const c = document.createElement("canvas");
     c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
     c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob((b) => resolve(b && b.size < file.size ? new File([b], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.85);
+    c.toBlob((b) => resolve(b && b.size < file.size ? new File([b], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }) : file), "image/jpeg", 0.8);
     URL.revokeObjectURL(img.src);
   };
   img.onerror = () => resolve(file);
