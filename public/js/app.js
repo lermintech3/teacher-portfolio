@@ -215,12 +215,12 @@ const fileField = (f, id, val) => {
   </div>`;
 };
 
-// ย่อรูปก่อนอัปโหลด: ด้านยาวไม่เกิน 1280px คุณภาพ 80% บันทึกเป็น JPEG
-const shrinkImage = (file) => new Promise((resolve) => {
+// ย่อรูปก่อนอัปโหลด: ด้านยาวไม่เกิน 1280px (แบนเนอร์ 1600px ให้คมบนจอคอม) คุณภาพ 80% บันทึกเป็น JPEG
+const shrinkImage = (file, max = 1280) => new Promise((resolve) => {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return resolve(file);
   const img = new Image();
   img.onload = () => {
-    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    const scale = Math.min(1, max / Math.max(img.width, img.height));
     if (scale === 1 && file.size < 300 * 1024) return resolve(file);
     const c = document.createElement("canvas");
     c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
@@ -243,7 +243,7 @@ const toBase64 = (file) => new Promise((resolve, reject) => {
 App.uploadFile = async (raw, category, onProgress = () => {}) => {
   if (raw.size > MAX_FILE_MB * 1024 * 1024) throw new Error(`ไฟล์ใหญ่เกิน ${MAX_FILE_MB} MB`);
   onProgress("กำลังเตรียมไฟล์…");
-  const file = await shrinkImage(raw);
+  const file = await shrinkImage(raw, category === "banner" ? 1600 : 1280);
   const b64 = await toBase64(file);
   const qs = new URLSearchParams({ category, name: file.name, mime: file.type || "application/octet-stream" });
   return new Promise((resolve, reject) => {

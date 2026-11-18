@@ -194,7 +194,9 @@ const BANNER_THEMES = { "ม่วง": "violet", "ชมพูพาสเท�
 App.heroStyle = () => {
   const b = App.DATA.settings?.banner || {};
   const img = safeUrl(b.image);
-  return { cls: `theme-${BANNER_THEMES[b.theme] || "violet"}${img ? " has-banner" : ""}`, style: img ? `--banner:url('${esc(img)}')` : "", slogan: b.slogan || "" };
+  // รูปแบนเนอร์แสดงเต็มรูปตามสัดส่วนจริง (ไม่ครอป) อยู่เหนือการ์ดชื่อ
+  return { cls: `theme-${BANNER_THEMES[b.theme] || "violet"}`, style: "", img, slogan: b.slogan || "",
+    cover: img ? `<img class="hero-cover" src="${esc(img)}" alt="แบนเนอร์" referrerpolicy="no-referrer" onerror="this.closest('.hero-wrap')?.classList.remove('has-cover');this.remove()">` : "" };
 };
 const slides = () => list("albums")
   .filter((a) => a.slideshow !== "ไม่แสดง")
@@ -466,12 +468,12 @@ App.dashCharts = () => {
 App.settingsExtras = () => {
   const b = App.DATA.settings?.banner || {};
   return `<section class="panel"><h2 class="row-head">แบนเนอร์และสไลด์โชว์หน้าแรก <button class="btn ghost small" data-act="setBanner">แก้ไข</button></h2>
-    <div class="banner-preview hero-like ${App.heroStyle().cls}" style="${App.heroStyle().style}"><b>${esc(App.DATA.profile?.name || "")}</b>${b.slogan ? `<span>${esc(b.slogan)}</span>` : ""}</div>
+    ${App.heroStyle().cover ? `<div class="hero-wrap has-cover banner-preview-wrap">${App.heroStyle().cover}` : ""}<div class="banner-preview hero-like ${App.heroStyle().cls}"><b>${esc(App.DATA.profile?.name || "")}</b>${b.slogan ? `<span>${esc(b.slogan)}</span>` : ""}</div>${App.heroStyle().cover ? "</div>" : ""}
     <p class="meta">ธีม: ${esc(b.theme || "ม่วง")} | สไลด์โชว์ใช้รูปจากอัลบั้มที่เปิด "แสดงในสไลด์โชว์" (ตอนนี้ ${slides().length} รูป)</p></section>`;
 };
 App.actions.setBanner = () => editKV("แบนเนอร์หน้าแรก", "settings", [
   { key: "theme", label: "ธีมสี", options: Object.keys(BANNER_THEMES), get: (o) => o.banner?.theme || "ม่วง" },
-  { key: "image", label: "รูปแบนเนอร์ (ไม่บังคับ)", type: "file", category: "banner", store: "img", accept: "image/*", hint: "แนะนำรูปแนวนอน ระบบใส่เงาให้อ่านตัวอักษรได้", get: (o) => o.banner?.image || "" },
+  { key: "image", label: "รูปแบนเนอร์ (ไม่บังคับ)", type: "file", category: "banner", store: "img", accept: "image/*", hint: "ขนาดแนะนำ 1600 × 500 px (แนวนอน กว้างประมาณ 3–4 เท่าของความสูง) รูปจะแสดงเต็มทั้งรูปทุกอุปกรณ์ ไม่ถูกตัดขอบ ตัวหนังสือในรูปควรตัวใหญ่ เพราะบนมือถือรูปจะย่อลง", get: (o) => o.banner?.image || "" },
   { key: "slogan", label: "คำขวัญ / คำคม (ไม่บังคับ)", placeholder: "เช่น สอนด้วยใจ ให้ด้วยรัก", get: (o) => o.banner?.slogan || "" },
 ], (o, r) => { o.banner = { theme: r.theme, image: r.image, slogan: r.slogan }; });
 
