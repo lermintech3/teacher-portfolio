@@ -6,10 +6,19 @@
 .hero.theme-night { --c: #8b7bff; background: linear-gradient(135deg, #1b1840 0%, #2b2266 60%, #3a2a7a 100%); }
 .hero.theme-night h1, .hero.theme-night .who, .hero.theme-night .slogan { color: #fff; }
 .hero.theme-night .who .meta { color: rgba(255, 255, 255, .75); }
-.hero.has-banner { background: linear-gradient(90deg, rgba(14, 10, 40, .78) 0%, rgba(14, 10, 40, .45) 60%, rgba(14, 10, 40, .2) 100%), var(--banner) center / cover no-repeat; }
-.hero.has-banner::before, .hero.has-banner::after { display: none; }
-.hero.has-banner h1, .hero.has-banner .who, .hero.has-banner .slogan { color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, .35); }
-.hero.has-banner .who .meta { color: rgba(255, 255, 255, .8); }
+/* แบนเนอร์รูปภาพ: แสดงเต็มรูปตามสัดส่วนจริงทุกอุปกรณ์ (ไม่ครอป) การ์ดชื่อและรูปโปรไฟล์อยู่ด้านล่าง ไม่ทับรูปแบนเนอร์ */
+.hero-wrap { margin-bottom: 28px; }
+.hero-wrap > .hero { margin-bottom: 0; }
+.hero-cover { display: block; width: 100%; height: auto; border-radius: 20px 20px 0 0; background: var(--c-tint); }
+.hero-wrap.has-cover > .hero { border-radius: 0 0 20px 20px; min-height: 0; }
+.hero-wrap.has-cover > .hero::before, .hero-wrap.has-cover > .hero::after { display: none; }
+@media (max-width: 860px) {
+  .hero-cover { border-radius: 16px 16px 0 0; }
+  .hero-wrap.has-cover > .hero { border-radius: 0 0 16px 16px; }
+}
+.banner-preview-wrap { margin: 8px 0; }
+.banner-preview-wrap .banner-preview { margin: 0; border-radius: 0 0 16px 16px; }
+.banner-preview-wrap .hero-cover { border-radius: 16px 16px 0 0; }
 .slogan { position: relative; margin: 14px 0 0; font-family: var(--display); font-size: 1.1rem; color: var(--c-deep); }
 .slogan::before { content: "“"; margin-right: 2px; }
 .slogan::after { content: "”"; margin-left: 2px; }

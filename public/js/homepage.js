@@ -16,12 +16,12 @@ const HB = {
       const p = App.DATA.profile || {};
       const photo = safeUrl(p.photo);
       const hs = App.heroStyle();
-      return `<header class="band hero ${hs.cls}" style="${hs.style}">
+      return `<div class="hero-wrap${hs.cover ? " has-cover" : ""}">${hs.cover}<header class="band hero ${hs.cls}">
         <div class="hero-photo ${photo ? "photo" : ""}" style="${photo ? `background-image:url('${esc(photo)}')` : ""}">${photo ? "" : esc(initials(p.name))}</div>
         <div><h1>${esc(p.name)}</h1>
           <div class="who">${esc([p.position, p.academicStanding].filter(Boolean).join(" "))}<br>${esc(p.school)}${p.office ? `<br><span class="meta">${esc(p.office)}</span>` : ""}</div>
           <div class="chips">${[p.learningArea, ...(p.subjects || []), p.homeroom].filter(Boolean).map((s) => `<span class="tag solid">${esc(s)}</span>`).join("")}</div>
-          ${hs.slogan ? `<p class="slogan">${esc(hs.slogan)}</p>` : ""}</div></header>`;
+          ${hs.slogan ? `<p class="slogan">${esc(hs.slogan)}</p>` : ""}</div></header></div>`;
     },
   },
   quote: {
