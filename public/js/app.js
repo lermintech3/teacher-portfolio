@@ -393,7 +393,7 @@ App.pages.trainings = ({ q }) => {
           const cert = safeUrl(i.certificate);
           return `<div class="card item"><div class="item-body"><h3>${esc(i.title)}</h3>
             <div class="meta">${esc(i.organizer)}<br>${thDate(i.date)}${i.format ? `, ${esc(i.format)}` : ""}</div>
-            ${cert ? `<a href="${esc(cert)}" target="_blank" rel="noopener">ดูเกียรติบัตร</a>` : ""}${tools("trainings", i)}</div>
+            ${cert ? `<a href="${esc(cert)}" target="_blank" rel="noopener" ${App.docAttrs({ title: i.title, tag: "เกียรติบัตรการอบรม", sub: i.organizer })}>ดูเกียรติบัตร</a>` : ""}${tools("trainings", i)}</div>
             <div class="item-side"><div class="hours">${esc(i.hours)} ชม.</div></div></div>`;
         }).join("")}</div>`
       : empty());
@@ -406,9 +406,10 @@ App.pages.works = () => {
     (items.length
       ? `<div class="grid">${items.map((i) => {
           const link = safeUrl(i.link);
-          return `<div class="card"><span class="tag">${esc(i.type)}</span> <span class="meta">ปีการศึกษา ${esc(i.year)}</span>
+          const doc = { link, title: i.title, tag: i.type, sub: i.year ? `ปีการศึกษา ${i.year}` : "", desc: i.description };
+          return `<div class="card work-card">${App.docCover({ ...doc, cls: "work-cover" })}<div class="work-body"><span class="tag">${esc(i.type)}</span> <span class="meta">ปีการศึกษา ${esc(i.year)}</span>
             <h3 style="margin-top:8px">${esc(i.title)}</h3>${i.description ? `<p class="meta">${esc(i.description)}</p>` : ""}
-            ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">ดูผลงาน</a>` : ""}${tools("works", i)}</div>`;
+            ${link ? `<a href="${esc(link)}" target="_blank" rel="noopener" ${App.docAttrs(doc)}>ดูผลงาน</a>` : ""}${tools("works", i)}</div></div>`;
         }).join("")}</div>`
       : empty());
 };
@@ -419,8 +420,9 @@ App.pages.reports = () => {
     (items.length
       ? `<div class="stack">${items.map((i) => {
           const link = safeUrl(i.link);
-          return `<div class="card item"><div class="item-body"><h3>${esc(i.title)}</h3><div class="meta">ปีการศึกษา ${esc(i.year)}</div></div>
-            <div class="item-side"><span class="tag">${esc(i.type)}</span><br>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">เปิดเอกสาร</a>` : `<span class="meta">ยังไม่เผยแพร่</span>`}</div></div>`;
+          const doc = { link, title: i.title, tag: i.type, sub: i.year ? `ปีการศึกษา ${i.year}` : "" };
+          return `<div class="card item report-item">${link ? App.docCover({ ...doc, cls: "report-thumb" }) : ""}<div class="item-body"><h3>${esc(i.title)}</h3><div class="meta">ปีการศึกษา ${esc(i.year)}</div></div>
+            <div class="item-side"><span class="tag">${esc(i.type)}</span><br>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener" ${App.docAttrs(doc)}>เปิดเอกสาร</a>` : `<span class="meta">ยังไม่เผยแพร่</span>`}</div></div>`;
         }).join("")}</div>`
       : empty());
 };
@@ -471,6 +473,9 @@ App.actions = {}; // ปุ่ม data-act="ชื่อ" → App.actions[ชื
 App.adders = {};  // ปุ่ม data-add="key" → App.adders[key]()
 
 main.addEventListener("click", (e) => {
+  // ลิงก์เอกสาร: เปิดอ่านในหน้าเว็บ (กด Ctrl/⌘ ค้างไว้ = เปิดแท็บใหม่ตามปกติ)
+  const doc = e.target.closest("a[data-doc]");
+  if (doc && !e.ctrlKey && !e.metaKey && !e.shiftKey && App.openDoc?.({ link: doc.getAttribute("href"), title: doc.dataset.title, tag: doc.dataset.tag, sub: doc.dataset.sub, desc: doc.dataset.desc })) { e.preventDefault(); return; }
   const btn = e.target.closest("button, [data-act]");
   if (!btn) return;
   if (btn.dataset.img) {

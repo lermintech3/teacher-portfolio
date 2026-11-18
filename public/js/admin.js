@@ -599,7 +599,7 @@ const paMedia = (url) => {
   const gDoc = u.match(/docs\.google\.com\/(document|presentation|spreadsheets)\/d\/([\w-]{20,})/);
   if (gDoc) return { kind: gDoc[1] === "presentation" ? "slides" : gDoc[1] === "spreadsheets" ? "sheet" : "doc", embed: `https://docs.google.com/${gDoc[1]}/d/${gDoc[2]}/preview` };
   if (/\.(jpe?g|png|webp|gif)(\?|#|$)/i.test(u) || /googleusercontent\.com/i.test(u)) return { kind: "image", thumb: u, img: u };
-  if (/\.pdf(\?|#|$)/i.test(u)) return { kind: "pdf", embed: u };
+  if (/\.pdf(\?|#|$)/i.test(u)) return { kind: "pdf", embed: `https://docs.google.com/viewer?embedded=true&url=${encodeURIComponent(u)}` }; // มือถือเปิด PDF ใน iframe ตรงๆ ไม่ได้
   return { kind: "link" };
 };
 const PA_SVG = {
@@ -778,6 +778,7 @@ const evDrawer = () => {
   d.querySelector(".ev-d-close").onclick = close;
   d.addEventListener("click", (e) => { if (e.target === d) close(); });
   d.addEventListener("cancel", (e) => { e.preventDefault(); close(); });
+  addEventListener("hashchange", close); // เปลี่ยนหน้า (รวมปุ่มย้อนกลับ) ให้ปิดแผงด้วย
   // ปัดลงเพื่อปิดบนมือถือ
   let y0 = null;
   const grip = d.querySelector(".ev-d-grip"), headEl = d.querySelector(".ev-d-head");
@@ -794,6 +795,7 @@ App.actions.evView = (b) => {
   const { m, kindLabel, icon, color } = evLook(e);
   const link = safeUrl(e.link);
   const d = evDrawer();
+  d.classList.remove("is-doc");
   d.style.setProperty("--k", color);
   d.querySelector(".ev-d-kind").innerHTML = `${paIcon(icon)}${kindLabel}`;
   d.querySelector("#evDTitle").textContent = e.title || "";
@@ -811,6 +813,53 @@ App.actions.evView = (b) => {
   d.classList.remove("closing");
   d.showModal();
   requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add("show")));
+};
+
+// ---------- เปิดเอกสารในหน้าเว็บ (ใช้แผงเดียวกับหลักฐาน PA) ----------
+// ลิงก์ที่มี data-doc จะเปิดในแผงนี้แทนแท็บใหม่ ถ้าเปิดในหน้าไม่ได้ (เช่น ลิงก์เว็บทั่วไป) จะเปิดแท็บใหม่ตามปกติ
+App.docAttrs = (o) => `data-doc data-title="${esc(o.title || "")}" data-tag="${esc(o.tag || "")}" data-sub="${esc(o.sub || "")}" data-desc="${esc(o.desc || "")}"`;
+App.openDoc = ({ link, title = "", tag = "", sub = "", desc = "" }) => {
+  const u = safeUrl(link);
+  if (!u) return false;
+  const m = paMedia(u);
+  if (!m.embed && !m.img) return false;
+  const [kindLabel, icon, color] = PA_KIND[m.kind];
+  const d = evDrawer();
+  d.classList.toggle("is-doc", !m.img && m.kind !== "video"); // เอกสาร: ให้พื้นที่อ่านสูงขึ้นบนมือถือ
+  d.style.setProperty("--k", color);
+  d.querySelector(".ev-d-kind").innerHTML = `${paIcon(icon)}${kindLabel}`;
+  d.querySelector("#evDTitle").textContent = title;
+  d.querySelector(".ev-d-media").innerHTML = m.img ? `<img src="${esc(m.img)}" alt="${esc(title)}">`
+    : `<iframe src="${esc(m.embed)}" title="${esc(title || "เอกสาร")}" allow="autoplay; encrypted-media; fullscreen" allowfullscreen onload="this.classList.add('ok')"></iframe>`;
+  d.querySelector(".ev-d-info").innerHTML =
+    (desc ? `<p class="ev-d-desc">${esc(desc)}</p>` : "") +
+    (tag || sub ? `<dl>${tag ? `<div class="ev-d-row"><dt>ประเภท</dt><dd>${esc(tag)}</dd></div>` : ""}${sub ? `<div class="ev-d-row"><dt>รายละเอียด</dt><dd>${esc(sub)}</dd></div>` : ""}</dl>` : "") +
+    `<a class="btn ev-d-btn" href="${esc(u)}" target="_blank" rel="noopener">เปิดในแท็บใหม่ <span aria-hidden="true">↗</span></a>`;
+  d.querySelector(".ev-d-main").scrollTop = 0;
+  d.classList.remove("closing");
+  d.showModal();
+  requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add("show")));
+  return true;
+};
+
+// ภาพปกเอกสาร: หน้าแรกของไฟล์ใน Google Drive ถ้าดึงไม่ได้ใช้หน้าปกไล่สีตามประเภท
+const DOC_LOOK = { "นวัตกรรม": "#6c4cf1", "วิจัยในชั้นเรียน": "#2f6fde", "สื่อการสอน": "#e08a00", "บทความ": "#0e9aa7", "SAR": "#1f9d61", "PA": "#4f63d2" };
+App.docThumb = (u, w = 800) => {
+  u = safeUrl(u);
+  if (!u) return "";
+  const m = paMedia(u);
+  if (m.thumb) return m.thumb.replace("sz=w640", `sz=w${w}`);
+  const id = (u.match(/docs\.google\.com\/\w+\/d\/([\w-]{20,})/) || [])[1];
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w${w}` : "";
+};
+App.docCover = ({ link, tag = "", title = "", sub = "", desc = "", cls = "" }) => {
+  const u = safeUrl(link);
+  const m = paMedia(u), [kindLabel, icon] = PA_KIND[m.kind];
+  const thumb = App.docThumb(u);
+  const cover = `<span class="ev-cover" style="--k:${DOC_LOOK[tag] || "#e8459b"}">${paIcon(m.kind === "none" ? "folder" : icon, "ev-cover-art")}<small>${esc(m.kind === "none" ? "ผลงาน" : kindLabel)}</small><b>${esc(tag || kindLabel)}</b></span>`;
+  const inner = cover + (thumb ? `<img src="${esc(thumb)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : "");
+  return u ? `<a class="doc-cover ${cls}" href="${esc(u)}" target="_blank" rel="noopener" ${App.docAttrs({ title, tag, sub, desc })} aria-label="เปิด ${esc(title)}">${inner}</a>`
+    : `<span class="doc-cover ${cls}" aria-hidden="true">${inner}</span>`;
 };
 
 App.pages["admin/sar"] = () => {

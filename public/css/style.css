@@ -426,6 +426,17 @@ table.data { border-collapse: collapse; width: 100%; font-size: .92rem; }
 .ev-grid.compact .ev-cover { padding: 8px 10px 10px; }
 .ev-grid.compact .ev-cover b { font-size: .98rem; }
 
+/* ---------- ภาพปกเอกสาร (หน้าแรกของไฟล์ / หน้าปกไล่สี) ใช้กับผลงาน รายงาน ---------- */
+.doc-cover { position: relative; display: block; overflow: hidden; cursor: pointer; text-decoration: none; background: var(--c-tint); }
+.doc-cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; background: #fff; transition: transform .4s ease; }
+.doc-cover:hover img { transform: scale(1.04); }
+.work-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.work-cover { aspect-ratio: 16 / 10; }
+.work-body { padding: 16px 20px 18px; }
+.report-thumb { flex: none; width: 64px; aspect-ratio: 3 / 4; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); }
+.report-thumb .ev-cover { padding: 6px; }
+.report-thumb .ev-cover b, .report-thumb .ev-cover small { display: none; }
+
 /* ---------- PA หน้าครู: สถานะรายตัวชี้วัด ---------- */
 .pa-overview .meter.big { margin: 0 0 12px; background: var(--paper); box-shadow: none; }
 .pa-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; }
@@ -508,6 +519,7 @@ table.data { border-collapse: collapse; width: 100%; font-size: .92rem; }
   .ev-d-head h2 { font-size: 1rem; }
   .ev-d-main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow-y: auto; }
   .ev-d-media { aspect-ratio: 4 / 3; max-height: 52dvh; }
+  .ev-drawer.is-doc .ev-d-media { aspect-ratio: auto; height: 70dvh; max-height: none; }
   .ev-d-info { border-left: 0; overflow: visible; padding: 18px 18px 28px; }
   .ev-d-info > * { transform: translateY(12px); }
   .ev-grid, .ev-grid.compact { grid-template-columns: 1fr 1fr; gap: 8px; }
