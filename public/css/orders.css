@@ -1,0 +1,25 @@
+/* เมนูคำสั่ง */
+.orders { display: grid; gap: 14px; margin-top: 16px; }
+.order-card { padding: 16px 18px; }
+.order-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.order-no { white-space: nowrap; }
+.order-title { font-weight: 500; }
+.order-prog { flex: 0 0 auto; font-size: .8rem; padding: 4px 10px; border-radius: 999px; white-space: nowrap; background: var(--paper); color: var(--muted); }
+.order-prog.ok { background: #e7f6ee; color: #1b7a4b; }
+.order-prog.wait { background: #fff4dc; color: #8a5a00; }
+.order-prog.year { background: #eceefe; color: #3d4fd8; }
+.duty-list { list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.duty { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.duty-t { flex: 1 1 200px; }
+.duty-t small { color: var(--muted); }
+.duty .meta.late { color: #c62f35; font-weight: 500; }
+.duty-tools .ico { font-size: .8rem; }
+.duty-st { border: 0; cursor: pointer; font: inherit; font-size: .78rem; font-weight: 600; padding: 4px 10px; border-radius: 999px; min-width: 68px; }
+.duty-st.todo { background: #f1f0f6; color: #5f5c78; }
+.duty-st.doing { background: #fff4dc; color: #8a5a00; }
+.duty-st.done { background: #e7f6ee; color: #1b7a4b; }
+.duty-st.year { background: #eceefe; color: #3d4fd8; cursor: default; }
+.duty-st:not(:disabled):hover { filter: brightness(.96); }
+.order-note { margin: 10px 0 0; }
+.order-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.order-migrate { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }

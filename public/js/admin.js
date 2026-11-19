@@ -10,7 +10,7 @@ const BE_NOW = new Date().getFullYear() + 543 - (new Date().getMonth() < 4 ? 1 :
 const YEARS = Array.from({ length: 10 }, (_, i) => String(BE_NOW - 6 + i));
 const yearField = { key: "year", label: "ปีการศึกษา", options: YEARS, wheel: true, value: String(BE_NOW) };
 // ต้องตรงกับ PRIVATE_ONLY ใน src/server.js
-const PRIVATE_ONLY = new Set(["todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps"]);
+const PRIVATE_ONLY = new Set(["todos", "deadlines", "students", "care", "documents", "meetings", "leaves", "career", "swaps", "orders"]);
 const arr = (key) => (App.DATA[key] = App.DATA[key] || []);
 const addBtn = (key, label) => `<button class="btn" data-add="${key}">+ ${label}</button>`;
 const today = () => new Date().toLocaleDateString("sv-SE"); // YYYY-MM-DD ตามเวลาเครื่อง
@@ -89,7 +89,14 @@ const FORMS = {
   responsibilities: { name: "งานที่รับผิดชอบ", fields: [
     { key: "title", label: "ชื่องาน", required: true }, { key: "type", label: "ประเภท", options: ["คำสั่ง", "งานฝ่าย", "งานที่ปรึกษา", "เวร", "โครงการ"] },
     yearField, { key: "detail", label: "รายละเอียด / เลขที่คำสั่ง" },
+    { key: "status", label: "สถานะ", options: ["ยังไม่ทำ", "กำลังทำ", "เสร็จ", "ทั้งปี"], hint: "งานที่ทำตลอดปี เช่น เวร ครูที่ปรึกษา เลือก \"ทั้งปี\"" },
+    { key: "due", label: "กำหนดเสร็จ", type: "date" },
     { key: "file", label: "ไฟล์คำสั่ง", type: "file", category: "responsibilities" }, visField] },
+  // คำสั่งโรงเรียน: เก็บเฉพาะข้อมูล ไม่เก็บไฟล์ (ครูเลือกให้ AI อ่านแล้วทิ้ง) งานที่ได้รับมอบหมายอยู่ใน responsibilities ผูกด้วย orderId
+  orders: { name: "คำสั่ง", fields: [
+    { key: "no", label: "เลขที่คำสั่ง", placeholder: "เช่น 45/2569", required: true }, { key: "date", label: "ลงวันที่", type: "date" },
+    { key: "title", label: "เรื่อง", placeholder: "เช่น แต่งตั้งคณะกรรมการดำเนินงานวันเด็กแห่งชาติ", required: true },
+    { key: "from", label: "ผู้ออกคำสั่ง", placeholder: "เช่น โรงเรียนบ้านไร่" }, yearField, { key: "note", label: "หมายเหตุ", type: "textarea" }] },
   projects: { name: "โครงการ", fields: [
     { key: "title", label: "ชื่อโครงการ", required: true }, { key: "budget", label: "งบประมาณ (บาท)", type: "number", wheel: false }, { key: "used", label: "ใช้ไปแล้ว (บาท)", type: "number", wheel: false },
     { key: "status", label: "สถานะ", options: ["ยังไม่เริ่ม", "กำลังดำเนินการ", "เสร็จสิ้น"] }, { key: "result", label: "ผลการดำเนินงาน", type: "textarea" },
@@ -159,7 +166,8 @@ App.editItem = (key, item, preset = {}) => {
       const saved = await api("PUT", `/api/admin/item/${id}`, { ...old, ...body });
       Object.assign(item, saved);
     } else {
-      arr(key).unshift(await api("POST", `/api/admin/items/${key}`, body));
+      // preset._extra: ค่าที่ไม่มีช่องในฟอร์ม แต่ต้องติดไปกับรายการใหม่ (เช่น orderId ของงานในคำสั่ง)
+      arr(key).unshift(await api("POST", `/api/admin/items/${key}`, { ...(preset._extra || {}), ...body }));
     }
   });
   App.aiAttach?.(key, fields, F.name); // ปุ่ม "✨ อ่านด้วย AI" (ai.js)
