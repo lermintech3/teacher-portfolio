@@ -754,3 +754,6 @@ details.folder summary b { font-family: var(--display); color: var(--c-deep); }
 @media print {
   .pa-hero { background: none; }
 }
+/* แถบเลือกภาคเรียนในหน้าตารางสอน */
+.term-bar { flex-wrap: wrap; }
+.term-bar .term-new { border: 1.5px dashed var(--line); background: transparent; color: var(--muted); }
