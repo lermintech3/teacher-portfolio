@@ -101,6 +101,11 @@
 
   // ---------- ข้อมูล ----------
   let Y = String(BE_NOW); // ปีการศึกษาที่กำลังดู
+  // ฉบับเผยแพร่: ซ่อนข้อมูลส่วนตัว (วันเกิด อายุ เลขที่ตำแหน่ง วันบรรจุ วันลา ลายเซ็น) และภาคผนวกใช้เฉพาะรายการที่ตั้งเป็นสาธารณะ
+  let PUB = false;
+  const isPublicItem = (x) => x.vis === "public";
+  // รายการจากเมนูอื่น: ฉบับเผยแพร่ใช้เฉพาะรายการที่ตั้งเป็นสาธารณะ
+  const L = (k) => (PUB ? arr(k).filter(isPublicItem) : list(k));
   const notes = () => {
     const n = (App.DATA.sarNotes = App.DATA.sarNotes && typeof App.DATA.sarNotes === "object" ? App.DATA.sarNotes : {});
     n.common = n.common || {};
@@ -154,37 +159,37 @@
     teach1: { title: "ปฏิบัติการสอน ภาคเรียนที่ 1", cols: ["รหัสวิชา", "ชื่อวิชา", "ชั้น", "จำนวนห้อง", "จำนวนชั่วโมง / สัปดาห์"], auto: teachAuto("1"), autoNote: "ตารางสอนภาคเรียนที่ 1" },
     teach2: { title: "ปฏิบัติการสอน ภาคเรียนที่ 2", cols: ["รหัสวิชา", "ชื่อวิชา", "ชั้น", "จำนวนห้อง", "จำนวนชั่วโมง / สัปดาห์"], auto: teachAuto("2"), autoNote: "ตารางสอนภาคเรียนที่ 2" },
     activities: { title: "กิจกรรมพัฒนาผู้เรียน", cols: ["กิจกรรมพัฒนาผู้เรียน", "ชั้น / ห้อง", "จำนวนนักเรียน", "ผ่าน", "ไม่ผ่าน"], autoNote: "เมนูกิจกรรมพัฒนาผู้เรียน",
-      auto: () => list("activities").map((a) => {
+      auto: () => L("activities").map((a) => {
         const [p, t] = String(a.passed || "").split("/").map((x) => Number(x));
         return [a.title, a.room || "", t ? String(t) : "", isNaN(p) ? "" : String(p), t && !isNaN(p) ? String(t - p || "-") : ""];
       }) },
     homeroom: { title: "ครูที่ปรึกษา", cols: ["ชั้น / ห้อง", "ชาย (คน)", "หญิง (คน)", "รวมทั้งสิ้น (คน)"], autoNote: "โปรไฟล์ (หน้าที่พิเศษ)",
       auto: () => { const h = String(P().homeroom || "").replace(/^ครูที่ปรึกษา(ชั้น)?\s*/, ""); return h ? [[h, "", "", ""]] : []; } },
     special: { title: "งานพิเศษในโรงเรียน", cols: ["งานพิเศษ"], autoNote: "เมนูงานที่รับผิดชอบ",
-      auto: () => uniqBy(list("responsibilities").filter((r) => !r.year || r.year === Y), (r) => r.title).map((r) => [r.title]) },
+      auto: () => uniqBy(L("responsibilities").filter((r) => !r.year || r.year === Y), (r) => r.title).map((r) => [r.title]) },
     plans: { title: "จัดทำแผนการจัดการเรียนรู้", cols: ["รหัสวิชา", "สาระการเรียนรู้/รายวิชา", "ระดับชั้น", "จำนวน/แผน"], autoNote: "เมนูแผนการสอนและสื่อ",
       auto: () => {
         const g = {};
-        for (const p of list("plans").filter((x) => !x.type || x.type === "แผนการสอน")) g[p.subject] = (g[p.subject] || 0) + 1;
+        for (const p of L("plans").filter((x) => !x.type || x.type === "แผนการสอน")) g[p.subject] = (g[p.subject] || 0) + 1;
         return Object.entries(g).map(([s, n]) => [isCode(s) ? s : "", isCode(s) ? "" : s, "", String(n)]);
       } },
     media: { title: "ผลิตสื่อ / นวัตกรรม", cols: ["ชื่อสื่อ/นวัตกรรม/เทคโนโลยี", "จำนวน ชั่วโมง/คาบเรียน"], autoNote: "เมนูแผนการสอนและสื่อ และผลงาน",
       auto: () => [
-        ...list("plans").filter((p) => p.type === "สื่อ" || p.type === "ใบงาน").map((p) => [p.title, ""]),
-        ...list("works").filter((w) => (w.type === "สื่อการสอน" || w.type === "นวัตกรรม") && (!w.year || w.year === Y)).map((w) => [w.title, ""]),
+        ...L("plans").filter((p) => p.type === "สื่อ" || p.type === "ใบงาน").map((p) => [p.title, ""]),
+        ...L("works").filter((w) => (w.type === "สื่อการสอน" || w.type === "นวัตกรรม") && (!w.year || w.year === Y)).map((w) => [w.title, ""]),
       ] },
     places: { title: "แหล่งเรียนรู้นอกสถานที่", cols: ["สถานที่", "จำนวน ชั่วโมง/คาบเรียน"] },
     wisdom: { title: "ภูมิปัญญาในท้องถิ่น", cols: ["เรื่อง", "จำนวนชั่วโมง"] },
     research: { title: "วิจัยในชั้นเรียน", cols: ["เรื่อง", "ระดับชั้น"], autoNote: "เมนูผลงาน วิจัย นวัตกรรม (ประเภทวิจัยในชั้นเรียน)",
-      auto: () => list("works").filter((w) => w.type === "วิจัยในชั้นเรียน" && (!w.year || w.year === Y)).map((w) => [w.title, ""]) },
+      auto: () => L("works").filter((w) => w.type === "วิจัยในชั้นเรียน" && (!w.year || w.year === Y)).map((w) => [w.title, ""]) },
     measure: { title: "วิธีการวัดและประเมินผล", cols: ["รายวิชา", "วิธีการวัดประเมินผล (คั่นแต่ละวิธีด้วย ,)"],
       auto: () => [["ทุกรายวิชาที่สอนในแต่ละชั้นที่ได้รับมอบหมาย", "ทดสอบแบบปรนัย, ทดสอบแบบอัตนัย, ประเมินชิ้นงาน, ประเมินแบบฝึกหัด"]], autoNote: "ค่าตั้งต้น" },
     speakers: { title: "เชิญวิทยากรภายนอก", cols: ["วัน / เดือน / ปี", "ชื่อวิทยากร", "เรื่อง / หัวข้อ"] },
     trainings: { title: "การพัฒนาตนเอง", cols: ["วัน / เดือน / ปี", "เรื่อง / หลักสูตร", "หน่วยงานที่จัด", "จำนวนชั่วโมง"], autoNote: "เมนูอบรม / PLC (ตามปีการศึกษา)",
-      auto: () => [...list("trainings")].filter((t) => inYear(t.date)).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      auto: () => [...L("trainings")].filter((t) => inYear(t.date)).sort((a, b) => String(a.date).localeCompare(String(b.date)))
         .map((t) => [thShort(t.date), t.title, t.organizer || "", t.hours ? String(t.hours) : ""]) },
     awards: { title: "รางวัล / ประกาศเกียรติคุณ / ผลงานดีเด่น", cols: ["วัน / เดือน / ปี", "รางวัล / ผลงาน", "ระดับ", "หน่วยงานที่มอบ"], autoNote: "เมนูเกียรติบัตรและรางวัล (ตามปีการศึกษา)",
-      auto: () => [...list("certificates")].filter((c) => inYear(c.date)).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      auto: () => [...L("certificates")].filter((c) => inYear(c.date)).sort((a, b) => String(a.date).localeCompare(String(b.date)))
         .map((c) => [thShort(c.date), c.title, c.level || "", c.issuer || ""]) },
     judge: { title: "วิทยากร / กรรมการตัดสิน", cols: ["วัน / เดือน / ปี", "รายการ / เรื่อง", "หน่วยงานที่เชิญ"] },
     achieve: { title: "ผลสัมฤทธิ์ทางการเรียน", cols: ["รายวิชา", "ห้อง", "จำนวน (คน)", ...GRADES, "ร้อยละ 3 ขึ้นไป"], autoNote: "เมนูการวัดผล (ปพ.5)",
@@ -207,11 +212,11 @@
       } },
     supervision: { title: "การนิเทศ และการแลกเปลี่ยนเรียนรู้ทางวิชาชีพ (PLC)", cols: ["วัน / เดือน / ปี", "รูปแบบ", "เรื่อง", "ผู้นิเทศ / หน่วยงาน", "ผล / ข้อเสนอแนะ"], autoNote: "เมนูนิเทศ / Open Class และอบรม / PLC",
       auto: () => [
-        ...arr("supervision").filter((x) => inYear(x.date)).map((x) => ({ d: x.date, r: [thShort(x.date), x.type || "นิเทศ", x.topic || "", x.by || "", x.result || ""] })),
-        ...list("trainings").filter((t) => t.format === "PLC" && inYear(t.date)).map((t) => ({ d: t.date, r: [thShort(t.date), "PLC", t.title, t.organizer || "", t.hours ? `${t.hours} ชั่วโมง` : ""] })),
+        ...L("supervision").filter((x) => inYear(x.date)).map((x) => ({ d: x.date, r: [thShort(x.date), x.type || "นิเทศ", x.topic || "", x.by || "", x.result || ""] })),
+        ...L("trainings").filter((t) => t.format === "PLC" && inYear(t.date)).map((t) => ({ d: t.date, r: [thShort(t.date), "PLC", t.title, t.organizer || "", t.hours ? `${t.hours} ชั่วโมง` : ""] })),
       ].sort((a, b) => String(a.d).localeCompare(String(b.d))).map((x) => x.r) },
     projects: { title: "โครงการ / กิจกรรมที่รับผิดชอบ", cols: ["ชื่อโครงการ / กิจกรรม", "งบประมาณ (บาท)", "ใช้จริง (บาท)", "สถานะ", "ผลการดำเนินงาน"], autoNote: "เมนูโครงการและงบประมาณ",
-      auto: () => arr("projects").map((p) => [p.title, p.budget ? Number(p.budget).toLocaleString("th-TH") : "", p.used ? Number(p.used).toLocaleString("th-TH") : "", p.status || "", p.result || ""]) },
+      auto: () => L("projects").map((p) => [p.title, p.budget ? Number(p.budget).toLocaleString("th-TH") : "", p.used ? Number(p.used).toLocaleString("th-TH") : "", p.status || "", p.result || ""]) },
     competency: { title: "ผลการประเมินสมรรถนะสำคัญของผู้เรียน", cols: ["ชั้น", "จำนวนนักเรียน (คน)", ...COMPETENCY] },
     reading: { title: "ผลการประเมินการอ่าน คิด วิเคราะห์และเขียน", cols: ["ชั้น", "จำนวนนักเรียนที่ประเมิน (คน)", "ดีเยี่ยม (3)", "ดี (2)", "ผ่าน (1)", "ไม่ผ่าน (0)"] },
     traits: { title: "ผลการประเมินคุณลักษณะอันพึงประสงค์", cols: ["ชั้น", "จำนวนนักเรียน (คน)", "ดีเยี่ยม (3)", "ดี (2)", "ผ่าน (1)", "ไม่ผ่าน (0)"] },
@@ -219,7 +224,7 @@
       auto: () => {
         const h = String(P().homeroom || "").replace(/^ครูที่ปรึกษา(ชั้น)?\s*/, "");
         return [["ภาพรวม", "", ""], ...(h ? [[`ครูที่ปรึกษา/ประจำชั้น ${h}`, "", ""]] : []),
-          ...uniqBy(list("responsibilities").filter((r) => (!r.year || r.year === Y) && r.type !== "เวร" && r.type !== "งานที่ปรึกษา"), (r) => r.title).slice(0, 4).map((r) => [r.title, "", ""])];
+          ...uniqBy(L("responsibilities").filter((r) => (!r.year || r.year === Y) && r.type !== "เวร" && r.type !== "งานที่ปรึกษา"), (r) => r.title).slice(0, 4).map((r) => [r.title, "", ""])];
       } },
   };
   const rowsText = (rows) => rows.map((r) => r.join(" | ")).join("\n");
@@ -277,7 +282,7 @@
       <div class="sar-cover-mid">
         <div class="sar-cover-year">ปีการศึกษา ${esc(Y)}</div>
         <div class="sar-cover-title">รายงานผลการปฏิบัติงาน<br>และผลการประเมินตนเองรายบุคคล</div>
-        <div class="sar-cover-sub">(Self Assessment Report : SAR)</div>
+        <div class="sar-cover-sub">(Self Assessment Report : SAR)${PUB ? `<span class="sar-pub-tag">ฉบับเผยแพร่</span>` : ""}</div>
       </div>
       <div class="sar-cover-bottom">
         ${photo ? `<img class="sar-photo" src="${esc(photo)}" alt="">` : ""}
@@ -304,10 +309,10 @@
         <p>ชื่อ <u>${esc(name)}</u> วุฒิการศึกษา</p>
         ${edu.length ? edu.map((e) => `<p class="in1">${cb(true)} ${esc(e.degree)}${e.institution ? ` จาก ${esc(e.institution)}` : ""}${e.year ? ` (พ.ศ. ${esc(e.year)})` : ""}</p>`).join("")
           : `<p class="in1 muted">ยังไม่มีวุฒิการศึกษา ใส่ได้ที่เมนูโปรไฟล์</p>`}
-        <p>ตำแหน่ง <u>${esc(p.position || "ครู")}</u> วิทยฐานะ <u>${esc(p.academicStanding || "-")}</u> อายุ <u>${esc(s.age || age || "-")}</u> ปี</p>
-        <p>เลขที่ตำแหน่ง <u>${dash(c.positionNo)}</u></p>
+        <p>ตำแหน่ง <u>${esc(p.position || "ครู")}</u> วิทยฐานะ <u>${esc(p.academicStanding || "-")}</u>${PUB ? "" : ` อายุ <u>${esc(s.age || age || "-")}</u> ปี`}</p>
+        ${PUB ? "" : `<p>เลขที่ตำแหน่ง <u>${dash(c.positionNo)}</u></p>
         <p>วัน / เดือน / ปี เกิด <u>${dash(c.birth)}</u></p>
-        <p>วัน / เดือน / ปี บรรจุเข้ารับราชการ <u>${dash(c.appointed)}</u></p>
+        <p>วัน / เดือน / ปี บรรจุเข้ารับราชการ <u>${dash(c.appointed)}</u></p>`}
         <p>ปฏิบัติการสอนกลุ่มสาระ <u>${dash(p.learningArea)}</u></p>
         <p>ปฏิบัติงานพิเศษ <u>${dash(s.extraDuty || TABLES.special.auto().map((r) => r[0]).join(" , "))}</u></p>
         ${s.dutyDay ? `<p>ครูเวรประจำวัน<u>${esc(s.dutyDay)}</u></p>` : ""}
@@ -319,7 +324,7 @@
     const days = (ls) => ls.reduce((a, l) => a + (Number(l.days) || 0), 0);
     const lRow = (label, f) => `<tr><td>${label}</td>${LEAVE_TYPES.map((t) => f(t)).join("")}</tr>`;
     const totalN = leaves.length, totalD = days(leaves);
-    add(`<p class="sar-center"><b>แสดงจำนวนวันลา ประจำปีการศึกษา ${esc(Y)}</b><br>(${thLong(yStart())} – ${thLong(yEnd())})</p>
+    if (!PUB) add(`<p class="sar-center"><b>แสดงจำนวนวันลา ประจำปีการศึกษา ${esc(Y)}</b><br>(${thLong(yStart())} – ${thLong(yEnd())})</p>
       <table class="sar-t leave"><thead><tr><th rowspan="2">วัน เดือน ปี<br>ที่ลา</th>${LEAVE_TYPES.map((t) => `<th colspan="2">${t}</th>`).join("")}</tr>
       <tr>${LEAVE_TYPES.map(() => "<th>ครั้ง</th><th>วัน</th>").join("")}</tr></thead><tbody>
       ${leaves.length ? leaves.map((l) => lRow(`${thShort(l.from)}${l.to && l.to !== l.from ? ` – ${thShort(l.to)}` : ""}`, (t) => (t === l.type ? `<td class="c">1</td><td class="c">${esc(l.days || 1)}</td>` : `<td class="c">-</td><td class="c">-</td>`))).join("")
@@ -507,7 +512,7 @@
     if (pick("support")) sec4("4.4", "ความต้องการการสนับสนุน", pick("support"), "");
 
     // หน้ารับรอง
-    const sig = safeUrl(c.sig);
+    const sig = PUB ? "" : safeUrl(c.sig);
     const signer = (nm, ps, role, img) => `<div class="sar-sign">${img ? `<img class="sar-sig" src="${esc(img)}" alt="">` : ""}<div>ลงชื่อ ............................................... ${role}</div><div>(${esc(nm || "...............................................")})</div><div>${esc(ps || "")}</div><div>${esc(signDate)}</div></div>`;
     add(`<div class="sar-title">การรับรองรายงานการประเมินตนเอง<br><span class="sar-title-sub">(Self Assessment Report : SAR)</span></div>
       ${editBtn("sarCover", "", "แก้ผู้ลงนาม")}
@@ -517,13 +522,14 @@
 
     // ---------- ภาคผนวก ----------
     const ap = { certs: true, photos: true, qr: true, portfolio: true, ...(s.appendix || {}) };
-    const certs = ap.certs ? list("certificates").filter((x) => inYear(x.date) && safeUrl(x.image)).sort((a, b) => String(a.date).localeCompare(String(b.date))) : [];
-    const photos = ap.photos ? list("albums").filter((a) => inYear(a.date)).flatMap((a) => (a.photos || []).slice(0, 2).map((ph) => ({ img: ph.img || ph.url, cap: a.title, date: a.date })))
+    const pubOk = (x) => !PUB || isPublicItem(x);
+    const certs = ap.certs ? L("certificates").filter((x) => pubOk(x) && inYear(x.date) && safeUrl(x.image)).sort((a, b) => String(a.date).localeCompare(String(b.date))) : [];
+    const photos = ap.photos ? L("albums").filter((a) => pubOk(a) && inYear(a.date)).flatMap((a) => (a.photos || []).slice(0, 2).map((ph) => ({ img: ph.img || ph.url, cap: a.title, date: a.date })))
       .filter((x) => safeUrl(x.img)) : [];
     const qrItems = ap.qr ? [
-      ...list("evidence").filter((e) => safeUrl(e.link) && /^https?:/.test(e.link) && (!e.date || inYear(e.date))).map((e) => ({ t: e.title, u: e.link, k: e.source || "หลักฐาน" })),
-      ...list("trainings").filter((t) => inYear(t.date) && /^https?:/.test(t.certificate || "")).map((t) => ({ t: t.title, u: t.certificate, k: "เกียรติบัตรการอบรม" })),
-      ...list("works").filter((w) => (!w.year || w.year === Y) && /^https?:/.test(w.link || "")).map((w) => ({ t: w.title, u: w.link, k: w.type || "ผลงาน" })),
+      ...L("evidence").filter((e) => pubOk(e) && safeUrl(e.link) && /^https?:/.test(e.link) && (!e.date || inYear(e.date))).map((e) => ({ t: e.title, u: e.link, k: e.source || "หลักฐาน" })),
+      ...L("trainings").filter((t) => pubOk(t) && inYear(t.date) && /^https?:/.test(t.certificate || "")).map((t) => ({ t: t.title, u: t.certificate, k: "เกียรติบัตรการอบรม" })),
+      ...L("works").filter((w) => pubOk(w) && (!w.year || w.year === Y) && /^https?:/.test(w.link || "")).map((w) => ({ t: w.title, u: w.link, k: w.type || "ผลงาน" })),
     ] : [];
     const portUrl = typeof siteUrl === "function" && SITE ? siteUrl() : "";
     const qr = (u, size) => { try { return window.qrSVG ? window.qrSVG(u, { size, margin: 1, color: "#111" }) : ""; } catch { return ""; } };
@@ -564,7 +570,7 @@
   };
   // ผลแบบประเมินความพึงพอใจจากเมนูแบบประเมิน (ถ้าเคยเปิดดูผลแล้ว)
   const surveyLine = () => {
-    const done = list("surveys").map((sv) => [sv, App.surveyStats?.[sv.id]]).filter(([, r]) => r && r.counted);
+    const done = L("surveys").map((sv) => [sv, App.surveyStats?.[sv.id]]).filter(([, r]) => r && r.counted);
     return done.length
       ? `<p class="sar-note">อ้างอิง: ${done.map(([sv, r]) => `${esc(sv.title)} เฉลี่ย ${r.overall.toFixed(2)} จาก 5 (${r.counted} คน)`).join(", ")}</p>` : "";
   };
@@ -587,7 +593,7 @@
 
   let runTitle = "";
   function paginate(book, blocks) {
-    runTitle = `รายงานการประเมินตนเอง (SAR) ปีการศึกษา ${Y}`;
+    runTitle = `รายงานการประเมินตนเอง (SAR) ปีการศึกษา ${Y}${PUB ? " · ฉบับเผยแพร่" : ""}`;
     book.innerHTML = "";
     let page, body;
     const newPage = (kind) => { page = pageEl(kind); body = page.lastElementChild; book.append(page); };
@@ -668,11 +674,16 @@
     const stored = Object.keys(notes().years);
     const years = [...new Set([...stored, String(BE_NOW), String(BE_NOW - 1)])].sort().reverse();
     Y = q.year && /^\d{4}$/.test(q.year) ? q.year : String(BE_NOW);
+    PUB = q.v === "pub";
+    const modeBar = `<div class="sar-mode" role="radiogroup" aria-label="ฉบับ">
+      <button type="button" role="radio" aria-checked="${!PUB}" data-act="sarMode" data-v="">ฉบับเต็ม<small>ส่งผู้ประเมิน</small></button>
+      <button type="button" role="radio" aria-checked="${PUB}" data-act="sarMode" data-v="pub">ฉบับเผยแพร่<small>ขึ้นหน้าสาธารณะ</small></button></div>
+      ${PUB ? `<p class="sar-mode-note">ฉบับนี้ซ่อน วันเกิด อายุ เลขที่ตำแหน่ง วันบรรจุ ตารางวันลา และลายเซ็น ส่วนภาคผนวกแสดงเฉพาะรายการที่ตั้งเป็นสาธารณะ</p>` : ""}`;
     const prev = stored.filter((y) => y < Y && has(y)).sort().pop();
     const copy = !has(Y) && prev ? `<button class="btn ghost" data-act="sarCopy" data-from="${prev}">คัดลอกข้อมูลที่กรอกจากปี ${prev}</button>` : "";
     return head(`SAR ปีการศึกษา ${esc(Y)}`, "ดูตัวอย่างตามแบบฟอร์มโรงเรียน แตะช่องในตารางเพื่อติ๊ก ✓ ปุ่มแก้ไขข้างหัวข้อจะไม่ติดไปตอนพิมพ์ (ปุ่มสีเขียว = ข้อมูลดึงจากเมนูอื่นอัตโนมัติ)",
       `<button class="btn" data-act="sarPrint">พิมพ์ / บันทึกเป็น PDF</button>${copy}`) +
-      `<div class="filters">${years.map((y) => `<button data-year="${y}" class="${y === Y ? "on" : ""}">ปี ${y}${has(y) ? "" : " (ยังไม่กรอก)"}</button>`).join("")}</div>` +
+      modeBar + `<div class="filters">${years.map((y) => `<button data-year="${y}" class="${y === Y ? "on" : ""}">ปี ${y}${has(y) ? "" : " (ยังไม่กรอก)"}</button>`).join("")}</div>` +
       `<div class="sar-wrap"><div class="sar-book" id="sarBook"><p class="empty">กำลังจัดหน้า…</p></div></div>`;
   };
   // จัดหน้าหลังวาดหน้าเสร็จ (รอฟอนต์โหลดก่อน ความสูงจะได้ถูก)
@@ -701,9 +712,16 @@
   A.sarPrint = () => {
     const name = P().name ? ` ${P().name}` : "";
     const old = document.title;
-    document.title = `SAR ${Y}${name}`; // ใช้เป็นชื่อไฟล์ PDF
+    document.title = `SAR ${Y}${name}${PUB ? " (ฉบับเผยแพร่)" : ""}`; // ใช้เป็นชื่อไฟล์ PDF
     window.print();
     setTimeout(() => (document.title = old), 500);
+  };
+  // สลับฉบับเต็ม / ฉบับเผยแพร่ (เก็บไว้ในลิงก์ ปุ่มเลือกปียังจำฉบับไว้)
+  A.sarMode = (b) => {
+    const { q } = parseHash();
+    if (b.dataset.v) q.v = b.dataset.v; else delete q.v;
+    const qs = new URLSearchParams(q).toString();
+    location.hash = `#/sar${qs ? `?${qs}` : ""}`;
   };
   A.sarRate = (b) => {
     const g = b.dataset.g, id = b.dataset.id, v = b.dataset.v;
