@@ -6,7 +6,7 @@
   const AI_FORMS = {
     certificates: { what: "รูปเกียรติบัตรหรือรางวัล", attach: "image" },
     trainings: { what: "รูปหรือ PDF เกียรติบัตร/วุฒิบัตรการอบรม", attach: "certificate" },
-    responsibilities: { what: "รูปหรือ PDF คำสั่งโรงเรียน (ถ้าคำสั่งมีหลายงาน ใช้ปุ่ม ✨ อ่านคำสั่ง ในหน้ารายการ)", attach: "file" },
+    responsibilities: { what: "รูปหรือ PDF คำสั่ง (อ่านแล้วไม่เก็บไฟล์ ถ้าคำสั่งมีหลายงาน ใช้เมนูคำสั่ง)" }, // ไม่แนบไฟล์คำสั่ง ตามที่ครูต้องการ
     projects: { what: "รูปหรือ PDF เอกสารโครงการ หรือรายงานสรุปโครงการ", attach: "file" },
     supervision: { what: "รูปหรือ PDF แบบบันทึกการนิเทศ", attach: "file" },
     documents: { what: "รูปหรือ PDF หนังสือราชการ / คำสั่ง", attach: "link" },
@@ -157,7 +157,7 @@
     inp.click();
   });
   // เลือกไฟล์ → AI อ่าน → คืนแถว (แสดงสถานะด้วย toast)
-  async function readRows({ title, fields, hint, max }) {
+  async function readRows({ title, fields, hint, max, header }) {
     await AI.load().catch(() => null);
     if (!ready()) { toast("ยังไม่ได้ตั้งค่า AI ไปที่ ตั้งค่าเว็บ → AI ผู้ช่วย"); location.hash = `#/settings?tag=${encodeURIComponent("AI ผู้ช่วย")}`; return null; }
     const files = await pickFiles();
@@ -168,12 +168,14 @@
     document.body.append(busy);
     try {
       const parts = await Promise.all(files.map(toPart));
-      const r = await api("POST", "/api/admin/ai/rows", { title, fields, files: parts, hint, max });
+      const r = await api("POST", "/api/admin/ai/rows", { title, fields, files: parts, hint, max, header });
       AI.cfg.used = (AI.cfg.used || 0) + 1;
-      if (!r.rows.length) { toast(`AI ไม่พบรายการ${r.note ? `: ${r.note}` : ""}`); return null; }
+      const hasHeader = r.header && Object.keys(r.header).length;
+      if (!r.rows.length && !hasHeader) { toast(`AI ไม่พบรายการ${r.note ? `: ${r.note}` : ""}`); return null; }
       return r;
     } catch (e) { toast(e.message); return null; } finally { busy.remove(); }
   }
+  AI.readRows = readRows; // ใช้ในเมนูคำสั่ง (orders.js)
   const me = () => (App.DATA.profile || {}).name || "";
 
   // ตารางสอน: อ่านจากรูป/PDF แล้วให้ครูเลือกคาบก่อนบันทึก
@@ -215,40 +217,12 @@
     insertNote(r.note);
   };
 
-  // คำสั่งโรงเรียน: หนึ่งคำสั่งได้หลายงาน
-  A_IMPORT.responsibilities = async () => {
-    const F = FORMS.responsibilities.fields;
-    const r = await readRows({
-      title: "คำสั่งโรงเรียน", max: 30,
-      fields: [
-        { key: "title", label: "ชื่องาน/หน้าที่ที่ได้รับมอบหมาย เช่น กรรมการฝ่ายจัดสถานที่ งานวันเด็ก (รวมชื่อคณะกรรมการ/กิจกรรมด้วย)" },
-        { key: "type", label: "ประเภท", options: F.find((x) => x.key === "type").options },
-        { key: "detail", label: "เลขที่คำสั่ง ลงวันที่ และตำแหน่งในคณะกรรมการ เช่น คำสั่งที่ 45/2569 ลว. 3 มิ.ย. 2569 (กรรมการ)" },
-        { key: "year", label: "ปีการศึกษา (พ.ศ.)", options: YEARS },
-      ],
-      hint: me() ? `เอาเฉพาะงานที่มีชื่อ ${me()} (หรือชื่อที่ใกล้เคียง) ได้รับมอบหมาย ถ้าคำสั่งมีหลายคณะกรรมการ ให้แยกเป็นคณะละรายการ` : "แยกงานเป็นรายการ",
-    });
-    if (!r) return;
-    const rows = r.rows.filter((x) => x.title);
-    openForm(`ตรวจงานจากคำสั่ง (${rows.length} รายการ)`, rows.map((x, i) => ({
-      key: `r${i}`, label: `${x.title}${x.detail ? ` · ${x.detail}` : ""}${x.year ? ` · ปี ${x.year}` : ""}`, type: "check", value: true,
-    })), async (f) => {
-      const pick = rows.filter((_, i) => f[`r${i}`]);
-      if (!pick.length) throw new Error("ยังไม่ได้เลือกรายการ");
-      for (const x of pick) {
-        const body = { title: x.title, type: x.type || "คำสั่ง", year: x.year || String(BE_NOW), detail: x.detail || "", vis: "ส่วนตัว" };
-        arr("responsibilities").unshift(await api("POST", "/api/admin/items/responsibilities", body));
-      }
-      toast(`เพิ่ม ${pick.length} งานแล้ว`);
-    });
-    insertNote(r.note);
-  };
   function insertNote(note) {
     setTimeout(() => $("#sheetFields")?.insertAdjacentHTML("afterbegin", `<div class="ai-box"><div class="ai-txt" style="grid-column:1/-1"><b>✨ ตรวจก่อนบันทึก</b><span>เอาติ๊กออกจากรายการที่ไม่ใช่ หรือที่ AI อ่านผิด${note ? ` · ${esc(note)}` : ""}</span></div></div>`), 0);
   }
 
   // ปุ่มบนหน้าเมนู (ใส่หลังวาดหน้า)
-  const PAGE_BTNS = { "admin/schedule": ["schedule", "✨ นำเข้าจากรูป"], "admin/responsibilities": ["responsibilities", "✨ อ่านคำสั่งด้วย AI"] };
+  const PAGE_BTNS = { "admin/schedule": ["schedule", "✨ นำเข้าจากรูป"], "admin/responsibilities": ["orders", "✨ อ่านคำสั่งด้วย AI"] };
   const prevAfter = App.afterRender;
   App.afterRender = () => {
     prevAfter?.();
@@ -299,7 +273,7 @@
         <div><b>เกียรติบัตร / รางวัล</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI → เลือกรูปเกียรติบัตร</span></div>
         <div><b>อบรม / PLC</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI → เลือกรูปหรือ PDF วุฒิบัตร</span></div>
         <div><b>ตารางสอน</b><span>ปุ่ม ✨ นำเข้าจากรูป → เลือกรูปตารางสอน → ติ๊กเลือกคาบ</span></div>
-        <div><b>งานที่รับผิดชอบ</b><span>ปุ่ม ✨ อ่านคำสั่งด้วย AI → คำสั่งเดียวได้หลายงาน เฉพาะงานที่มีชื่อคุณ</span></div>
+        <div><b>คำสั่ง</b><span>ปุ่ม ✨ อ่านคำสั่งด้วย AI → ได้เลขที่ เรื่อง และงานที่มีชื่อคุณ ไม่เก็บไฟล์คำสั่ง</span></div>
         <div><b>โครงการ · นิเทศ · หนังสือราชการ · ประชุม · กิจกรรม · ผลงาน · การลา</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI</span></div>
         <div><b>หลักฐาน</b><span>✨ แนะนำหมวดจากชื่อ: AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div></div></section>`;
   };
@@ -310,7 +284,7 @@
   }
 
   const A = App.actions;
-  A.aiImport = (b) => A_IMPORT[b.dataset.k]?.();
+  A.aiImport = (b) => (A_IMPORT[b.dataset.k] || App.aiImporters?.[b.dataset.k])?.();
   A.aiSetup = () => {
     const c = AI.cfg || {}, P = c.providers || {};
     const names = Object.fromEntries(Object.entries(P).map(([k, p]) => [p.name, k]));

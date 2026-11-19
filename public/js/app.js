@@ -45,6 +45,7 @@ App.NAV = {
       { route: "admin/activities", label: "กิจกรรมพัฒนาผู้เรียน", c: C.orange },
     ] },
     { group: "งานในหน้าที่", items: [
+      { route: "admin/orders", label: "คำสั่ง", c: C.coral },
       { route: "admin/responsibilities", label: "งานที่รับผิดชอบ", c: C.coral },
       { route: "admin/projects", label: "โครงการและงบประมาณ", c: C.coral },
       { route: "admin/documents", label: "หนังสือราชการ", c: C.coral },

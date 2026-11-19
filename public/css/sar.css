@@ -220,3 +220,5 @@
 .sar-mode button:focus-visible { outline: 2px solid var(--c, #6c4cf1); }
 .sar-mode-note { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; background: #eef8f1; color: #1b6e43; font-size: 13.5px; }
 .sar-pub-tag { display: block; margin-top: 3mm; font-size: 14pt; letter-spacing: .12em; color: var(--mid); }
+.sar-t.sar-orders td:nth-child(2), .sar-t.sar-orders td:nth-child(3) { white-space: nowrap; }
+.sar-t.sar-orders td:nth-child(4), .sar-t.sar-orders td:nth-child(5) { text-align: left; }

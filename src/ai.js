@@ -262,9 +262,11 @@ export async function extractRows(env, db, site, body) {
   if (!F.length) throw new HttpError(400, "ไม่มีช่องให้กรอก");
   const { docs, text } = inputsOf(body);
   const max = Math.max(1, Math.min(120, Number(body.max) || 60));
+  const H = cleanFields(body.header); // ข้อมูลหัวเอกสาร เช่น เลขที่คำสั่ง วันที่ เรื่อง (ไม่บังคับ)
   const c = await prepare(env, db, site);
   const prompt = `งาน: ${String(title || "").slice(0, 80)}
-${hint ? `คำแนะนำ: ${String(hint).slice(0, 800)}\n` : ""}${text ? `ข้อความ:\n"""\n${text}\n"""\n` : ""}อ่าน${docs.length ? "เอกสารที่แนบ" : "ข้อความ"} แล้วแยกเป็นรายการ ตอบ JSON รูปแบบ {"rows": [ {...}, ... ], "_note": "สรุปสั้น ๆ"}
+${hint ? `คำแนะนำ: ${String(hint).slice(0, 800)}\n` : ""}${text ? `ข้อความ:\n"""\n${text}\n"""\n` : ""}อ่าน${docs.length ? "เอกสารที่แนบ" : "ข้อความ"} แล้วแยกเป็นรายการ ตอบ JSON รูปแบบ {${H.length ? `"header": {...}, ` : ""}"rows": [ {...}, ... ], "_note": "สรุปสั้น ๆ"}
+${H.length ? `"header" คือข้อมูลของเอกสารทั้งฉบับ มีช่องต่อไปนี้\n${specText(H)}\n` : ""}
 แต่ละรายการมีช่องต่อไปนี้
 ${specText(F)}
 ไม่เกิน ${max} รายการ ถ้าไม่พบรายการที่ตรงให้ตอบ {"rows": [], "_note": "เหตุผล"}`;
@@ -272,5 +274,5 @@ ${specText(F)}
   await countUse(db, site);
   const j = parseJson(out);
   const rows = (Array.isArray(j.rows) ? j.rows : []).slice(0, max).map((r) => cleanValues(F, r)).filter((r) => Object.keys(r).length);
-  return { rows, note: String(j._note || "").slice(0, 300), model: c.model };
+  return { rows, header: H.length ? cleanValues(H, j.header || {}) : undefined, note: String(j._note || "").slice(0, 300), model: c.model };
 }
