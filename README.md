@@ -21,6 +21,7 @@ public/                 ← หน้าเว็บ (Cloudflare Pages: Build ou
   admin/index.html      ← หน้าครู
   js/app.js             ← แกนหลัก เมนู router หน้าสาธารณะ
   js/admin.js           ← หน้าครูทุกเมนู ฟอร์ม ตั้งค่าเว็บ ล็อกอิน
+  js/ai.js, css/ai.css, src/ai.js, functions/api/admin/ai/ ← AI ผู้ช่วย (ครูใส่ API key เอง: Claude / ChatGPT / Gemini)
   js/sar.js, css/sar.css ← เมนู SAR ตามแบบฟอร์มโรงเรียน ดูตัวอย่าง A4 แบ่งหน้าเอง และพิมพ์/บันทึก PDF
   js/ios.js, css/ios.css ← ส่วนประกอบแบบ iOS: Wheel/Date/Time/Number Picker, Switch, Segmented, Checkbox, Radio, Text Field
   css/style.css
@@ -49,6 +50,7 @@ src/server.js           ← โค้ดฝั่งเซิร์ฟเวอ�
 4. โปรเจกต์ → Settings → Variables and Secrets → Secret: `ADMIN_PASSWORD` (เฉลิมพล) และ `PASSWORD_WARAPORN` (วราภรณ์) ต้องไม่ซ้ำกัน
 
 5. (ไฟล์) `DRIVE_SCRIPT_URL` และ Secret `DRIVE_SECRET` ดูคู่มือหัวข้อ 5
+6. (AI ผู้ช่วย ไม่บังคับ) Secret `AI_SECRET` ข้อความสุ่มยาว 16 ตัวขึ้นไป ใช้เข้ารหัส API key ที่ครูใส่เอง ดูคู่มือหัวข้อ 5.3
 
 ตารางในฐานข้อมูลสร้างเองอัตโนมัติตอนเรียก API ครั้งแรก ไม่ต้องรัน SQL ฐานข้อมูลรุ่นแรก (ก่อนแยกสองคน) ย้ายเองอัตโนมัติ ข้อมูลเดิมเป็นของคนแรก
 
