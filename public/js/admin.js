@@ -125,7 +125,7 @@ const FORMS = {
     { key: "link", label: "ไฟล์หลักฐาน", type: "file", category: "evidence" }, visField],
     map: (r) => ({ ...r, pa: splitList(r.pa).filter((c) => PA_CODES.includes(c)) }) },
   leaves: { name: "การลา", fields: [
-    { key: "type", label: "ประเภท", options: ["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ"] }, { key: "from", label: "ตั้งแต่", type: "date", required: true },
+    { key: "type", label: "ประเภท", options: ["ลาป่วย", "ลากิจ", "ลาพักผ่อน", "ไปราชการ", "ลาคลอด", "ลาอุปสมบท", "มาสาย"], wheel: true }, { key: "from", label: "ตั้งแต่", type: "date", required: true },
     { key: "to", label: "ถึง", type: "date" }, { key: "days", label: "จำนวนวัน", type: "number", min: 0.5, max: 60, step: 0.5, unit: "วัน", start: 1 }, { key: "reason", label: "เหตุผล" },
     { key: "file", label: "ใบลา / เอกสาร (ส่วนตัว ไม่แชร์)", type: "file", category: "leaves" }] },
   career: { name: "เหตุการณ์ในประวัติ", fields: [
@@ -862,37 +862,8 @@ App.docCover = ({ link, tag = "", title = "", sub = "", desc = "", cls = "" }) =
     : `<span class="doc-cover ${cls}" aria-hidden="true">${inner}</span>`;
 };
 
-App.pages["admin/sar"] = () => {
-  const p = App.DATA.profile || {};
-  const s = App.DATA.schedule || {};
-  const tr = list("trainings");
-  const hours = tr.reduce((a, t) => a + (Number(t.hours) || 0), 0);
-  const g = App.DATA.grades || {};
-  const totals = Object.values(g.scores || {}).map((sc) => sc.reduce((a, b) => a + (Number(b) || 0), 0));
-  const good = totals.filter((t) => t >= 70).length;
-  const care = arr("care");
-  const notes = App.DATA.sarNotes || {};
-  const sec = (no, title, body) => `<section class="panel sar"><h2><span class="pa-code">${no}</span>${title}</h2>${body}</section>`;
-  const ul = (xs) => (xs.length ? `<ul>${xs.map((x) => `<li>${x}</li>`).join("")}</ul>` : empty());
-  return head("SAR รายงานการประเมินตนเอง", "ข้อมูลดึงจากทุกเมนูอัตโนมัติ",
-    `<button class="btn" data-act="print">พิมพ์ / บันทึกเป็น PDF</button><button class="btn ghost" data-act="editSar">แก้จุดเด่น จุดที่ควรพัฒนา</button>`) +
-    sec("1", "ข้อมูลพื้นฐาน", `<dl class="kv"><dt>ชื่อ</dt><dd>${esc(p.name)}</dd><dt>ตำแหน่ง</dt><dd>${esc(p.position)} ${esc(p.academicStanding)}</dd>
-      <dt>โรงเรียน</dt><dd>${esc(p.school)}</dd><dt>กลุ่มสาระ</dt><dd>${esc(p.learningArea)}</dd><dt>หน้าที่พิเศษ</dt><dd>${esc(p.homeroom)}</dd></dl>`) +
-    sec("2", "ภาระงานสอน", `<p>ภาคเรียนที่ ${esc(s.term)} สอน ${(s.classes || []).length} คาบต่อสัปดาห์ ในรายวิชา ${esc((p.subjects || []).join(", "))}</p>`) +
-    sec("3", "ผลสัมฤทธิ์ทางการเรียน", totals.length
-      ? `<p>${esc(g.subject)} ห้อง ${esc(g.room)} นักเรียน ${totals.length} คน ได้ผลการเรียน 3 ขึ้นไป ${good} คน (${Math.round((good / totals.length) * 100)}%)</p>` : empty("ยังไม่มีคะแนน")) +
-    sec("4", "งานที่ได้รับมอบหมาย", ul(list("responsibilities").map((r) => esc(r.title)))) +
-    sec("5", "การดูแลช่วยเหลือนักเรียน", `<p>คัดกรองนักเรียน ${care.length} คน เยี่ยมบ้าน ${care.filter((c) => c.visit).length} คน ส่งต่อ ${care.filter((c) => c.screen === "กลุ่มมีปัญหา").length} คน</p>`) +
-    sec("6", "การพัฒนาตนเอง", `<p>รวม ${hours} ชั่วโมง ${tr.length} รายการ</p>` + ul(tr.map((t) => `${esc(t.title)} (${esc(t.hours)} ชม.)`))) +
-    sec("7", "ผลงานและรางวัล", ul([...list("works").map((w) => esc(w.title)), ...list("certificates").filter((c) => c.type !== "เกียรติบัตร").map((c) => esc(c.title))])) +
-    sec("8", "จุดเด่น จุดที่ควรพัฒนา และแนวทางพัฒนา", `<dl class="kv"><dt>จุดเด่น</dt><dd>${esc(notes.strengths) || "-"}</dd><dt>จุดที่ควรพัฒนา</dt><dd>${esc(notes.improve) || "-"}</dd><dt>แนวทางพัฒนา</dt><dd>${esc(notes.plan) || "-"}</dd></dl>`) +
-    `<p class="meta">หัวข้อจะปรับให้ตรงกับแบบฟอร์ม SAR ของโรงเรียนในระยะ 8 ระยะ 10 จะมี AI ช่วยร่างข้อความ</p>`;
-};
+// หน้า SAR (ตามแบบฟอร์มโรงเรียน ดูตัวอย่าง A4 และพิมพ์) อยู่ใน sar.js
 App.actions.print = () => window.print();
-App.actions.editSar = () => editKV("จุดเด่น จุดที่ควรพัฒนา และแนวทางพัฒนา", "sarNotes", [
-  { key: "strengths", label: "จุดเด่น", type: "textarea", rows: 4 }, { key: "improve", label: "จุดที่ควรพัฒนา", type: "textarea", rows: 4 },
-  { key: "plan", label: "แนวทางพัฒนา", type: "textarea", rows: 4 },
-]);
 
 // ---------- ส่วนตัวและตั้งค่า ----------
 App.pages["admin/leaves"] = () => {
