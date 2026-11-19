@@ -42,3 +42,9 @@
 .ai-where span { font-size: 13px; color: var(--muted); }
 .ai-where .soon { opacity: .7; }
 @media (max-width: 520px) { .ai-box { grid-template-columns: 1fr; } }
+.ai-btn.ghost { background: #fff; color: #5a3fe0; box-shadow: inset 0 0 0 1.5px #c9bdfa; }
+.ai-page-btn { background: linear-gradient(135deg, #6c4cf1, #3d7bf1) !important; color: #fff !important; border: 0 !important; }
+.ai-busy { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: rgba(22, 20, 46, .35); backdrop-filter: blur(3px); }
+.ai-busy > div { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 28px; border-radius: 18px; background: #fff; box-shadow: 0 20px 60px rgba(30, 20, 90, .25); }
+.ai-busy .spark { font-size: 28px; display: inline-block; animation: ai-spin 1.2s linear infinite; }
+.ai-busy small { color: var(--muted); }
