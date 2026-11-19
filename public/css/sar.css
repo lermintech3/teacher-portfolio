@@ -1,6 +1,5 @@
-/* SAR: ดูตัวอย่างเป็นกระดาษ A4 และพิมพ์ออกมาตรงตามที่เห็น
-   รูปแบบตามมาตรฐานเอกสารราชการ: TH Sarabun New 16 pt, ขอบซ้าย 3 ซม. ขวา 2 ซม. บน 2.5 ซม. ล่าง 2 ซม.
-   ย่อหน้า 2.5 ซม., ระยะบรรทัดเท่า "บรรทัดเดียว" ของ Word */
+/* SAR: ดูตัวอย่างเป็นกระดาษ A4 และพิมพ์ออกมาตรงตามที่เห็น — สไตล์มินิมอล ขาว ดำ เทา
+   ยึดมาตรฐานเอกสารราชการ: TH Sarabun New 16 pt, ขอบซ้าย 3 ซม. ขวา 2 ซม. บน 2.5 ซม. ล่าง 2 ซม., ย่อหน้า 2.5 ซม. */
 @font-face { font-family: "SAR Sarabun"; font-weight: 400; font-style: normal; font-display: block;
   src: local("TH Sarabun New"), local("THSarabunNew"), url("/fonts/THSarabunNew.woff") format("woff"); }
 @font-face { font-family: "SAR Sarabun"; font-weight: 700; font-style: normal; font-display: block;
@@ -9,14 +8,17 @@
 .sar-wrap { overflow-x: hidden; margin: 0 -8px; padding: 8px; }
 .sar-book {
   --z: 1;
-  --accent: #1f2a5c;          /* น้ำเงินเข้มแบบเอกสารราชการ ใช้น้อยที่สุด */
-  --head-bg: #fbe1cc;         /* หัวตารางสีส้มอ่อนตามแบบฟอร์มเดิม */
-  --sum-bg: #fdf3ea;
+  --ink: #111;
+  --mid: #555;        /* ตัวอักษรรอง */
+  --soft: #8a8a8a;    /* ตัวอักษรจาง / คำบรรยาย */
+  --line: #b5b5b5;    /* เส้นตาราง */
+  --hair: #d9d9d9;    /* เส้นบางมาก */
+  --fill: #f2f2f2;    /* พื้นหัวตาราง */
   zoom: var(--z);
   display: flex; flex-direction: column; align-items: center; gap: 18px;
   padding: 18px 0 40px;
   font-family: "SAR Sarabun", "TH Sarabun New", "TH SarabunPSK", sans-serif;
-  color: #000;
+  color: var(--ink);
 }
 .sar-page {
   position: relative; box-sizing: border-box;
@@ -26,41 +28,65 @@
   font-size: 16pt; line-height: 1.3;
 }
 .sar-body { height: 100%; position: relative; box-sizing: border-box; }
-.sar-pno { position: absolute; top: 13mm; right: 20mm; font-size: 16pt; }
+
+/* หัวกระดาษ: ชื่อรายงานจาง ๆ ด้านซ้าย เลขหน้าด้านขวา เส้นบาง */
+.sar-run {
+  position: absolute; top: 11mm; left: 30mm; right: 20mm;
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13pt; color: var(--soft); padding-bottom: 1.5mm; border-bottom: .5pt solid var(--hair);
+}
+.sar-run .sar-pno { font-size: 16pt; color: var(--ink); }
+.sar-page.cover .sar-run, .sar-page.divider .sar-run { display: none; }
+.sar-page.front .sar-run > span:first-child { visibility: hidden; }
+.sar-page.front .sar-run { border-color: transparent; }
+
 .sar-page p { margin: 0; }
 .sar-page b { font-weight: 700; }
-.sar-page u { text-decoration: none; border-bottom: 1px dotted #000; padding: 0 .3em; }
+.sar-page u { text-decoration: none; border-bottom: .75pt dotted var(--mid); padding: 0 .3em; }
 .sar-indent { text-indent: 2.5cm; text-align: justify; text-justify: inter-character; margin-bottom: 4pt !important; }
 .in1 { padding-left: 1cm; }
 .in2 { padding-left: 2cm; }
 .sar-center { text-align: center; margin: 10pt 0 4pt !important; }
-.sar-page .muted { color: #444; }
+.sar-page .muted { color: var(--soft); }
 .sar-page .small { font-size: 14pt; line-height: 1.2; }
-.sar-note { font-size: 13pt; color: #555; margin-top: 1pt !important; }
+.sar-note { font-size: 13pt; color: var(--soft); margin-top: 1pt !important; }
 .sar-note.right { text-align: right; }
 
-/* หัวข้อ: ชื่อตอนกลางหน้า 20 pt, หัวข้อตอน 18 pt, หัวข้อย่อย 16 pt หนา */
-.sar-title { position: relative; text-align: center; font-weight: 700; font-size: 20pt; line-height: 1.25; margin: 0 0 16pt; }
-.sar-title.small { font-size: 18pt; margin-bottom: 12pt; }
-.sar-h { position: relative; font-weight: 700; margin: 10pt 0 3pt; }
-.sar-h.h1 { font-size: 18pt; margin-top: 2pt; padding-bottom: 2pt; border-bottom: 1.5px solid #000; }
+/* หัวข้อ */
+.sar-title { position: relative; text-align: center; font-weight: 700; font-size: 20pt; line-height: 1.25; margin: 0 0 16pt; letter-spacing: .01em; }
+.sar-title-sub { font-weight: 400; font-size: 16pt; color: var(--mid); }
+.sar-h { position: relative; font-weight: 700; margin: 12pt 0 3pt; }
+.sar-h.h1 { font-size: 20pt; margin: 0 0 8pt; padding-bottom: 4pt; border-bottom: .75pt solid var(--ink); }
 .sar-h.h2 { font-size: 16pt; }
 .sar-h.h3 { padding-left: 1cm; margin-top: 8pt; }
 .sar-sub { position: relative; font-weight: 700; margin: 4pt 0 2pt; padding-left: 2cm; }
 
-/* ตาราง: เส้นดำบาง หัวตารางสีอ่อน ตัวอักษร 14 pt ตามที่นิยมในรายงาน */
+/* หน้าคั่นตอน: ตัวเลขตอนเล็ก ชื่อใหญ่ เส้นสั้น คำอธิบายจาง จัดชิดซ้ายกลางหน้า */
+.sar-page.divider .sar-body { display: flex; }
+.sar-divider { display: flex; flex-direction: column; justify-content: center; width: 100%; padding-bottom: 30mm; }
+.sar-divider .no { font-size: 18pt; color: var(--soft); letter-spacing: .08em; }
+.sar-divider .t { font-size: 34pt; font-weight: 700; line-height: 1.15; margin-top: 2mm; }
+.sar-divider .rule { width: 18mm; border-top: 2pt solid var(--ink); margin: 7mm 0 5mm; }
+.sar-divider .s { font-size: 16pt; color: var(--mid); max-width: 120mm; }
+.sar-port { display: flex; gap: 6mm; align-items: center; margin-top: 18mm; }
+.sar-port svg { width: 30mm; height: 30mm; }
+.sar-port div { display: flex; flex-direction: column; line-height: 1.25; }
+.sar-port span { color: var(--mid); }
+.sar-port small { color: var(--soft); font-size: 12pt; word-break: break-all; }
+
+/* ตาราง: เส้นเทาบาง หัวตารางพื้นเทาอ่อน */
 .sar-t { width: 100%; border-collapse: collapse; margin: 4pt 0 8pt; font-size: 14pt; line-height: 1.2; }
-.sar-t th, .sar-t td { border: .75pt solid #000; padding: 1.5pt 5pt; vertical-align: top; }
-.sar-t th { background: var(--head-bg); font-weight: 700; text-align: center; vertical-align: middle; }
+.sar-t th, .sar-t td { border: .5pt solid var(--line); padding: 2pt 5pt; vertical-align: top; }
+.sar-t th { background: var(--fill); font-weight: 700; text-align: center; vertical-align: middle; border-bottom-color: var(--ink); }
 .sar-t td.c { text-align: center; }
 .sar-t th.no { width: 2em; }
 .sar-t tr.blank td { height: 1.25em; }
-.sar-t tr.sum td { font-weight: 700; background: var(--sum-bg); }
-.sar-t tr.grp td { font-weight: 700; }
+.sar-t tr.sum td { font-weight: 700; border-top: .75pt solid var(--ink); }
+.sar-t tr.grp td { font-weight: 700; background: #fafafa; }
 .sar-t .l { white-space: nowrap; }
 .sar-t.cont-next { margin-bottom: 0; }
-.sar-t.leave { font-size: 13pt; }
-.sar-t.leave th { padding: 1pt 2pt; }
+.sar-t.leave, .sar-t.achieve { font-size: 13pt; }
+.sar-t.leave th, .sar-t.achieve th, .sar-t.achieve td { padding: 1.5pt 2pt; }
 .sar-t.rate th.lv { width: 3.4em; font-size: 13pt; line-height: 1.05; }
 .sar-t.plan th.lv { width: 1.8em; }
 .sar-t.plan td.crit { font-size: 13pt; width: 46%; }
@@ -69,11 +95,30 @@
 .sar-t td.ind1 { padding-left: 1.2em; }
 .sar-t td.ind2 { padding-left: 2.4em; }
 
+/* แผนภูมิผลการเรียน */
+.sar-bars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0 4mm; align-items: end; height: 34mm; margin: 2mm 6mm 2mm 1cm; padding-bottom: 7mm; position: relative; border-bottom: .5pt solid var(--line); }
+.sar-bars .col { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.sar-bars i { display: block; width: 100%; background: #cfcfcf; min-height: 1px; }
+.sar-bars i.hi { background: #3a3a3a; }
+.sar-bars .v { font-size: 12pt; color: var(--mid); line-height: 1; margin-bottom: 1mm; }
+.sar-bars .g { position: absolute; bottom: -6mm; font-size: 13pt; }
+.sar-bars .cap { position: absolute; left: 0; right: 0; bottom: -13mm; text-align: center; font-size: 12pt; color: var(--soft); }
+.sar-bars { margin-bottom: 14mm; }
+
+/* ตัวเลขสรุป ตอนที่ 4 */
+.sar-kpis { display: grid; grid-template-columns: repeat(4, 1fr); margin: 4pt 0 10pt; border-top: .75pt solid var(--ink); border-bottom: .5pt solid var(--line); }
+.sar-kpis div { display: flex; flex-direction: column; padding: 5pt 6pt 6pt; line-height: 1.1; }
+.sar-kpis div + div { border-left: .5pt solid var(--hair); }
+.sar-kpis b { font-size: 26pt; }
+.sar-kpis span { font-size: 13pt; color: var(--mid); margin-top: 2pt; }
+.sar-ol { margin: 0 0 4pt; padding-left: 2cm; }
+.sar-ol li { padding-left: 2pt; }
+
 /* ช่องติ๊ก */
 .sar-rt { text-align: center; vertical-align: middle !important; cursor: pointer; position: relative; }
 .sar-rt.on::after { content: "✓"; font-family: "DejaVu Sans", "Segoe UI Symbol", sans-serif; font-weight: 700; font-size: 11pt; line-height: 1; }
-.sar-cb { display: inline-block; width: 10pt; height: 10pt; border: 1px solid #000; vertical-align: -1pt; position: relative; margin-right: 4pt; flex: 0 0 auto; }
-.sar-cb.on::after { content: ""; position: absolute; left: 2.6pt; top: -1pt; width: 3.4pt; height: 7.5pt; border: solid #000; border-width: 0 1.6pt 1.6pt 0; transform: rotate(45deg); }
+.sar-cb { display: inline-block; width: 10pt; height: 10pt; border: .75pt solid var(--ink); vertical-align: -1pt; position: relative; margin-right: 4pt; flex: 0 0 auto; }
+.sar-cb.on::after { content: ""; position: absolute; left: 2.6pt; top: -1pt; width: 3.4pt; height: 7.5pt; border: solid var(--ink); border-width: 0 1.6pt 1.6pt 0; transform: rotate(45deg); }
 .sar-opt { all: unset; cursor: pointer; display: flex; align-items: baseline; }
 .sar-opts { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1cm; padding-left: 2cm; margin: 2pt 0 4pt; }
 .sar-opts .wide { grid-column: 1 / -1; }
@@ -83,52 +128,72 @@
 .sar-kv p { margin-bottom: 1pt; }
 .sar-kv .in1 { padding-left: 1cm; }
 .sar-duty { margin-bottom: 6pt; }
-.dots { display: inline-block; width: 75%; border-bottom: 1px dotted #000; }
+.dots { display: inline-block; width: 75%; border-bottom: .75pt dotted var(--mid); }
 
 /* ลงนาม */
-.sar-sign { display: flex; flex-direction: column; align-items: center; margin: 30pt 0 0 auto; width: 62%; line-height: 1.35; }
+.sar-sign { position: relative; display: flex; flex-direction: column; align-items: center; margin: 30pt 0 0 auto; width: 62%; line-height: 1.35; }
 .sar-sign.right { margin-top: 28pt; width: 52%; }
-.sar-sign div:first-child { margin-bottom: 12pt; }
+.sar-sign div:first-of-type { margin-bottom: 12pt; }
+.sar-sig { position: absolute; top: -9mm; left: 50%; transform: translateX(-50%); height: 14mm; max-width: 45mm; object-fit: contain; mix-blend-mode: multiply; }
 
-/* ปก: เรียบแบบเอกสารราชการ กรอบเส้นคู่สีน้ำเงินเข้ม */
-.sar-page.cover { padding: 20mm 20mm 20mm 25mm; }
-.sar-page.cover .sar-body { border: 3px double var(--accent); padding: 16mm 12mm 14mm; display: flex; }
-.sar-cover { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; }
-.sar-logo { width: 30mm; height: 30mm; object-fit: contain; margin-bottom: 9mm; }
-.sar-logo.ph { display: grid; place-content: center; border: 1px dashed #aab; border-radius: 50%; color: #889; font-size: 13pt; line-height: 1.2; }
-.sar-cover-title { font-size: 28pt; font-weight: 700; line-height: 1.2; color: var(--accent); }
-.sar-cover-sub { font-size: 20pt; margin-top: 4mm; line-height: 1.3; }
-.sar-cover-sub b { display: block; margin-top: 2mm; font-size: 22pt; }
-.sar-cover-rule { width: 45mm; border-top: 1.5px solid var(--accent); margin: 7mm 0 0; }
-.sar-photo { width: 34mm; height: 44mm; object-fit: cover; margin-top: 9mm; border: 1px solid #999; }
-.sar-cover-who { display: flex; flex-direction: column; margin-top: auto; padding-top: 8mm; font-size: 20pt; line-height: 1.35; }
+/* ปก: มินิมอล ขาวดำ ช่องว่างมาก เส้นบาง */
+.sar-page.cover { padding: 24mm 22mm 22mm 28mm; }
+.sar-page.cover .sar-body { display: flex; }
+.sar-cover { position: relative; display: flex; flex-direction: column; width: 100%; }
+.sar-cover-top { display: flex; align-items: center; justify-content: space-between; padding-bottom: 6mm; border-bottom: .75pt solid var(--ink); }
+.sar-logo { width: 22mm; height: 22mm; object-fit: contain; }
+.sar-logo.ph { display: grid; place-content: center; border: .75pt dashed #bbb; border-radius: 50%; color: #999; font-size: 11pt; line-height: 1.1; text-align: center; }
+.sar-cover-eyebrow { font-size: 14pt; letter-spacing: .3em; color: var(--soft); }
+.sar-cover-mid { margin-top: 42mm; }
+.sar-cover-year { font-size: 18pt; color: var(--mid); letter-spacing: .04em; }
+.sar-cover-title { font-size: 34pt; font-weight: 700; line-height: 1.12; margin-top: 3mm; }
+.sar-cover-sub { font-size: 18pt; color: var(--mid); margin-top: 4mm; }
+.sar-cover-bottom { margin-top: auto; display: flex; align-items: flex-end; gap: 7mm; padding-top: 6mm; border-top: .75pt solid var(--ink); }
+.sar-photo { width: 28mm; height: 36mm; object-fit: cover; filter: grayscale(.15); }
+.sar-cover-who { display: flex; flex-direction: column; line-height: 1.3; font-size: 16pt; }
+.sar-cover-who .lbl { font-size: 13pt; letter-spacing: .1em; color: var(--soft); }
 .sar-cover-who b { font-size: 22pt; }
-.sar-cover-school { display: flex; flex-direction: column; margin-top: 10mm; font-size: 18pt; line-height: 1.35; }
-.sar-cover-school b { font-size: 20pt; }
+.sar-cover-who .sch { margin-top: 3mm; font-weight: 700; }
+.sar-cover-who span:last-child { color: var(--mid); }
 
 /* สารบัญ */
 .sar-toc { margin-top: 4pt; }
 .toc-row { display: flex; align-items: baseline; gap: 6px; }
-.toc-row i { flex: 1; border-bottom: 1.2px dotted #555; min-width: 20px; transform: translateY(-4pt); }
+.toc-row i { flex: 1; border-bottom: .75pt dotted #aaa; min-width: 20px; transform: translateY(-4pt); }
 .toc-row b { width: 2.2em; text-align: right; font-weight: 400; }
 .toc-row.head i { border: 0; }
-.toc-row.head b { font-weight: 700; }
-.toc-row.lv0 { margin-top: 4pt; }
+.toc-row.head b { font-weight: 700; color: var(--mid); font-size: 14pt; }
+.toc-row.lv0 { margin-top: 6pt; }
 .toc-row.lv0 span { font-weight: 700; }
+.toc-row.lv0 b { font-weight: 700; }
 .toc-row.lv1 span { padding-left: 1cm; }
+
+/* ภาคผนวก: ภาพ และ QR */
+.sar-grid { display: grid; gap: 5mm; margin: 2mm 0 5mm; }
+.sar-grid.g2 { grid-template-columns: 1fr 1fr; }
+.sar-grid.g4 { grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+.sar-fig { margin: 0; }
+.sar-fig .ph { height: 62mm; background: #f6f6f6; display: flex; align-items: center; justify-content: center; overflow: hidden; border: .5pt solid var(--hair); }
+.sar-fig img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+.sar-fig figcaption, .sar-qr figcaption { font-size: 13pt; line-height: 1.15; margin-top: 1.5mm; display: flex; flex-direction: column; }
+.sar-fig small, .sar-qr small { font-size: 12pt; color: var(--soft); }
+.sar-qr { margin: 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.sar-qr svg { width: 26mm; height: 26mm; }
+.sar-qr figcaption { max-height: 3.6em; overflow: hidden; }
 
 /* ปุ่มแก้ไข: อยู่ในขอบกระดาษด้านขวา ไม่กินที่ในหน้า (เฉพาะบนจอ) */
 .sar-edit {
   position: absolute; right: -18.5mm; top: 2px; z-index: 2;
   font: 500 11px/1 "IBM Plex Sans Thai", system-ui, sans-serif; color: #fff; background: var(--c, #3d4fd8);
-  border: 0; border-radius: 999px; padding: 5px 9px; cursor: pointer; box-shadow: 0 2px 6px rgba(40, 50, 140, .25); text-indent: 0; white-space: nowrap;
+  border: 0; border-radius: 999px; padding: 5px 9px; cursor: pointer; box-shadow: 0 2px 6px rgba(40, 50, 140, .25); text-indent: 0; white-space: nowrap; letter-spacing: 0;
 }
 .sar-edit[data-auto] { background: #1f9d61; box-shadow: 0 2px 6px rgba(20, 110, 60, .25); }
 .sar-edit:hover { filter: brightness(1.1); }
 .sar-t.notes { position: relative; }
 .sar-title .sar-edit, .sar-cover > .sar-edit { right: 0; }
-.sar-cover > .sar-edit { top: -12mm; }
+.sar-cover > .sar-edit { top: -14mm; }
 .sar-page > .sar-body > .sar-edit { top: 40pt; right: 0; }
+.sar-page .muted > .sar-edit { right: 0; top: -26pt; }
 .sar-rt:hover, .sar-opt:hover .sar-cb { background: #eef0ff; }
 .sar-rt:hover::before { content: "✓"; color: #b7bdf0; font-family: "DejaVu Sans", sans-serif; font-weight: 700; font-size: 11pt; }
 .sar-rt.on:hover::before { content: none; }
