@@ -248,7 +248,8 @@
       ${editBtn("sarCover", "", "แก้ปกและผู้ลงนาม")}
       ${logo ? `<img class="sar-logo" src="${esc(logo)}" alt="">` : `<div class="sar-logo ph">ตราโรงเรียน<br><small>ใส่ได้ที่ปุ่มแก้ปก</small></div>`}
       <div class="sar-cover-title">รายงานผลการปฏิบัติงาน<br>และผลการประเมินตนเองรายบุคคล</div>
-      <div class="sar-cover-sub">(Self Assessment Report : SAR)<br>ประจำปีการศึกษา ${esc(Y)}</div>
+      <div class="sar-cover-sub">(Self Assessment Report : SAR)<b>ประจำปีการศึกษา ${esc(Y)}</b></div>
+      <div class="sar-cover-rule"></div>
       ${photo ? `<img class="sar-photo" src="${esc(photo)}" alt="">` : ""}
       <div class="sar-cover-who"><span>ผู้รายงาน</span><b>${esc(name)}</b><span>ตำแหน่ง ${esc(pos)}</span></div>
       <div class="sar-cover-school"><b>${esc(school())}${c.addr ? ` ${esc(c.addr)}` : ""}</b><span>${esc(p.office || "")}</span></div>
@@ -551,7 +552,10 @@
   async function layout() {
     const book = document.getElementById("sarBook");
     if (!book) return;
-    if (document.fonts?.status !== "loaded") { await document.fonts.ready; if (!book.isConnected) return; }
+    // รอฟอนต์ TH Sarabun New โหลดเสร็จก่อน ความสูงบรรทัดจะได้ตรงกับตอนพิมพ์
+    try { await Promise.all([document.fonts.load('16pt "SAR Sarabun"', "ก"), document.fonts.load('bold 16pt "SAR Sarabun"', "ก")]); } catch { /* ใช้ฟอนต์สำรอง */ }
+    await document.fonts.ready;
+    if (!book.isConnected) return;
     book.style.setProperty("--z", "1");
     paginate(book, buildBlocks());
     if (keepY !== null) { window.scrollTo(0, keepY); keepY = null; }
