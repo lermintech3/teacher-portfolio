@@ -283,11 +283,35 @@ App.actions.todo = async (el) => {
 };
 
 // ---------- การสอน: แตะช่องในตารางเพื่อเพิ่ม/แก้/ลบ ----------
-const schedOf = () => (App.DATA.schedule = App.DATA.schedule || { term: "", periods: [], classes: [] });
+// ภาคเรียน: schedule = { term: ภาคเรียนปัจจุบัน, periods, classes, terms: { "1/2569": { periods, classes } }, autoTerm }
+// ภาคเรียนปัจจุบันอยู่ชั้นบนสุดเหมือนเดิม (หน้าสาธารณะ หน้าแรก ใช้ต่อได้) ภาคเรียนอื่นเก็บใน terms
+const schedBase = () => (App.DATA.schedule = App.DATA.schedule || { term: "", periods: [], classes: [] });
+let VIEW_TERM = ""; // ภาคเรียนที่กำลังดู/แก้ในหน้าตารางสอน
+// ภาคเรียนตามวันที่: 1 = 16 พ.ค.–31 ต.ค., 2 = 1 พ.ย.–15 พ.ค.
+const termGuess = () => { const d = new Date(), m = d.getMonth(); return `${(m > 4 || (m === 4 && d.getDate() >= 16)) && m <= 9 ? 1 : 2}/${BE_NOW}`; };
+const termKey = (t) => { const [a, y] = String(t).split("/"); return Number(y || 0) * 10 + Number(a || 0); };
+const schedTerms = () => { const s = schedBase(); return [...new Set([s.term, ...Object.keys(s.terms || {})].filter(Boolean))].sort((a, b) => termKey(b) - termKey(a)); };
+const termData = (t) => { const s = schedBase(); return !t || t === s.term ? s : s.terms?.[t] || null; };
+const schedOf = () => {
+  const s = schedBase();
+  if (!VIEW_TERM || VIEW_TERM === s.term) return s;
+  s.terms = s.terms || {};
+  return (s.terms[VIEW_TERM] = s.terms[VIEW_TERM] || { periods: (s.periods || []).map((p) => ({ ...p })), classes: [] });
+};
+// สลับภาคเรียนปัจจุบัน: เก็บของเดิมเข้า terms แล้วยกภาคเรียน t ขึ้นมาชั้นบน
+const setActiveTerm = (t) => {
+  const s = schedBase();
+  if (!t || t === s.term) return;
+  s.terms = s.terms || {};
+  if (s.term) s.terms[s.term] = { periods: s.periods || [], classes: s.classes || [] };
+  const n = s.terms[t] || { periods: (s.periods || []).map((p) => ({ ...p })), classes: [] };
+  delete s.terms[t];
+  s.term = t; s.periods = n.periods || []; s.classes = n.classes || [];
+};
 const cellOf = (day, no) => (schedOf().classes || []).filter((x) => x.day === day && Number(x.period) === Number(no));
 // แก้ในหน่วยความจำก่อน แล้วบันทึก ถ้าบันทึกไม่สำเร็จให้ย้อนกลับ
 const saveSched = async (mutate) => {
-  const backup = JSON.stringify(schedOf());
+  const backup = JSON.stringify(schedBase());
   const s = schedOf();
   s.classes = s.classes || [];
   s.periods = s.periods || [];
@@ -320,12 +344,22 @@ const schedProblems = () => {
   return { orphans, clashes: Object.values(count).filter((n) => n > 1).length };
 };
 
-App.pages["admin/schedule"] = () => {
+App.pages["admin/schedule"] = ({ q }) => {
+  const base = schedBase();
+  if (!base.term && ((base.classes || []).length || (base.periods || []).length)) base.term = termGuess(); // ข้อมูลเก่าที่ยังไม่ระบุภาคเรียน
+  const terms = schedTerms();
+  VIEW_TERM = q.term && terms.includes(q.term) ? q.term : base.term;
   const s = schedOf();
   const total = (s.classes || []).length;
   const { orphans, clashes } = schedProblems();
-  return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term || "-")} สอน ${total} คาบต่อสัปดาห์`,
+  const isCur = VIEW_TERM === base.term;
+  const termBar = `<div class="filters term-bar">${terms.map((t) => `<button data-act="viewTerm" data-t="${esc(t)}" class="${t === VIEW_TERM ? "on" : ""}">ภาคเรียน ${esc(t)}${t === base.term ? " · ปัจจุบัน" : ""}</button>`).join("")}
+    <button class="term-new" data-act="newTerm">+ ภาคเรียนใหม่</button></div>`;
+  const curNote = isCur ? `<p class="meta">ภาคเรียนนี้เป็น<b>ภาคเรียนปัจจุบัน</b> ใช้แสดงในหน้าแรกและหน้าสาธารณะ${base.autoTerm === false ? "" : " · เปลี่ยนให้เองตามวันที่ เมื่อภาคเรียนถัดไปมีตารางแล้ว"}</p>`
+    : `<p class="meta warn">กำลังดูภาคเรียน ${esc(VIEW_TERM)} ซึ่งไม่ใช่ภาคเรียนปัจจุบัน (${esc(base.term)}) <button class="btn ghost small" data-act="setTerm" data-t="${esc(VIEW_TERM)}">ตั้งเป็นภาคเรียนปัจจุบัน</button></p>`;
+  return head("ตารางสอน", `ภาคเรียนที่ ${esc(VIEW_TERM || "-")} สอน ${total} คาบต่อสัปดาห์`,
     `<button class="btn" data-act="editTerm">ภาคเรียนและเวลาคาบ</button><button class="btn ghost" data-act="print">พิมพ์</button><button class="btn ghost" data-act="clearSched">ล้างทั้งหมด</button>`) +
+    (terms.length ? termBar : "") + (terms.length > 1 || !isCur ? curNote : "") +
     `<p class="meta">แตะช่องว่างเพื่อเพิ่มวิชา · แตะวิชาเดิมเพื่อแก้หรือลบ · แตะหัวคาบเพื่อเปลี่ยนเวลา</p>` +
     App.scheduleEditor() +
     (clashes ? `<p class="meta warn">มี ${clashes} ช่องที่มีหลายวิชาซ้อนกัน (กรอบสีแดง) แตะช่องนั้นเพื่อแก้หรือลบทีละรายการ</p>` : "") +
@@ -403,15 +437,86 @@ App.actions.dropOrphans = async () => {
   render();
 };
 
-App.actions.editTerm = () => {
-  const periods = App.DATA.schedule?.periods || [];
-  editKV("ภาคเรียนและเวลาคาบ", "schedule", [
-    { key: "term", label: "ภาคเรียน", options: YEARS.flatMap((y) => [`1/${y}`, `2/${y}`]), wheel: true, get: (o) => o.term || `${new Date().getMonth() >= 4 && new Date().getMonth() < 10 ? 1 : 2}/${BE_NOW}` },
-    ...Array.from({ length: 10 }, (_, i) => ({ key: `p${i}`, label: `คาบ ${i + 1}`, type: "timerange", placeholder: "ไม่มีคาบนี้", get: () => periods.find((p) => Number(p.no) === i + 1)?.time || "" })),
-  ], (o, r) => {
-    o.term = r.term;
-    o.periods = Array.from({ length: 10 }, (_, i) => r[`p${i}`]).map((time, i) => ({ no: i + 1, time })).filter((p) => p.time);
+const goTerm = (t) => { location.hash = `#/schedule?term=${encodeURIComponent(t)}`; };
+App.actions.viewTerm = (b) => goTerm(b.dataset.t);
+App.actions.setTerm = async (b) => {
+  const t = b.dataset.t, backup = JSON.stringify(schedBase());
+  setActiveTerm(t);
+  schedBase().lastGuess = termGuess(); // ครูเลือกเอง: ไม่ให้ระบบสลับกลับจนกว่าจะขึ้นภาคเรียนถัดไป
+  try { await saveKV("schedule"); toast(`ตั้งภาคเรียน ${t} เป็นภาคเรียนปัจจุบันแล้ว`); } catch (e) { App.DATA.schedule = JSON.parse(backup); toast(e.message); }
+  render();
+};
+// เริ่มภาคเรียนใหม่: คัดลอกจากภาคเรียนที่กำลังดู หรือเริ่มจากตารางว่าง (ใช้เวลาคาบเดิม)
+App.actions.newTerm = () => {
+  const s = schedBase(), have = schedTerms();
+  const opts = YEARS.flatMap((y) => [`1/${y}`, `2/${y}`]).filter((t) => !have.includes(t));
+  const latest = have[0];
+  const next = latest ? (latest.startsWith("1/") ? `2/${latest.split("/")[1]}` : `1/${Number(latest.split("/")[1]) + 1}`) : termGuess();
+  const from = VIEW_TERM || s.term;
+  openForm("เริ่มภาคเรียนใหม่", [
+    { key: "term", label: "ภาคเรียน", options: opts, wheel: true, value: opts.includes(next) ? next : opts.includes(termGuess()) ? termGuess() : opts[0] },
+    ...(from ? [{ key: "src", label: "ตาราง", options: [`คัดลอกจากภาคเรียน ${from} แล้วแก้ต่อ`, "เริ่มจากตารางว่าง (ใช้เวลาคาบเดิม)"], value: "เริ่มจากตารางว่าง (ใช้เวลาคาบเดิม)" }] : []),
+    { key: "cur", label: "ตั้งเป็นภาคเรียนปัจจุบันเลย", type: "check", value: false, hint: "ถ้าไม่ติ๊ก ระบบจะเปลี่ยนให้เองเมื่อถึงวันเปิดภาคเรียนตามวันที่" },
+  ], async (r) => {
+    const backup = JSON.stringify(schedBase());
+    const src = termData(from) || { periods: [], classes: [] };
+    s.terms = s.terms || {};
+    const copy = String(r.src || "").startsWith("คัดลอก");
+    const fresh = { periods: (src.periods || []).map((p) => ({ ...p })), classes: copy ? (src.classes || []).map((c) => ({ ...c })) : [] };
+    if (!s.term) { s.term = r.term; s.periods = fresh.periods; s.classes = fresh.classes; } else s.terms[r.term] = fresh;
+    if (r.cur) setActiveTerm(r.term);
+    try { await saveKV("schedule"); } catch (e) { App.DATA.schedule = JSON.parse(backup); throw e; }
+    goTerm(r.term);
+    toast(`เพิ่มภาคเรียน ${r.term} แล้ว${copy ? "" : " แตะช่องในตาราง หรือกด ✨ นำเข้าจากรูป"}`);
   });
+};
+// ภาคเรียนที่กำลังดู: เปลี่ยนชื่อ เวลาคาบ ลบ และการเปลี่ยนภาคเรียนอัตโนมัติ
+App.actions.editTerm = () => {
+  const s = schedBase();
+  const view = VIEW_TERM || s.term || termGuess();
+  const periods = schedOf().periods || [];
+  const others = schedTerms().filter((t) => t !== view);
+  const opts = YEARS.flatMap((y) => [`1/${y}`, `2/${y}`]).filter((t) => !others.includes(t));
+  openForm("ภาคเรียนและเวลาคาบ", [
+    { key: "term", label: "ภาคเรียน", options: opts, wheel: true, value: view },
+    ...Array.from({ length: 10 }, (_, i) => ({ key: `p${i}`, label: `คาบ ${i + 1}`, type: "timerange", placeholder: "ไม่มีคาบนี้", value: periods.find((p) => Number(p.no) === i + 1)?.time || "" })),
+    { key: "auto", label: "เปลี่ยนภาคเรียนปัจจุบันให้เองตามวันที่", type: "check", value: s.autoTerm !== false, hint: "ภาคเรียนที่ 1 = 16 พ.ค.–31 ต.ค. ภาคเรียนที่ 2 = 1 พ.ย.–15 พ.ค. เปลี่ยนเมื่อภาคเรียนนั้นมีตารางแล้วเท่านั้น" },
+    ...(others.length ? [{ key: "del", label: `ลบภาคเรียน ${view} ทั้งภาคเรียน`, type: "check", value: false }] : []),
+  ], async (r) => {
+    const backup = JSON.stringify(schedBase());
+    try {
+      if (r.del) {
+        if (!confirm(`ลบตารางสอนภาคเรียน ${view} ทั้งหมดใช่ไหม? ลบแล้วกู้คืนไม่ได้`)) throw new Error("ยกเลิกการลบ");
+        if (view === s.term) setActiveTerm(others[0]);
+        delete s.terms[view];
+        s.autoTerm = r.auto;
+        await saveKV("schedule");
+        return goTerm(schedBase().term);
+      }
+      const t = schedOf();
+      t.periods = Array.from({ length: 10 }, (_, i) => r[`p${i}`]).map((time, i) => ({ no: i + 1, time })).filter((p) => p.time);
+      s.autoTerm = r.auto;
+      if (r.term !== view) { // เปลี่ยนชื่อภาคเรียน
+        if (view === s.term) s.term = r.term;
+        else { s.terms[r.term] = s.terms[view]; delete s.terms[view]; }
+      }
+      await saveKV("schedule");
+      if (r.term !== view) goTerm(r.term);
+    } catch (e) { App.DATA.schedule = JSON.parse(backup); throw e; }
+  });
+};
+// เปิดหน้าครูครั้งแรกของวัน: ถ้าถึงภาคเรียนใหม่แล้วและภาคเรียนนั้นมีตาราง ให้เป็นภาคเรียนปัจจุบันเอง
+App.autoTerm = async () => {
+  const s = App.DATA?.schedule;
+  if (!s || s.autoTerm === false || !s.term) return;
+  const g = termGuess();
+  if (s.lastGuess === g) return; // เปลี่ยนเฉพาะตอนเพิ่งขึ้นภาคเรียนใหม่ ไม่ทับที่ครูเลือกเอง
+  if (!s.lastGuess) { s.lastGuess = g; return; } // ครั้งแรก: จำไว้เฉย ๆ ไม่สลับ
+  if (g === s.term || termKey(g) < termKey(s.term) || !(s.terms?.[g]?.classes || []).length) { s.lastGuess = g; saveKVLater("schedule"); return; }
+  const backup = JSON.stringify(s);
+  s.lastGuess = g;
+  setActiveTerm(g);
+  try { await saveKV("schedule"); toast(`ขึ้นภาคเรียน ${g} แล้ว ตารางสอนเปลี่ยนเป็นภาคเรียนใหม่ให้`); render(); } catch { App.DATA.schedule = JSON.parse(backup); }
 };
 
 App.pages["admin/plans"] = listPage({
@@ -1283,6 +1388,7 @@ App.bootAdmin = async () => {
   document.body.dataset.auth = "in";
   App.setData(data);
   render();
+  App.autoTerm?.(); // ถึงภาคเรียนใหม่แล้ว → เปลี่ยนภาคเรียนปัจจุบันให้เอง
 };
 
 $("#logoutBtn")?.addEventListener("click", async () => {

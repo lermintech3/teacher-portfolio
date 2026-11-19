@@ -196,7 +196,7 @@
     const times = {};
     rows.forEach((x) => { if (/^\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}$/.test(x.time || "")) times[x.period] = x.time.replace(/\./g, ":").replace(/\s*[-–]\s*/, "–"); });
     const maxP = Math.max(...rows.map((x) => x.period));
-    openForm(`ตรวจตารางสอนที่ AI อ่านได้ (${rows.length} คาบ)`, [
+    openForm(`ตรวจตารางสอนที่ AI อ่านได้ (${rows.length} คาบ)${VIEW_TERM ? ` · ภาคเรียน ${VIEW_TERM}` : ""}`, [
       { key: "mode", label: "วิธีนำเข้า", options: ["ล้างตารางเดิม แล้วใช้ของใหม่", "เพิ่มลงตารางเดิม (ช่องที่ซ้ำจะถูกแทน)"], value: (s.classes || []).length ? "เพิ่มลงตารางเดิม (ช่องที่ซ้ำจะถูกแทน)" : "ล้างตารางเดิม แล้วใช้ของใหม่" },
       ...(Object.keys(times).length ? [{ key: "times", label: `ใช้เวลาคาบตามรูป (${Object.entries(times).map(([p, t]) => `คาบ ${p} ${t}`).slice(0, 3).join(", ")}…)`, type: "check", value: true }] : []),
       ...rows.map((x, i) => ({ key: `r${i}`, label: `${x.day} คาบ ${x.period} · ${x.subject}${x.room ? ` · ${x.room}` : ""}`, type: "check", value: true })),

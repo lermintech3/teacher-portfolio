@@ -139,9 +139,12 @@
   const room2class = (r) => String(r || "").split("/")[0].trim();
   const isCode = (s) => /^[ก-ฮ][0-9๐-๙]{5}$/.test(String(s || "").trim());
   const teachAuto = (term) => () => {
-    const s = App.DATA.schedule || {};
-    const [t, ty] = String(s.term || "").split("/");
-    if (t !== term || (ty && ty !== Y)) return [];
+    // ตารางของภาคเรียน term/ปีที่กำลังดู (ภาคเรียนปัจจุบันอยู่ชั้นบน ภาคเรียนอื่นอยู่ใน terms)
+    const all = App.DATA.schedule || {};
+    const key = `${term}/${Y}`;
+    const legacy = !all.terms && String(all.term || "").split("/")[0] === term && !String(all.term || "").includes("/");
+    const s = all.term === key || legacy ? all : all.terms?.[key];
+    if (!s) return [];
     const groups = {};
     for (const c of s.classes || []) {
       if (!c.subject) continue;
@@ -156,8 +159,8 @@
     });
   };
   const TABLES = {
-    teach1: { title: "ปฏิบัติการสอน ภาคเรียนที่ 1", cols: ["รหัสวิชา", "ชื่อวิชา", "ชั้น", "จำนวนห้อง", "จำนวนชั่วโมง / สัปดาห์"], auto: teachAuto("1"), autoNote: "ตารางสอนภาคเรียนที่ 1" },
-    teach2: { title: "ปฏิบัติการสอน ภาคเรียนที่ 2", cols: ["รหัสวิชา", "ชื่อวิชา", "ชั้น", "จำนวนห้อง", "จำนวนชั่วโมง / สัปดาห์"], auto: teachAuto("2"), autoNote: "ตารางสอนภาคเรียนที่ 2" },
+    teach1: { title: "ปฏิบัติการสอน ภาคเรียนที่ 1", cols: ["รหัสวิชา", "ชื่อวิชา", "ชั้น", "จำนวนห้อง", "จำนวนชั่วโมง / สัปดาห์"], auto: teachAuto("1"), autoNote: "ตารางสอนภาคเรียนที่ 1 (เมนูตารางสอน)" },
+    teach2: { title: "ปฏิบัติการสอน ภาคเรียนที่ 2", cols: ["รหัสวิชา", "ชื่อวิชา", "ชั้น", "จำนวนห้อง", "จำนวนชั่วโมง / สัปดาห์"], auto: teachAuto("2"), autoNote: "ตารางสอนภาคเรียนที่ 2 (เมนูตารางสอน)" },
     activities: { title: "กิจกรรมพัฒนาผู้เรียน", cols: ["กิจกรรมพัฒนาผู้เรียน", "ชั้น / ห้อง", "จำนวนนักเรียน", "ผ่าน", "ไม่ผ่าน"], autoNote: "เมนูกิจกรรมพัฒนาผู้เรียน",
       auto: () => L("activities").map((a) => {
         const [p, t] = String(a.passed || "").split("/").map((x) => Number(x));
