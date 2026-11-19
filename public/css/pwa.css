@@ -1,0 +1,22 @@
+/* ปุ่มและหน้าต่างวิธีติดตั้งแอป */
+.install-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.install-btn svg { width: 16px; height: 16px; }
+.install-btn[hidden] { display: none; }
+.auth .install-btn, #loginForm + .install-btn { margin-top: 10px; }
+.install-guide { border: 0; border-radius: 22px; padding: 22px; width: min(92vw, 380px); box-shadow: 0 24px 70px rgba(30, 20, 90, .3); color: var(--ink); }
+.install-guide::backdrop { background: rgba(22, 20, 46, .4); backdrop-filter: blur(3px); }
+.ig-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.ig-head img { width: 52px; height: 52px; border-radius: 12px; }
+.ig-head div { display: flex; flex-direction: column; }
+.ig-head b { font-size: 1.1rem; }
+.ig-head span { color: var(--muted); font-size: .9rem; }
+.install-guide ol { margin: 0 0 10px; padding-left: 22px; line-height: 1.75; }
+.install-guide p { margin: 0 0 8px; }
+.install-guide .note { font-size: .85rem; color: var(--muted); background: var(--paper); padding: 8px 10px; border-radius: 10px; }
+.install-guide .ig { width: 20px; height: 20px; vertical-align: -4px; color: #0a84ff; }
+.ig-link { display: flex; align-items: center; gap: 8px; margin: 6px 0 14px; }
+.ig-link code { flex: 1; font-size: .8rem; background: var(--paper); padding: 6px 8px; border-radius: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ตอนเปิดเป็นแอป: เว้นที่ใต้แถบสถานะของ iPhone */
+@media (display-mode: standalone) {
+  .topbar { padding-top: max(10px, env(safe-area-inset-top)); }
+}
