@@ -150,7 +150,8 @@ App.editItem = (key, item, preset = {}) => {
       // ค่าเดิมที่ไม่อยู่ในตัวเลือกใหม่ ยังเลือกได้ ไม่หาย
       return { ...f, options: options && value && !options.includes(value) ? [value, ...options] : options, value };
     });
-  openForm(`${item ? "แก้ไข" : "เพิ่ม"}${F.name}`, fields, async (rec) => {
+  const formTitle = `${item ? "แก้ไข" : "เพิ่ม"}${F.name}`;
+  openForm(formTitle, fields, async (rec) => {
     let body = F.map ? await F.map(rec, item) : rec;
     if (body.vis) body.vis = VIS_CODE[body.vis] || "private";
     if (item) {
@@ -161,6 +162,7 @@ App.editItem = (key, item, preset = {}) => {
       arr(key).unshift(await api("POST", `/api/admin/items/${key}`, body));
     }
   });
+  App.aiAttach?.(key, fields, F.name); // ปุ่ม "✨ อ่านด้วย AI" (ai.js)
 };
 for (const key of Object.keys(FORMS)) App.adders[key] = () => App.editItem(key);
 
@@ -1053,12 +1055,13 @@ const MODE_LABEL = { public: "หน้าสาธารณะ", admin: "หน
 const menuRows = () => Object.entries(App.navBase()).flatMap(([mode, groups]) =>
   groups.flatMap((g) => g.items.map((i) => ({ ...i, mode, group: g.group || "" }))));
 
-const SET_TABS = ["ทั่วไป", "เมนู", "ตัวเลือกฟอร์ม", "บัญชี"];
+const SET_TABS = ["ทั่วไป", "เมนู", "ตัวเลือกฟอร์ม", "AI ผู้ช่วย", "บัญชี"];
 const SET_HINT = {
   "ทั่วไป": "แบนเนอร์และสไลด์โชว์หน้าแรก ชื่อเว็บ และตัวชี้วัด PA",
   "เมนู": "เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ",
   "ตัวเลือกฟอร์ม": "เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน",
   "บัญชี": "รหัสผ่านและการคืนค่าตั้งต้น",
+  "AI ผู้ช่วย": "ใส่ API key ของตัวเอง เลือกค่าย AI ได้ (Claude, ChatGPT, Gemini) แล้วใช้ปุ่ม ✨ ในฟอร์มให้ AI อ่านเอกสารและกรอกช่องให้",
 };
 App.pages["admin/settings"] = ({ q } = {}) => {
   const st = settingsObj();
@@ -1100,6 +1103,7 @@ App.pages["admin/settings"] = ({ q } = {}) => {
         <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section></div>`,
     "เมนู": () => `<div class="cols set-cols">${Object.keys(MODE_LABEL).map(menuPanel).join("")}</div>`,
     "ตัวเลือกฟอร์ม": () => `<div class="grid set-grid">${Object.entries(FORMS).map(optionPanel).join("")}</div>`,
+    "AI ผู้ช่วย": () => (App.aiSettings ? App.aiSettings() : ""),
     "บัญชี": () => `<div class="cols">
       <section class="panel set-card"><h2 class="row-head">รหัสผ่าน <button class="btn ghost small" data-act="changePw">เปลี่ยนรหัสผ่าน</button></h2>
         <p class="meta">เปลี่ยนแล้วเครื่องอื่นที่เคยเข้าสู่ระบบไว้จะต้องเข้าใหม่ ถ้าลืมรหัส ให้ตั้งรหัสใหม่ใน Cloudflare แล้ว deploy ใหม่</p></section>
