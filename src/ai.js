@@ -183,8 +183,8 @@ export async function testConnection(env, db, site) {
 const cleanFields = (fields) => (Array.isArray(fields) ? fields : []).slice(0, 20).map((f) => ({
   key: String(f.key || "").replace(/[^\w]/g, "").slice(0, 40),
   label: String(f.label || "").slice(0, 80),
-  type: ["text", "date", "number", "textarea"].includes(f.type) ? f.type : "text",
-  options: Array.isArray(f.options) ? f.options.slice(0, 30).map((o) => String(o).slice(0, 60)) : undefined,
+  type: ["text", "date", "number", "textarea", "multi"].includes(f.type) ? f.type : "text",
+  options: Array.isArray(f.options) ? f.options.slice(0, 60).map((o) => String(o).slice(0, 160)) : undefined,
 })).filter((f) => f.key);
 const cleanFiles = (files) => {
   const list = (Array.isArray(files) ? files : []).slice(0, MAX_FILES);
@@ -199,32 +199,26 @@ const SYSTEM_FILL = `คุณเป็นผู้ช่วยครูไท�
 กติกา:
 - ตอบเป็น JSON อย่างเดียว ไม่มีข้อความอื่น
 - ใส่เฉพาะข้อมูลที่เห็นในเอกสารจริง ห้ามเดา ถ้าไม่พบให้ใส่ "" (ตัวเลขใส่ null)
+- ยกเว้นช่องที่เป็นการจัดหมวด (ประเภท หมวด ตัวชี้วัด หัวข้อ) ให้เลือกตัวเลือกที่เหมาะกับเนื้อหาที่สุด แม้เอกสารไม่ได้เขียนไว้ตรง ๆ
 - วันที่ให้แปลงเป็นรูปแบบ YYYY-MM-DD แบบคริสต์ศักราช (พ.ศ. ลบ 543) เช่น 15 มีนาคม 2569 → 2026-03-15 ถ้ามีหลายวันให้ใช้วันสุดท้ายของกิจกรรม หรือวันที่ออกเอกสารถ้าไม่มีวันกิจกรรม
 - ช่องที่มีตัวเลือก ต้องตอบเป็นหนึ่งในตัวเลือกที่ให้ไว้เท่านั้น ถ้าไม่ตรงข้อใดให้ใส่ ""
 - ชื่อเรื่อง/หลักสูตร/รางวัล ให้คัดลอกตามเอกสาร ตัดคำว่า "เกียรติบัตรฉบับนี้ให้ไว้เพื่อแสดงว่า" และชื่อผู้รับออก
 - ช่องไหนอ่านไม่ชัดหรือไม่แน่ใจ ให้ใส่ชื่อช่องนั้นใน "_uncertain"
 - ใส่สรุปสั้น ๆ ว่าเป็นเอกสารอะไรใน "_note" (ไม่เกิน 1 ประโยค)`;
 
-export async function fillForm(env, db, site, { title, fields, files, hint }) {
-  const F = cleanFields(fields);
-  if (!F.length) throw new HttpError(400, "ไม่มีช่องให้กรอก");
-  const docs = cleanFiles(files);
-  if (!docs.length) throw new HttpError(400, "ยังไม่ได้แนบรูปหรือไฟล์ให้ AI อ่าน");
-  const c = await prepare(env, db, site);
-  const spec = F.map((f) => `- "${f.key}": ${f.label}${f.type === "date" ? " (YYYY-MM-DD)" : f.type === "number" ? " (ตัวเลข)" : ""}${f.options ? ` ตัวเลือก: ${f.options.map((o) => `"${o}"`).join(", ")}` : ""}`).join("\n");
-  const prompt = `แบบฟอร์ม: ${String(title || "").slice(0, 80)}
-${hint ? `ข้อมูลเพิ่มเติม: ${String(hint).slice(0, 300)}\n` : ""}อ่านเอกสารที่แนบ แล้วตอบ JSON ที่มีช่องต่อไปนี้
-${spec}
-- "_uncertain": [ชื่อช่องที่ไม่แน่ใจ]
-- "_note": "สรุปสั้น ๆ"`;
-  const out = await callProvider(c.provider, c.model, c.key, SYSTEM_FILL, [...docs, { text: prompt }], { maxTokens: 1500 });
-  await countUse(db, site);
-  const j = parseJson(out);
-  // ตรวจค่าที่ได้ให้อยู่ในรูปแบบของแต่ละช่อง
+const specText = (F) => F.map((f) => `- "${f.key}": ${f.label}${f.type === "date" ? " (YYYY-MM-DD)" : f.type === "number" ? " (ตัวเลข)" : f.type === "multi" ? " (อาร์เรย์ เลือกได้หลายค่า ใส่เฉพาะรหัสหน้าเครื่องหมาย :)" : ""}${f.options ? ` ตัวเลือก: ${f.options.map((o) => `"${o}"`).join(", ")}` : ""}`).join("\n");
+// ตรวจค่าที่ AI ตอบให้อยู่ในรูปแบบของแต่ละช่อง ค่าที่ผิดรูปแบบตัดทิ้ง
+function cleanValues(F, j) {
   const values = {};
   for (const f of F) {
-    let v = j[f.key];
+    let v = j?.[f.key];
     if (v === null || v === undefined) continue;
+    if (f.type === "multi") {
+      const codes = (f.options || []).map((o) => o.split(":")[0].trim());
+      v = (Array.isArray(v) ? v : String(v).split(/[,\s]+/)).map((x) => String(x).split(":")[0].trim()).filter((x) => codes.includes(x));
+      if (v.length) values[f.key] = [...new Set(v)].join(", ");
+      continue;
+    }
     if (f.type === "number") { v = Number(String(v).replace(/[^\d.]/g, "")); if (!isFinite(v) || !v) continue; }
     else v = String(v).trim().slice(0, f.type === "textarea" ? 3000 : 300);
     if (f.type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(v)) continue;
@@ -233,6 +227,50 @@ ${spec}
     if (v === "") continue;
     values[f.key] = v;
   }
+  return values;
+}
+// สิ่งที่ส่งให้ AI อ่าน: ไฟล์ และ/หรือ ข้อความ (เช่น ชื่อและคำอธิบายหลักฐาน)
+function inputsOf(body) {
+  const docs = Array.isArray(body.files) && body.files.length ? cleanFiles(body.files) : [];
+  const text = String(body.text || "").trim().slice(0, 6000);
+  if (!docs.length && !text) throw new HttpError(400, "ยังไม่ได้แนบรูปหรือไฟล์ให้ AI อ่าน");
+  return { docs, text };
+}
+
+export async function fillForm(env, db, site, body) {
+  const { title, fields, hint } = body;
+  const F = cleanFields(fields);
+  if (!F.length) throw new HttpError(400, "ไม่มีช่องให้กรอก");
+  const { docs, text } = inputsOf(body);
+  const c = await prepare(env, db, site);
+  const prompt = `แบบฟอร์ม: ${String(title || "").slice(0, 80)}
+${hint ? `ข้อมูลเพิ่มเติม: ${String(hint).slice(0, 400)}\n` : ""}${text ? `ข้อความจากครู:\n"""\n${text}\n"""\n` : ""}อ่าน${docs.length ? "เอกสารที่แนบ" : "ข้อความ"} แล้วตอบ JSON ที่มีช่องต่อไปนี้
+${specText(F)}
+- "_uncertain": [ชื่อช่องที่ไม่แน่ใจ]
+- "_note": "สรุปสั้น ๆ"`;
+  const out = await callProvider(c.provider, c.model, c.key, SYSTEM_FILL, [...docs, { text: prompt }], { maxTokens: 1500 });
+  await countUse(db, site);
+  const j = parseJson(out);
   const uncertain = (Array.isArray(j._uncertain) ? j._uncertain : []).map(String).filter((k) => F.some((f) => f.key === k));
-  return { values, uncertain, note: String(j._note || "").slice(0, 200), model: c.model };
+  return { values: cleanValues(F, j), uncertain, note: String(j._note || "").slice(0, 200), model: c.model };
+}
+
+// อ่านเอกสารที่มีหลายรายการ (ตารางสอน คำสั่งที่มีหลายหน้าที่) คืนเป็นแถว ๆ ให้ครูเลือกก่อนบันทึก
+export async function extractRows(env, db, site, body) {
+  const { title, fields, hint } = body;
+  const F = cleanFields(fields);
+  if (!F.length) throw new HttpError(400, "ไม่มีช่องให้กรอก");
+  const { docs, text } = inputsOf(body);
+  const max = Math.max(1, Math.min(120, Number(body.max) || 60));
+  const c = await prepare(env, db, site);
+  const prompt = `งาน: ${String(title || "").slice(0, 80)}
+${hint ? `คำแนะนำ: ${String(hint).slice(0, 800)}\n` : ""}${text ? `ข้อความ:\n"""\n${text}\n"""\n` : ""}อ่าน${docs.length ? "เอกสารที่แนบ" : "ข้อความ"} แล้วแยกเป็นรายการ ตอบ JSON รูปแบบ {"rows": [ {...}, ... ], "_note": "สรุปสั้น ๆ"}
+แต่ละรายการมีช่องต่อไปนี้
+${specText(F)}
+ไม่เกิน ${max} รายการ ถ้าไม่พบรายการที่ตรงให้ตอบ {"rows": [], "_note": "เหตุผล"}`;
+  const out = await callProvider(c.provider, c.model, c.key, SYSTEM_FILL, [...docs, { text: prompt }], { maxTokens: 6000 });
+  await countUse(db, site);
+  const j = parseJson(out);
+  const rows = (Array.isArray(j.rows) ? j.rows : []).slice(0, max).map((r) => cleanValues(F, r)).filter((r) => Object.keys(r).length);
+  return { rows, note: String(j._note || "").slice(0, 300), model: c.model };
 }

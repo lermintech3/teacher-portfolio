@@ -2,11 +2,22 @@
 // AI ทำงานเฉพาะตอนกดปุ่ม และแค่กรอกช่องให้ดูก่อน ครูตรวจแล้วกดบันทึกเอง
 (() => {
   // ฟอร์มที่มีปุ่มอ่านด้วย AI: คำอธิบายสั้น ๆ ว่าให้แนบอะไร และไฟล์ที่ AI อ่านจะใส่ลงช่องแนบไฟล์ไหนให้ด้วย
+  // suggest: ปุ่มที่ 2 ให้ AI จัดหมวดจากชื่อ/คำอธิบายที่พิมพ์ไว้ (ไม่ต้องแนบไฟล์)
   const AI_FORMS = {
     certificates: { what: "รูปเกียรติบัตรหรือรางวัล", attach: "image" },
     trainings: { what: "รูปหรือ PDF เกียรติบัตร/วุฒิบัตรการอบรม", attach: "certificate" },
+    responsibilities: { what: "รูปหรือ PDF คำสั่งโรงเรียน (ถ้าคำสั่งมีหลายงาน ใช้ปุ่ม ✨ อ่านคำสั่ง ในหน้ารายการ)", attach: "file" },
+    projects: { what: "รูปหรือ PDF เอกสารโครงการ หรือรายงานสรุปโครงการ", attach: "file" },
+    supervision: { what: "รูปหรือ PDF แบบบันทึกการนิเทศ", attach: "file" },
+    documents: { what: "รูปหรือ PDF หนังสือราชการ / คำสั่ง", attach: "link" },
+    meetings: { what: "รูปหรือ PDF รายงานการประชุม", attach: "file" },
+    activities: { what: "รูปหรือ PDF เอกสารกิจกรรม / สรุปผลกิจกรรม", attach: "file" },
+    works: { what: "รูปหรือ PDF ผลงาน / บทคัดย่องานวิจัย", attach: "link" },
+    leaves: { what: "รูปหรือ PDF ใบลา", attach: "file" },
+    evidence: { what: "ไฟล์หลักฐาน", attach: "link", suggest: ["pa", "sar", "source"], suggestFrom: ["title", "description"] },
   };
   const AI = (App.ai = { cfg: null, loading: null });
+  const A_IMPORT = {};
   AI.load = async (force = false) => {
     if (AI.cfg && !force) return AI.cfg;
     if (!AI.loading || force) AI.loading = api("GET", "/api/admin/ai/config").then((c) => (AI.cfg = c)).finally(() => (AI.loading = null));
@@ -31,6 +42,14 @@
     const id = `f_${key}`;
     const input = document.getElementById(id);
     if (!input) return false;
+    const chips = form.querySelector(`.ios-chips[data-target="${id}"]`);
+    if (chips) {
+      const want = new Set(String(v).split(/[,\s]+/).filter(Boolean));
+      chips.querySelectorAll(".ios-chip").forEach((c) => c.setAttribute("aria-pressed", String(want.has(c.dataset.v))));
+      input.value = [...want].join(", ");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      return want.size > 0;
+    }
     const group = form.querySelector(`.ios-seg[data-target="${id}"], .ios-radios[data-target="${id}"]`);
     if (group) {
       const b = [...group.querySelectorAll("[data-v]")].find((x) => x.dataset.v === String(v));
@@ -46,8 +65,10 @@
 
   // ช่องที่ส่งให้ AI กรอก (ไม่ส่งช่องไฟล์ การมองเห็น และช่องติ๊ก)
   const specOf = (fields) => fields
-    .filter((f) => f.key !== "vis" && !["file", "gallery", "check", "chips", "color"].includes(f.type) && !f.toggle)
-    .map((f) => ({ key: f.key, label: f.label, type: f.type === "date" || f.type === "number" || f.type === "textarea" ? f.type : "text", options: f.options }));
+    .filter((f) => f.key !== "vis" && !["file", "gallery", "check", "color"].includes(f.type) && !f.toggle)
+    .map((f) => f.type === "chips"
+      ? { key: f.key, label: f.label, type: "multi", options: (typeof f.groups === "function" ? f.groups() : f.groups || []).flatMap((g) => g.items.map(([c, n]) => `${c}: ${n}`)) }
+      : { key: f.key, label: f.label, type: f.type === "date" || f.type === "number" || f.type === "textarea" ? f.type : "text", options: f.options });
 
   // ---------- ปุ่มในฟอร์ม ----------
   App.aiAttach = async (key, fields, title) => {
@@ -57,6 +78,7 @@
     box.insertAdjacentHTML("afterbegin", `<div class="ai-box" id="aiBox">
       <button type="button" class="ai-btn" id="aiBtn"><span class="spark">✨</span> อ่านด้วย AI</button>
       <div class="ai-txt"><b>ให้ AI กรอกช่องให้</b><span>เลือก${esc(conf.what)} (ได้สูงสุด 4 ไฟล์) แล้วตรวจก่อนกดบันทึก</span></div>
+      ${conf.suggest ? `<button type="button" class="ai-btn ghost" id="aiSuggest"><span class="spark">✨</span> แนะนำหมวดจากชื่อ</button><div class="ai-txt"><span>พิมพ์ชื่อและคำอธิบายหลักฐานก่อน แล้วให้ AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div>` : ""}
       <input type="file" id="aiFile" hidden multiple accept="image/*,application/pdf">
       <div class="ai-status" id="aiStatus" role="status"></div></div>`);
     const btn = $("#aiBtn"), input = $("#aiFile"), status = $("#aiStatus"), form = $("#sheetForm");
@@ -69,6 +91,21 @@
     btn.onclick = () => {
       if (!ready()) { $("#sheet").close(); location.hash = `#/settings?tag=${encodeURIComponent("AI ผู้ช่วย")}`; return; }
       input.click();
+    };
+    const sug = $("#aiSuggest");
+    if (sug) sug.onclick = async () => {
+      if (!ready()) return btn.onclick();
+      const text = conf.suggestFrom.map((k) => document.getElementById(`f_${k}`)?.value || "").filter(Boolean).join("\n");
+      if (!text.trim()) { say("พิมพ์ชื่อหลักฐานก่อน", "warn"); return; }
+      sug.disabled = true; sug.classList.add("busy");
+      try {
+        say("AI กำลังจัดหมวด…");
+        const r = await api("POST", "/api/admin/ai/fill", { title, text, fields: specOf(fields.filter((f) => conf.suggest.includes(f.key))) });
+        let n = 0;
+        for (const [k, v] of Object.entries(r.values || {})) if (setField(form, k, v)) { n++; cellOf(k)?.classList.add("ai-filled"); }
+        AI.cfg.used = (AI.cfg.used || 0) + 1;
+        say(n ? `เลือกให้ ${n} ช่อง ตรวจแล้วแก้ได้ตามต้องการ${r.note ? `<small>${esc(r.note)}</small>` : ""}` : "AI ไม่แน่ใจว่าควรอยู่หมวดไหน ลองพิมพ์คำอธิบายเพิ่ม", n ? "ok" : "warn");
+      } catch (e) { say(esc(e.message), "err"); } finally { sug.disabled = false; sug.classList.remove("busy"); }
     };
     input.onchange = async () => {
       const files = [...input.files].slice(0, 4);
@@ -112,6 +149,115 @@
     };
   };
 
+  // ---------- นำเข้าหลายรายการ (ตารางสอน คำสั่ง) ----------
+  const pickFiles = () => new Promise((resolve) => {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.multiple = true; inp.accept = "image/*,application/pdf";
+    inp.onchange = () => resolve([...inp.files].slice(0, 4));
+    inp.click();
+  });
+  // เลือกไฟล์ → AI อ่าน → คืนแถว (แสดงสถานะด้วย toast)
+  async function readRows({ title, fields, hint, max }) {
+    await AI.load().catch(() => null);
+    if (!ready()) { toast("ยังไม่ได้ตั้งค่า AI ไปที่ ตั้งค่าเว็บ → AI ผู้ช่วย"); location.hash = `#/settings?tag=${encodeURIComponent("AI ผู้ช่วย")}`; return null; }
+    const files = await pickFiles();
+    if (!files.length) return null;
+    const busy = document.createElement("div");
+    busy.className = "ai-busy";
+    busy.innerHTML = `<div><span class="spark">✨</span><b>AI กำลังอ่าน${esc(title)}</b><small>ประมาณ 10–40 วินาที</small></div>`;
+    document.body.append(busy);
+    try {
+      const parts = await Promise.all(files.map(toPart));
+      const r = await api("POST", "/api/admin/ai/rows", { title, fields, files: parts, hint, max });
+      AI.cfg.used = (AI.cfg.used || 0) + 1;
+      if (!r.rows.length) { toast(`AI ไม่พบรายการ${r.note ? `: ${r.note}` : ""}`); return null; }
+      return r;
+    } catch (e) { toast(e.message); return null; } finally { busy.remove(); }
+  }
+  const me = () => (App.DATA.profile || {}).name || "";
+
+  // ตารางสอน: อ่านจากรูป/PDF แล้วให้ครูเลือกคาบก่อนบันทึก
+  A_IMPORT.schedule = async () => {
+    const r = await readRows({
+      title: "ตารางสอน", max: 60,
+      fields: [
+        { key: "day", label: "วัน", options: DAYS }, { key: "period", label: "คาบที่ (นับเฉพาะคาบเรียน ไม่นับพัก)", type: "number" },
+        { key: "subject", label: "วิชา (ใช้รหัสวิชาถ้ามี เช่น ค15101 ถ้าไม่มีใช้ชื่อวิชาสั้น ๆ)" }, { key: "room", label: "ห้อง / ชั้น เช่น ป.5/1" },
+        { key: "time", label: "เวลาของคาบนั้นจากหัวตาราง รูปแบบ 08:30–09:20 (ถ้ามี)" },
+      ],
+      hint: `${me() ? `ถ้าเป็นตารางสอนรวมของโรงเรียนหรือของหลายครู ให้เอาเฉพาะคาบของครู ${me()} ` : ""}ถ้าเป็นตารางของครูคนเดียวให้เอาทุกคาบที่มีวิชา ไม่ต้องใส่ช่องว่าง พักกลางวัน โฮมรูม หรือกิจกรรมหน้าเสาธง หนึ่งช่องในตาราง = หนึ่งรายการ ถ้าวิชาเดียวกันต่อเนื่องหลายคาบให้แยกเป็นคาบละรายการ`,
+    });
+    if (!r) return;
+    const rows = r.rows.filter((x) => x.day && x.period && x.subject).sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.period - b.period);
+    if (!rows.length) return toast("อ่านได้แต่ข้อมูลไม่ครบ (ต้องมีวัน คาบ และวิชา)");
+    const s = schedOf();
+    const times = {};
+    rows.forEach((x) => { if (/^\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}$/.test(x.time || "")) times[x.period] = x.time.replace(/\./g, ":").replace(/\s*[-–]\s*/, "–"); });
+    const maxP = Math.max(...rows.map((x) => x.period));
+    openForm(`ตรวจตารางสอนที่ AI อ่านได้ (${rows.length} คาบ)`, [
+      { key: "mode", label: "วิธีนำเข้า", options: ["ล้างตารางเดิม แล้วใช้ของใหม่", "เพิ่มลงตารางเดิม (ช่องที่ซ้ำจะถูกแทน)"], value: (s.classes || []).length ? "เพิ่มลงตารางเดิม (ช่องที่ซ้ำจะถูกแทน)" : "ล้างตารางเดิม แล้วใช้ของใหม่" },
+      ...(Object.keys(times).length ? [{ key: "times", label: `ใช้เวลาคาบตามรูป (${Object.entries(times).map(([p, t]) => `คาบ ${p} ${t}`).slice(0, 3).join(", ")}…)`, type: "check", value: true }] : []),
+      ...rows.map((x, i) => ({ key: `r${i}`, label: `${x.day} คาบ ${x.period} · ${x.subject}${x.room ? ` · ${x.room}` : ""}`, type: "check", value: true })),
+    ], async (f) => {
+      const pick = rows.filter((_, i) => f[`r${i}`]);
+      if (!pick.length) throw new Error("ยังไม่ได้เลือกคาบ");
+      await saveSched((sc) => {
+        if (f.mode.startsWith("ล้าง")) sc.classes = [];
+        for (let n = sc.periods.length + 1; n <= maxP; n++) sc.periods.push({ no: n, time: times[n] || "" });
+        if (f.times) sc.periods.forEach((p) => { if (times[p.no]) p.time = times[p.no]; });
+        for (const x of pick) {
+          const hit = sc.classes.find((c) => c.day === x.day && Number(c.period) === x.period);
+          if (hit) { hit.subject = x.subject; hit.room = x.room || ""; } else sc.classes.push({ day: x.day, period: x.period, subject: x.subject, room: x.room || "" });
+        }
+      });
+      toast(`นำเข้า ${pick.length} คาบแล้ว`);
+    });
+    insertNote(r.note);
+  };
+
+  // คำสั่งโรงเรียน: หนึ่งคำสั่งได้หลายงาน
+  A_IMPORT.responsibilities = async () => {
+    const F = FORMS.responsibilities.fields;
+    const r = await readRows({
+      title: "คำสั่งโรงเรียน", max: 30,
+      fields: [
+        { key: "title", label: "ชื่องาน/หน้าที่ที่ได้รับมอบหมาย เช่น กรรมการฝ่ายจัดสถานที่ งานวันเด็ก (รวมชื่อคณะกรรมการ/กิจกรรมด้วย)" },
+        { key: "type", label: "ประเภท", options: F.find((x) => x.key === "type").options },
+        { key: "detail", label: "เลขที่คำสั่ง ลงวันที่ และตำแหน่งในคณะกรรมการ เช่น คำสั่งที่ 45/2569 ลว. 3 มิ.ย. 2569 (กรรมการ)" },
+        { key: "year", label: "ปีการศึกษา (พ.ศ.)", options: YEARS },
+      ],
+      hint: me() ? `เอาเฉพาะงานที่มีชื่อ ${me()} (หรือชื่อที่ใกล้เคียง) ได้รับมอบหมาย ถ้าคำสั่งมีหลายคณะกรรมการ ให้แยกเป็นคณะละรายการ` : "แยกงานเป็นรายการ",
+    });
+    if (!r) return;
+    const rows = r.rows.filter((x) => x.title);
+    openForm(`ตรวจงานจากคำสั่ง (${rows.length} รายการ)`, rows.map((x, i) => ({
+      key: `r${i}`, label: `${x.title}${x.detail ? ` · ${x.detail}` : ""}${x.year ? ` · ปี ${x.year}` : ""}`, type: "check", value: true,
+    })), async (f) => {
+      const pick = rows.filter((_, i) => f[`r${i}`]);
+      if (!pick.length) throw new Error("ยังไม่ได้เลือกรายการ");
+      for (const x of pick) {
+        const body = { title: x.title, type: x.type || "คำสั่ง", year: x.year || String(BE_NOW), detail: x.detail || "", vis: "ส่วนตัว" };
+        arr("responsibilities").unshift(await api("POST", "/api/admin/items/responsibilities", body));
+      }
+      toast(`เพิ่ม ${pick.length} งานแล้ว`);
+    });
+    insertNote(r.note);
+  };
+  function insertNote(note) {
+    setTimeout(() => $("#sheetFields")?.insertAdjacentHTML("afterbegin", `<div class="ai-box"><div class="ai-txt" style="grid-column:1/-1"><b>✨ ตรวจก่อนบันทึก</b><span>เอาติ๊กออกจากรายการที่ไม่ใช่ หรือที่ AI อ่านผิด${note ? ` · ${esc(note)}` : ""}</span></div></div>`), 0);
+  }
+
+  // ปุ่มบนหน้าเมนู (ใส่หลังวาดหน้า)
+  const PAGE_BTNS = { "admin/schedule": ["schedule", "✨ นำเข้าจากรูป"], "admin/responsibilities": ["responsibilities", "✨ อ่านคำสั่งด้วย AI"] };
+  const prevAfter = App.afterRender;
+  App.afterRender = () => {
+    prevAfter?.();
+    const conf = PAGE_BTNS[parseHash().route];
+    const bar = $(".band-actions");
+    if (!conf || !bar || bar.querySelector(".ai-page-btn")) return;
+    bar.insertAdjacentHTML("afterbegin", `<button class="btn ai-page-btn" data-act="aiImport" data-k="${conf[0]}">${conf[1]}</button>`);
+  };
+
   // ---------- หน้าตั้งค่า → AI ผู้ช่วย ----------
   const PRIV = "ไฟล์ที่ให้ AI อ่านจะถูกส่งไปยังผู้ให้บริการที่เลือก ตามเงื่อนไขของบริการนั้น เว็บนี้ไม่ส่งข้อมูลนักเรียนไปให้ AI เอง จะส่งเฉพาะไฟล์ที่ครูเลือกตอนกดปุ่มเท่านั้น";
   App.aiSettings = () => {
@@ -152,7 +298,10 @@
       <section class="panel"><h2>ใช้ AI ได้ที่ไหนบ้าง</h2><div class="ai-where">
         <div><b>เกียรติบัตร / รางวัล</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI → เลือกรูปเกียรติบัตร</span></div>
         <div><b>อบรม / PLC</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI → เลือกรูปหรือ PDF วุฒิบัตร</span></div>
-        <div class="soon"><b>เร็ว ๆ นี้</b><span>คำสั่งโรงเรียน โครงการ นิเทศ ตารางสอน แนะนำหมวดหลักฐาน คำบรรยายอัลบั้ม</span></div></div></section>`;
+        <div><b>ตารางสอน</b><span>ปุ่ม ✨ นำเข้าจากรูป → เลือกรูปตารางสอน → ติ๊กเลือกคาบ</span></div>
+        <div><b>งานที่รับผิดชอบ</b><span>ปุ่ม ✨ อ่านคำสั่งด้วย AI → คำสั่งเดียวได้หลายงาน เฉพาะงานที่มีชื่อคุณ</span></div>
+        <div><b>โครงการ · นิเทศ · หนังสือราชการ · ประชุม · กิจกรรม · ผลงาน · การลา</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI</span></div>
+        <div><b>หลักฐาน</b><span>✨ แนะนำหมวดจากชื่อ: AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div></div></section>`;
   };
   function randomSecret() {
     const a = new Uint8Array(18);
@@ -161,6 +310,7 @@
   }
 
   const A = App.actions;
+  A.aiImport = (b) => A_IMPORT[b.dataset.k]?.();
   A.aiSetup = () => {
     const c = AI.cfg || {}, P = c.providers || {};
     const names = Object.fromEntries(Object.entries(P).map(([k, p]) => [p.name, k]));
