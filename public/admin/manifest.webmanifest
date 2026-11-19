@@ -1,0 +1,26 @@
+{
+  "id": "/admin/",
+  "name": "แฟ้มสะสมผลงานครู",
+  "short_name": "แฟ้มครู",
+  "description": "แฟ้มสะสมผลงาน ตารางสอน SAR PA และงานประจำวันของครู",
+  "lang": "th",
+  "dir": "ltr",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f6fc",
+  "theme_color": "#6c4cf1",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "/admin/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/admin/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "ตารางสอน", "url": "/admin/#/schedule", "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "เกียรติบัตร / รางวัล", "url": "/admin/#/certificates", "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "บันทึกหลังสอน", "url": "/admin/#/reflections", "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "SAR", "url": "/admin/#/sar", "icons": [{ "src": "/admin/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
