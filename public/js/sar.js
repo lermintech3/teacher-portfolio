@@ -165,8 +165,11 @@
       }) },
     homeroom: { title: "ครูที่ปรึกษา", cols: ["ชั้น / ห้อง", "ชาย (คน)", "หญิง (คน)", "รวมทั้งสิ้น (คน)"], autoNote: "โปรไฟล์ (หน้าที่พิเศษ)",
       auto: () => { const h = String(P().homeroom || "").replace(/^ครูที่ปรึกษา(ชั้น)?\s*/, ""); return h ? [[h, "", "", ""]] : []; } },
-    special: { title: "งานพิเศษในโรงเรียน", cols: ["งานพิเศษ"], autoNote: "เมนูงานที่รับผิดชอบ",
-      auto: () => uniqBy(L("responsibilities").filter((r) => !r.year || r.year === Y), (r) => r.title).map((r) => [r.title]) },
+    special: { title: "งานพิเศษในโรงเรียน", cols: ["งานพิเศษ"], autoNote: "เมนูงานที่รับผิดชอบและคำสั่ง",
+      auto: () => yearDuties().map((r) => [`${r.title}${orderOf(r) ? ` (คำสั่งที่ ${orderOf(r).no})` : ""}`]) },
+    orders: { title: "คำสั่งแต่งตั้งที่ได้รับ", cols: ["เลขที่คำสั่ง", "ลงวันที่", "เรื่อง", "หน้าที่ที่ได้รับมอบหมาย"], autoNote: "เมนูคำสั่ง",
+      auto: () => yearOrders().map((o) => [o.no || "", o.date ? thShort(o.date) : "", o.title || "",
+        arr("responsibilities").filter((d) => String(d.orderId) === String(o.id)).map((d) => `${d.title}${roleOf(d) ? ` (${roleOf(d)})` : ""}`).join(", ")]) },
     plans: { title: "จัดทำแผนการจัดการเรียนรู้", cols: ["รหัสวิชา", "สาระการเรียนรู้/รายวิชา", "ระดับชั้น", "จำนวน/แผน"], autoNote: "เมนูแผนการสอนและสื่อ",
       auto: () => {
         const g = {};
@@ -224,9 +227,16 @@
       auto: () => {
         const h = String(P().homeroom || "").replace(/^ครูที่ปรึกษา(ชั้น)?\s*/, "");
         return [["ภาพรวม", "", ""], ...(h ? [[`ครูที่ปรึกษา/ประจำชั้น ${h}`, "", ""]] : []),
-          ...uniqBy(L("responsibilities").filter((r) => (!r.year || r.year === Y) && r.type !== "เวร" && r.type !== "งานที่ปรึกษา"), (r) => r.title).slice(0, 4).map((r) => [r.title, "", ""])];
+          ...yearDuties().filter((r) => r.type !== "เวร" && r.type !== "งานที่ปรึกษา")
+            .sort((a, b) => (orderOf(b) ? 1 : 0) - (orderOf(a) ? 1 : 0)).slice(0, 6)
+            .map((r) => [`${r.title}${orderOf(r) ? ` ตามคำสั่งที่ ${orderOf(r).no}` : ""}`, "", r.status === "เสร็จ" ? "ดำเนินการแล้วเสร็จตามที่ได้รับมอบหมาย" : ""])];
       } },
   };
+  // คำสั่งของปีนี้ (เมนูคำสั่ง) และงานที่ได้รับมอบหมาย
+  const yearOrders = () => arr("orders").filter((o) => (o.year ? o.year === Y : inYear(o.date))).sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")));
+  const orderOf = (d) => (d.orderId ? arr("orders").find((o) => String(o.id) === String(d.orderId)) : null);
+  const roleOf = (d) => String(d.detail || "").match(/\(([^)]+)\)\s*$/)?.[1] || "";
+  const yearDuties = () => uniqBy(L("responsibilities").filter((r) => !r.year || r.year === Y), (r) => r.title);
   const rowsText = (rows) => rows.map((r) => r.join(" | ")).join("\n");
   const parseRows = (text, n) => String(text || "").split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const c = l.split("|").map((x) => x.trim()); return n === 1 ? [c.join(" | ")] : c; });
@@ -314,7 +324,7 @@
         <p>วัน / เดือน / ปี เกิด <u>${dash(c.birth)}</u></p>
         <p>วัน / เดือน / ปี บรรจุเข้ารับราชการ <u>${dash(c.appointed)}</u></p>`}
         <p>ปฏิบัติการสอนกลุ่มสาระ <u>${dash(p.learningArea)}</u></p>
-        <p>ปฏิบัติงานพิเศษ <u>${dash(s.extraDuty || TABLES.special.auto().map((r) => r[0]).join(" , "))}</u></p>
+        <p>ปฏิบัติงานพิเศษ <u>${dash(s.extraDuty || yearDuties().map((r) => r.title).join(" , "))}</u></p>
         ${s.dutyDay ? `<p>ครูเวรประจำวัน<u>${esc(s.dutyDay)}</u></p>` : ""}
       </div>`);
 
@@ -345,6 +355,9 @@
     const special = rowsOf("special");
     add(h("1.2.4 งานพิเศษในโรงเรียน ได้แก่", { lv: 3, edit: tableEdit("special") }) +
       (special.length ? `<ul class="sar-list">${special.map((r) => `<li>${esc(r[0])}</li>`).join("")}</ul>` : `<p class="in2">-</p>`));
+    // 1.2.5 คำสั่งแต่งตั้ง (คำสั่งเป็นข้อมูลส่วนตัวเสมอ ฉบับเผยแพร่จึงไม่แสดง)
+    if (!PUB) add(h(`1.2.5 คำสั่งแต่งตั้งที่ได้รับ ปีการศึกษา ${esc(Y)}`, { lv: 3, edit: tableEdit("orders") }) + sarTable("orders", { cls: "sar-orders", empty: 2 }) +
+      (yearOrders().length ? `<p class="sar-note right">รวม ${yearOrders().length} คำสั่ง</p>` : ""));
 
     // 1.3
     add(h("1.3 การจัดกิจกรรมการเรียนการสอน", { toc: "- การจัดกิจกรรมการเรียนการสอน" }) +
