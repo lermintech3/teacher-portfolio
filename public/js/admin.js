@@ -1112,7 +1112,33 @@ App.actions.resetDemo = async () => {
 };
 
 // ---------- ไฟล์ใน Google Drive ----------
-const fmtSize = (n) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const fmtSize = (n) => (n >= 1073741824 ? `${(n / 1073741824).toFixed(n >= 107374182400 ? 0 : 1)} GB` : n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+// การ์ดพื้นที่ Drive: แถบ เว็บนี้ / อื่น ๆ ในไดรฟ์ / ว่าง
+const driveUsage = (d) => {
+  const listed = d.folders.flatMap((f) => f.files);
+  const u = d.usage || {};
+  const mine = Number(u.mine ?? listed.reduce((t, x) => t + (x.size || 0), 0));
+  const nFiles = u.files ?? listed.length;
+  const sizeOf = (f) => f.files.reduce((t, x) => t + (x.size || 0), 0);
+  const top = d.folders.map((f) => ({ name: f.name, n: sizeOf(f) })).filter((f) => f.n).sort((a, b) => b.n - a.n).slice(0, 4);
+  const used = Number(u.used), limit = Number(u.limit);
+  const hasDrive = used > 0 && limit > 0 && limit < 1e15;
+  const pct = (n) => Math.max(n > 0 ? 0.6 : 0, Math.min(100, (n / limit) * 100));
+  const freePct = hasDrive ? Math.max(0, 100 - (used / limit) * 100) : 0;
+  const tone = freePct < 10 ? "bad" : freePct < 25 ? "warn" : "ok";
+  return `<section class="panel drive-usage ${hasDrive ? tone : ""}">
+    <div class="du-head"><div><h2>พื้นที่ Google Drive</h2>
+      <p class="meta">${hasDrive ? `ใช้ไป <b>${fmtSize(used)}</b> จาก ${fmtSize(limit)} · เหลือ <b>${fmtSize(Math.max(0, limit - used))}</b>` : used > 0 ? `ใช้ไป <b>${fmtSize(used)}</b> · บัญชีนี้ไม่ได้จำกัดพื้นที่ หรือใช้พื้นที่ร่วมของหน่วยงาน` : "ไฟล์ที่แนบจากเว็บนี้"}</p></div>
+      ${hasDrive ? `<div class="du-pct"><b>${Math.round(100 - freePct)}%</b><span>ใช้ไปแล้ว</span></div>` : ""}</div>
+    ${hasDrive ? `<div class="du-bar" role="img" aria-label="ใช้ไป ${Math.round(100 - freePct)} เปอร์เซ็นต์">
+        <i class="mine" style="width:${pct(mine)}%"></i><i class="other" style="width:${pct(Math.max(0, used - mine))}%"></i></div>
+      <div class="du-legend"><span><i class="mine"></i>แฟ้มผลงานของฉัน ${fmtSize(mine)}</span><span><i class="other"></i>ไฟล์อื่นในไดรฟ์ ${fmtSize(Math.max(0, used - mine))}</span><span><i class="free"></i>ว่าง ${fmtSize(Math.max(0, limit - used))}</span></div>`
+    : `<div class="du-mine"><b>${fmtSize(mine)}</b> <span class="meta">${nFiles} ไฟล์${!d.usage && d.truncated ? " (นับเฉพาะ 300 ไฟล์แรก)" : ""}</span></div>`}
+    ${top.length ? `<div class="du-top">${top.map((f) => `<span>${esc(f.name)} <b>${fmtSize(f.n)}</b></span>`).join("")}</div>` : ""}
+    ${hasDrive && freePct < 10 ? `<p class="private-note">พื้นที่ใกล้เต็ม ลบไฟล์ที่ไม่ใช้ในไดรฟ์ หรือย้ายไฟล์ใหญ่ออก จะได้แนบไฟล์ต่อได้</p>` : ""}
+    ${!d.usage ? `<p class="meta du-hint">อยากเห็นพื้นที่ทั้งไดรฟ์ (ใช้ไป/เหลือ): อัปเดตโค้ด Apps Script ตามคู่มือหัวข้อ "ดูพื้นที่ Google Drive" (ทำครั้งเดียว)</p>` : u.error ? `<p class="meta du-hint">อ่านพื้นที่ทั้งไดรฟ์ไม่ได้: ${esc(u.error)}</p>` : ""}
+  </section>`;
+};
 App.pages["admin/files"] = () => {
   setTimeout(App.loadFiles, 0);
   const cats = App.driveCats || {};
@@ -1141,8 +1167,8 @@ App.loadFiles = async () => {
     if (!App.drive) App.drive = await api("GET", "/api/admin/drive/status");
     if (!App.drive.connected) { box.innerHTML = DRIVE_SETUP + (App.drive.error ? `<p class="private-note">${esc(App.drive.error)}</p>` : ""); return; }
     const d = await api("GET", "/api/admin/drive/list");
-    box.innerHTML = `<p><a class="btn ghost" href="${esc(d.url)}" target="_blank" rel="noopener">เปิดโฟลเดอร์ของฉันใน Google Drive</a></p>` +
-      (d.folders.length ? d.folders.map((f) => `<details class="panel folder" open><summary><b>${esc(f.name)}</b> <span class="meta">${f.files.length} ไฟล์</span>
+    box.innerHTML = driveUsage(d) + `<p><a class="btn ghost" href="${esc(d.url)}" target="_blank" rel="noopener">เปิดโฟลเดอร์ของฉันใน Google Drive</a></p>` +
+      (d.folders.length ? d.folders.map((f) => `<details class="panel folder" open><summary><b>${esc(f.name)}</b> <span class="meta">${f.files.length} ไฟล์ · ${fmtSize(f.files.reduce((t, x) => t + (x.size || 0), 0))}</span>
         <a class="mini" href="${esc(f.url)}" target="_blank" rel="noopener">เปิดใน Drive</a></summary>
         ${f.files.length ? `<div class="files">${f.files.map((x) => `<div class="file">
           <a class="thumb" href="${esc(x.url)}" target="_blank" rel="noopener">${x.img ? `<img src="${esc(x.img.replace("sz=w1600", "sz=w400"))}" alt="" loading="lazy">` : `<span>${esc((x.name.split(".").pop() || "ไฟล์").slice(0, 4).toUpperCase())}</span>`}</a>

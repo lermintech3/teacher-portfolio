@@ -94,7 +94,25 @@ function list_(person) {
   }
   result.folders.sort(function (a, b) { return a.name < b.name ? -1 : 1; });
   result.truncated = count >= MAX_LIST;
+  result.usage = usage_(root);
   return result;
+}
+
+// พื้นที่ Google Drive ของบัญชีเจ้าของสคริปต์ + ขนาดโฟลเดอร์ของครูคนนี้ (นับทุกไฟล์ ไม่จำกัด 300)
+function usage_(root) {
+  var u = { mine: 0, files: 0 };
+  try {
+    var folders = root.getFolders();
+    while (folders.hasNext()) {
+      var files = folders.next().getFiles();
+      while (files.hasNext()) { u.mine += files.next().getSize(); u.files++; }
+    }
+    var loose = root.getFiles();
+    while (loose.hasNext()) { u.mine += loose.next().getSize(); u.files++; }
+  } catch (err) { u.mineError = String(err && err.message || err); }
+  try { u.used = DriveApp.getStorageUsed(); u.limit = DriveApp.getStorageLimit(); }
+  catch (err) { u.error = String(err && err.message || err); }
+  return u;
 }
 
 // ย้ายไฟล์ไปถังขยะ (กู้คืนได้ใน Drive 30 วัน) เฉพาะไฟล์ในโฟลเดอร์ของคนนั้น
