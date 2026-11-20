@@ -757,3 +757,36 @@ details.folder summary b { font-family: var(--display); color: var(--c-deep); }
 /* แถบเลือกภาคเรียนในหน้าตารางสอน */
 .term-bar { flex-wrap: wrap; }
 .term-bar .term-new { border: 1.5px dashed var(--line); background: transparent; color: var(--muted); }
+
+/* ---------- ไอคอนเมนู (แบบเส้น สีตามสีประจำเมนู) ---------- */
+.nav-ico {
+  width: 21px; height: 21px; flex: none; fill: none; stroke: var(--ico, var(--c)); stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.nav a:has(.nav-ico)::before { display: none; }
+.nav a.active .nav-ico { stroke-width: 2.1; }
+
+/* ---------- ชุดสีพาสเทล ----------
+   สีหลักอ่อนลง: ตัวอักษรบนพื้นสีใช้สีเข้มของเฉดเดียวกันแทนสีขาว เพื่อให้อ่านชัด */
+html[data-theme="pastel"] { --paper: #faf8fe; --line: #ece8f6; }
+html[data-theme="pastel"], html[data-theme="pastel"] body, html[data-theme="pastel"] .nav a, html[data-theme="pastel"] .stat {
+  --c-deep: color-mix(in srgb, var(--c) 46%, #1e1a3a);
+  --c-tint: color-mix(in srgb, var(--c) 16%, #ffffff);
+  --c-soft: color-mix(in srgb, var(--c) 32%, #ffffff);
+  --ico: color-mix(in srgb, var(--c) 78%, #2a2550);
+}
+html[data-theme="pastel"] .sched td.has { color: color-mix(in srgb, var(--c) 28%, #1a1733); }
+html[data-theme="pastel"] .ios-chip[aria-pressed="true"] { background: var(--c-deep); }
+html[data-theme="pastel"] .avatar:not(.photo) { background: linear-gradient(135deg, #a99bf6, #f1a6ca); color: #2a2550; }
+html[data-theme="pastel"] .hero-photo:not(.photo) { background: linear-gradient(135deg, #a99bf6 0%, #f1a6ca 60%, #f2cb72 100%); color: #2a2550; box-shadow: 0 16px 30px -16px rgba(120, 100, 200, .45); }
+html[data-theme="pastel"] .ai-btn, html[data-theme="pastel"] .ai-page-btn { background: linear-gradient(135deg, #8f7cf0, #6fa8ee) !important; }
+
+/* ตัวเลือกชุดสีในหน้าตั้งค่า */
+.theme-pick { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 4px; }
+.theme-opt { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; width: 150px; padding: 10px; border-radius: 14px; box-shadow: inset 0 0 0 1.5px var(--line); }
+.theme-opt[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--c-deep); background: var(--c-tint); }
+.theme-opt .sw { display: flex; height: 26px; border-radius: 8px; overflow: hidden; }
+.theme-opt .sw i { flex: 1; }
+.theme-opt .sw i:first-child { flex: 2; }
+.theme-opt b { font-size: .92rem; }
+.theme-opt small { color: var(--muted); font-size: .78rem; margin-top: -4px; }
