@@ -901,3 +901,26 @@ table.sched.cute { border-spacing: 6px; min-width: 820px; table-layout: fixed; }
   .sched.cute, .sched-legend { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .sched.cute .sc-card { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 40%, #fff); }
 }
+
+/* พื้นที่ Google Drive */
+.drive-usage { --mine: var(--c, #6c4cf1); --other: #f3b44d; }
+.drive-usage .du-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.drive-usage h2 { margin: 0 0 2px; }
+.drive-usage .du-pct { text-align: right; line-height: 1.1; }
+.drive-usage .du-pct b { display: block; font-family: var(--display); font-size: 1.8rem; color: var(--mine); }
+.drive-usage.warn .du-pct b { color: #d98b00; }
+.drive-usage.bad .du-pct b { color: #e5484d; }
+.drive-usage .du-pct span { font-size: .78rem; color: var(--muted); }
+.du-bar { display: flex; height: 14px; margin: 12px 0 8px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--muted, #888) 14%, #fff); box-shadow: inset 0 0 0 1px var(--line); }
+.du-bar i { display: block; height: 100%; }
+.du-bar .mine { background: linear-gradient(90deg, var(--mine), color-mix(in srgb, var(--mine) 70%, #fff)); }
+.du-bar .other { background: var(--other); }
+.du-legend, .du-top { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .84rem; color: var(--muted); }
+.du-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 3px; vertical-align: -1px; }
+.du-legend i.mine { background: var(--mine); } .du-legend i.other { background: var(--other); }
+.du-legend i.free { background: color-mix(in srgb, var(--muted, #888) 18%, #fff); box-shadow: inset 0 0 0 1px var(--line); }
+.du-top { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
+.du-top span { padding: 3px 10px; border-radius: 999px; background: var(--paper); }
+.du-top b { color: var(--ink); font-weight: 600; }
+.du-mine { margin-top: 8px; } .du-mine b { font-family: var(--display); font-size: 1.6rem; }
+.du-hint { margin: 10px 0 0; font-size: .8rem; }
