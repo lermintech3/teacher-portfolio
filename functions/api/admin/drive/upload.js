@@ -15,5 +15,5 @@ export const onRequestPost = handle(async ({ request, env, data: { site } }) => 
   // อ่านเป็น ArrayBuffer (ไม่แปลงข้อความ ใช้ CPU น้อย) แล้วส่งต่อ
   const body = await request.arrayBuffer();
   if (!body.byteLength) throw new HttpError(400, "ไม่มีข้อมูลไฟล์");
-  return json(await callDrive(target, { method: "POST", headers: { "content-type": "text/plain" }, body }));
+  return json(await callDrive(target, { method: "POST", headers: { "content-type": "text/plain; charset=utf-8" }, body }));
 });
