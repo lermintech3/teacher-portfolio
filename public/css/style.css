@@ -817,13 +817,87 @@ html[data-tone="light"] .ai-btn, html[data-tone="light"] .ai-page-btn { color: #
 .set-row .name .nav-ico { width: 20px; height: 20px; padding: 0; background: none; stroke: var(--c); }
 .tp-use { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 1px; }
 
-/* ตารางสอน: ชื่อวิชา [รหัส] ชั้น สถานที่ และช่องพักกลางวัน */
-.sched td.has { line-height: 1.3; }
-.sched .sc-code, .sched .sc-room, .sched .sc-place { display: block; font-size: .78em; }
-.sched .sc-code { opacity: .85; letter-spacing: .02em; }
-.sched .sc-place { opacity: .9; }
-.sched td.has hr { border: 0; border-top: 1px dashed currentColor; opacity: .4; margin: 4px 0; }
-.sched th.lunch, .sched td.lunch { background: color-mix(in srgb, var(--brand3, #f5c542) 22%, #fffdf3); color: #7a5a00; font-weight: 600; min-width: 92px; white-space: nowrap; }
-.sched td.lunch { font-size: .82em; writing-mode: horizontal-tb; }
-.sched th.lunch small { color: #8a6d1d; }
-@media (max-width: 720px) { .sched .sc-place { display: none; } .sched th.lunch, .sched td.lunch { min-width: 0; white-space: normal; padding: 4px 2px; font-size: .7em; } }
+/* ตารางสอนแบบน่ารัก: การ์ดสีพาสเทลตามวิชา ไอคอน สีประจำวัน ช่องพักเที่ยง */
+.sched-wrap { padding: 14px; border-radius: 26px; background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--c, #7aa7f0) 7%, #fff));
+  box-shadow: 0 14px 34px -18px rgba(70, 55, 140, .28), inset 0 0 0 1px var(--line); margin: 6px 0 16px; }
+.sched-wrap .table-wrap { margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; border-radius: 0; }
+table.sched.cute { border-spacing: 6px; min-width: 820px; table-layout: fixed; }
+.sched.cute th.corner { width: 104px; }
+.sched.cute th.lunch { width: 80px; }
+.sched.cute th, .sched.cute td { padding: 0; background: transparent; }
+.sched.cute th.corner { font-size: .78rem; font-weight: 500; color: var(--muted); }
+.sched.cute th.per { padding: 2px 0 6px; }
+.sched.cute th.per span { display: inline-block; padding: 4px 14px; border-radius: 999px; font-weight: 700;
+  background: color-mix(in srgb, var(--c, #7aa7f0) 14%, #fff); color: var(--c-deep, #2d3b8f); }
+.sched.cute thead small { margin-top: 4px; font-size: .74rem; }
+.sched.cute .th-btn { padding: 0; }
+.sched.cute .th-btn:hover span { box-shadow: inset 0 0 0 2px var(--c); }
+.sched.cute th.day { width: 104px; padding-right: 4px; }
+.sched.cute th.day span { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px 6px 9px; border-radius: 999px; font-weight: 700; white-space: nowrap;
+  background: color-mix(in srgb, var(--dc) 20%, #fff); color: color-mix(in srgb, var(--dc) 50%, #2a2340); }
+.sched.cute th.day span::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--dc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--dc) 30%, #fff); }
+.sched.cute th.day.today span { background: var(--dc); color: #fff; box-shadow: 0 6px 14px -6px var(--dc); }
+.sched.cute th.day.today span::before { background: #fff; box-shadow: none; }
+.sched.cute th.day small { display: block; margin: 3px 0 0 14px; font-size: .7rem; font-weight: 600; color: color-mix(in srgb, var(--dc) 70%, #333); }
+.sched.cute td { height: 92px; }
+.sched.cute td.empty-cell { border-radius: 16px; background: radial-gradient(circle, color-mix(in srgb, var(--muted, #888) 22%, transparent) 1px, transparent 1.6px) 0 0 / 11px 11px; }
+.sched.cute td.has { color: inherit; }
+.sched.cute .sc-card { position: relative; box-sizing: border-box; height: 100%; min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 8px 6px; border-radius: 18px; text-align: center; line-height: 1.25;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--sc) 16%, #fff) 0%, color-mix(in srgb, var(--sc) 32%, #fff) 100%);
+  color: color-mix(in srgb, var(--sc) 30%, #1d1933);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 30%, #fff), 0 8px 16px -12px color-mix(in srgb, var(--sc) 90%, transparent);
+  transition: transform .18s ease, box-shadow .18s ease; }
+.sched.cute td.has:hover .sc-card { transform: translateY(-2px) rotate(-.4deg); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 40%, #fff), 0 12px 20px -12px color-mix(in srgb, var(--sc) 95%, transparent); }
+.sched.cute .sc-emo { font-size: 1.25rem; line-height: 1; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .1)); }
+.sched.cute .sc-card b { display: block; font-family: var(--display); font-weight: 700; font-size: .9rem; }
+.sched.cute .sc-code { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .68rem; letter-spacing: .03em; background: rgba(255, 255, 255, .72); }
+.sched.cute .sc-room { display: block; font-size: .76rem; font-weight: 600; opacity: .85; }
+.sched.cute .sc-room::before { content: "ชั้น "; font-weight: 400; }
+.sched.cute .sc-card hr { width: 70%; border: 0; border-top: 1.5px dashed currentColor; opacity: .3; margin: 4px auto; }
+.sched.cute td.clash .sc-card { box-shadow: inset 0 0 0 2.5px #e5484d; }
+.sched.cute th.lunch { padding: 2px 0 6px; }
+.sched.cute th.lunch span { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #ffefc2; color: #8a5a00; font-weight: 700; white-space: nowrap; }
+.sched.cute th.lunch small { color: #a07a2a; }
+.sched.cute td.lunch { width: 74px; border-radius: 20px; color: #8a5a00; font-weight: 700; font-size: .82rem;
+  background: repeating-linear-gradient(-45deg, #fff7dc 0 12px, #ffefc7 12px 24px); box-shadow: inset 0 0 0 1px #f7dc95; }
+.sched.cute td.lunch span { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.sched.cute td.lunch i { font-style: normal; font-size: 1.5rem; }
+/* หน้าแก้ไข */
+.sched.cute.edit td { padding: 0; }
+.sched.cute.edit .cell { display: block; width: 100%; height: 100%; min-height: 92px; padding: 0; border-radius: 18px; background: transparent; }
+.sched.cute.edit td.empty-cell .cell { display: grid; place-items: center; }
+.sched.cute.edit td.empty-cell .cell:hover { background: color-mix(in srgb, var(--c, #7aa7f0) 10%, #fff); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c, #7aa7f0) 45%, #fff); }
+.sched.cute.edit td.has .cell:hover, .sched.cute.edit td.has .cell:focus-visible { box-shadow: none; }
+.sched.cute.edit td.has .cell:focus-visible .sc-card { outline: 3px solid color-mix(in srgb, var(--sc) 60%, #fff); }
+/* สรุปและรายการวิชา */
+.sched-sum { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 10px; }
+.sched-sum span { padding: 8px 14px; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px var(--line); font-size: .84rem; color: var(--muted); }
+.sched-sum b { margin-right: 4px; font-family: var(--display); font-size: 1.15rem; color: var(--ink); }
+.sched-legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 4px 2px; }
+.sl-item { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px 5px 5px; border-radius: 999px; font-size: .8rem;
+  background: color-mix(in srgb, var(--sc) 14%, #fff); color: color-mix(in srgb, var(--sc) 35%, #1d1933); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 30%, #fff); }
+.sl-item i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #fff; font-style: normal; }
+.sl-item small { opacity: .7; }
+.sl-item em { font-style: normal; opacity: .75; }
+@media (max-width: 720px) {
+  .sched-wrap { padding: 8px; border-radius: 20px; }
+  table.sched.cute { min-width: 640px; border-spacing: 4px; }
+  .sched.cute td, .sched.cute .sc-card, .sched.cute.edit .cell { min-height: 74px; height: 74px; }
+  .sched.cute .sc-card { padding: 5px 3px; border-radius: 14px; }
+  .sched.cute .sc-emo { font-size: 1rem; }
+  .sched.cute .sc-card b { font-size: .78rem; }
+  .sched.cute .sc-code { display: none; }
+  .sched.cute th.day, .sched.cute th.corner { width: 64px; }
+  .sched.cute th.lunch { width: 44px; }
+  .sched.cute th.lunch span { padding: 3px 4px; white-space: normal; font-size: .7rem; }
+  .sched.cute th.day span { padding: 4px 8px; font-size: .78rem; }
+  .sched.cute th.day span::before { display: none; }
+  .sched.cute td.lunch { width: 40px; font-size: .68rem; }
+  .sched.cute td.lunch i { font-size: 1.1rem; }
+}
+@media print {
+  .sched-wrap { box-shadow: none; padding: 0; background: none; }
+  .sched.cute, .sched-legend { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sched.cute .sc-card { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 40%, #fff); }
+}

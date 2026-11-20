@@ -396,40 +396,92 @@ App.classInfo = (c = {}) => {
   const name = raw === code ? "" : raw;
   return { name, code, room: String(c.room || "").trim(), place: String(c.place || "").trim(), title: name || code || "-" };
 };
+// ไอคอนน่ารักตามชื่อวิชา (ไม่ตรงคำไหนใช้ 📘)
+const SUBJ_EMOJI = [
+  [/คอมพิวเตอร์|วิทยาการคำนวณ|coding|โค้ด/i, "💻"], [/เทคโนโลยี/, "🤖"], [/การงาน|อาชีพ/, "🛠️"], [/สุขศึกษา/, "🍎"], [/พลศึกษา|กีฬา/, "⚽"],
+  [/ลูกเสือ|เนตรนารี|ยุวกาชาด/, "⛺"], [/ชุมนุม/, "🎨"], [/แนะแนว/, "🧭"], [/คุณธรรม|จริยธรรม|ศีลธรรม/, "💛"], [/คณิต/, "🔢"],
+  [/วิทยาศาสตร์/, "🔬"], [/ภาษาไทย/, "📖"], [/อังกฤษ|english/i, "🔤"], [/จีน|ญี่ปุ่น|เกาหลี|ภาษา/, "💬"], [/สังคม|หน้าที่พลเมือง/, "🌏"],
+  [/ประวัติศาสตร์/, "🏛️"], [/ศิลปะ|ทัศนศิลป์/, "🖍️"], [/ดนตรี|นาฏ/, "🎵"], [/พุทธ|ศาสนา/, "🪷"], [/โฮมรูม|homeroom/i, "🏠"],
+];
+App.classEmoji = (c) => { const i = App.classInfo(c); return SUBJ_EMOJI.find(([re]) => re.test(i.name || i.title))?.[1] || "📘"; };
+// สีประจำวิชา: วิชากลุ่มเดียวกัน (ชื่อเดียวกันไม่นับเลขท้าย) ได้สีเดียวกัน ตามชุดสีของธีม
+const SUBJ_SLOTS = ["sky", "coral", "mint", "violet", "gold", "pink", "teal", "orange", "indigo"];
+App.classColor = (c) => {
+  const i = App.classInfo(c);
+  const key = (i.name || i.code || "").replace(/[\s\d๐-๙]+$/, "").trim();
+  let h = 0;
+  for (const ch of key) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return C[SUBJ_SLOTS[h % SUBJ_SLOTS.length]] || C.sky;
+};
+// ในตารางไม่แสดงสถานที่เรียน (ห้องคอม ฯลฯ) ตามที่ครูต้องการ ให้ตารางโล่งอ่านง่าย
 App.classHtml = (c) => {
   const i = App.classInfo(c);
-  return `<b>${esc(i.title)}</b>${i.code && i.name ? `<small class="sc-code">[${esc(i.code)}]</small>` : ""}${i.room ? `<span class="sc-room">${/^ชั้น/.test(i.room) ? "" : "ชั้น "}${esc(i.room)}</span>` : ""}${i.place ? `<i class="sc-place">${/^ห้อง/.test(i.place) ? "" : "ห้อง "}${esc(i.place)}</i>` : ""}`;
+  return `<span class="sc-emo" aria-hidden="true">${App.classEmoji(c)}</span><b>${esc(i.title)}</b>${i.code && i.name ? `<small class="sc-code">${esc(i.code)}</small>` : ""}${i.room ? `<span class="sc-room">${esc(i.room.replace(/^ชั้น\s*/, ""))}</span>` : ""}`;
+};
+App.cellAttr = (list) => (list.length ? `class="has${list.length > 1 ? " clash" : ""}" style="--sc:${App.classColor(list[0])}"` : `class="empty-cell"`);
+const DAY_COLORS = { "อาทิตย์": "#ef6b6b", "จันทร์": "#f2c94c", "อังคาร": "#f291b5", "พุธ": "#5fc98f", "พฤหัสบดี": "#f5a25d", "ศุกร์": "#62b0ea", "เสาร์": "#a58be6" };
+App.dayTh = (d) => {
+  const isToday = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"][new Date().getDay()] === d;
+  return `<th class="day${isToday ? " today" : ""}" style="--dc:${DAY_COLORS[d] || "#999"}"><span>${d}</span>${isToday ? "<small>วันนี้</small>" : ""}</th>`;
+};
+// สรุปใต้ตาราง: กลุ่มวิชา (ชื่อไม่นับเลขท้าย) · จำนวนคาบ · ชั้น
+App.schedLegend = (s) => {
+  const g = {};
+  for (const c of s.classes || []) {
+    const i = App.classInfo(c);
+    const k = (i.name || i.code).replace(/[\s\d๐-๙]+$/, "").trim() || i.title;
+    const x = (g[k] = g[k] || { c, k, n: 0, rooms: new Set() });
+    x.n++;
+    if (i.room) x.rooms.add(i.room.replace(/^ชั้น\s*/, ""));
+  }
+  const items = Object.values(g).sort((a, b) => b.n - a.n || a.k.localeCompare(b.k, "th"));
+  if (!items.length) return "";
+  const rooms = (set) => [...set].sort((a, b) => a.localeCompare(b, "th", { numeric: true })).join(", ");
+  return `<div class="sched-legend">${items.map((x) => `<span class="sl-item" style="--sc:${App.classColor(x.c)}"><i>${App.classEmoji(x.c)}</i><b>${esc(x.k)}</b><em>${x.n} คาบ${x.rooms.size ? ` · ${esc(rooms(x.rooms))}` : ""}</em></span>`).join("")}</div>`;
+};
+App.schedSummary = (s) => {
+  const cl = s.classes || [];
+  const subj = new Set(cl.map((c) => { const i = App.classInfo(c); return `${i.code}|${i.name}`; })).size;
+  const rooms = new Set(cl.map((c) => App.classInfo(c).room).filter(Boolean)).size;
+  const days = new Set(cl.map((c) => c.day)).size;
+  return `<div class="sched-sum"><span><b>${cl.length}</b> คาบ/สัปดาห์</span><span><b>${subj}</b> รายวิชา</span><span><b>${rooms}</b> ชั้นเรียน</span><span><b>${days}</b> วันที่สอน</span></div>`;
 };
 App.classText = (c) => { const i = App.classInfo(c); return [i.title, i.room, i.place].filter(Boolean).join(" · "); };
 // คอลัมน์พักกลางวัน: s.lunch = { after: เลขคาบ, time }
 App.lunchOf = (s) => { const l = s?.lunch; return l && Number(l.after) ? { after: Number(l.after), time: String(l.time || "") } : null; };
-App.schedCols = (s, th, td) => {
+// row: แถวที่เท่าไร (ช่องพักกลางวันเป็นช่องเดียวยาวทุกวัน วาดเฉพาะแถวแรก)
+App.schedCols = (s, th, td, row = 0) => {
   const l = App.lunchOf(s);
   return (s.periods || []).flatMap((p) => {
     const out = [th ? th(p) : td(p)];
-    if (l && Number(p.no) === l.after) out.push(th ? `<th class="lunch">🍱 พักเที่ยง${l.time ? `<small>${esc(l.time)}</small>` : ""}</th>` : `<td class="lunch">พักกลางวัน</td>`);
+    if (l && Number(p.no) === l.after && (th || row === 0)) out.push(th ? `<th class="lunch"><span>🍱 พักเที่ยง</span>${l.time ? `<small>${esc(l.time)}</small>` : ""}</th>` : `<td class="lunch" rowspan="${DAYS.length}"><span><i>🍱</i>พักกลางวัน<i>😋</i></span></td>`);
     return out;
   }).join("");
 };
 
-App.scheduleTable = () => {
-  const s = App.DATA.schedule || {};
+App.scheduleTable = (s = App.DATA.schedule || {}) => {
   const periods = s.periods || [];
   const classes = s.classes || [];
   if (!periods.length) return empty();
   const cell = (day, no) => {
     const c = classes.filter((x) => x.day === day && Number(x.period) === no);
-    return c.length ? `<td class="has">${c.map(App.classHtml).join("<hr>")}</td>` : "<td></td>";
+    return `<td ${App.cellAttr(c)}>${c.length ? `<div class="sc-card">${c.map(App.classHtml).join("<hr>")}</div>` : ""}</td>`;
   };
-  return `<div class="table-wrap"><table class="sched">
-      <thead><tr><th>วัน / คาบ</th>${App.schedCols(s, (p) => `<th>คาบ ${esc(p.no)}<small>${esc(p.time)}</small></th>`)}</tr></thead>
-      <tbody>${DAYS.map((d) => `<tr><th>${d}</th>${App.schedCols(s, null, (p) => cell(d, Number(p.no)))}</tr>`).join("")}</tbody>
-    </table></div>`;
+  return `<div class="sched-wrap"><div class="table-wrap"><table class="sched cute">
+      <thead><tr><th class="corner">วัน / คาบ</th>${App.schedCols(s, (p) => `<th class="per"><span>คาบ ${esc(p.no)}</span><small>${esc(p.time)}</small></th>`)}</tr></thead>
+      <tbody>${DAYS.map((d, i) => `<tr>${App.dayTh(d)}${App.schedCols(s, null, (p) => cell(d, Number(p.no)), i)}</tr>`).join("")}</tbody>
+    </table></div>${App.schedLegend(s)}</div>`;
 };
 
-App.pages.schedule = () => {
-  const s = App.DATA.schedule || {};
-  return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term)} สอน ${(s.classes || []).length} คาบต่อสัปดาห์`) + App.scheduleTable();
+App.pages.schedule = ({ q } = {}) => {
+  const all = App.DATA.schedule || {};
+  const key = (t) => { const [a, y] = String(t).split("/"); return Number(y || 0) * 10 + Number(a || 0); };
+  const terms = [...new Set([all.term, ...Object.keys(all.terms || {})].filter(Boolean))]
+    .filter((t) => t === all.term || (all.terms[t]?.classes || []).length).sort((a, b) => key(b) - key(a));
+  const t = q?.term && terms.includes(q.term) ? q.term : all.term;
+  const s = !t || t === all.term ? all : { ...all.terms[t], term: t };
+  const bar = terms.length > 1 ? `<div class="filters term-bar">${terms.map((x) => `<a href="#/schedule?term=${encodeURIComponent(x)}" class="${x === t ? "on" : ""}">ภาคเรียน ${esc(x)}${x === all.term ? " · ปัจจุบัน" : ""}</a>`).join("")}</div>` : "";
+  return head("ตารางสอน", `ภาคเรียนที่ ${esc(s.term || "-")}`) + bar + App.schedSummary(s) + App.scheduleTable(s);
 };
 
 App.pages.certificates = ({ q }) => {
