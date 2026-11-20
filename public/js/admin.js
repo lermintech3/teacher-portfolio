@@ -1211,6 +1211,14 @@ App.pages["admin/settings"] = ({ q } = {}) => {
       <section class="panel set-card"><h2 class="row-head">ชื่อเว็บ <button class="btn ghost small" data-act="setTitle">แก้ไข</button></h2>
         <p>${esc(st.siteTitle || "") || `<span class="meta">ยังไม่ได้ตั้ง (ใช้ชื่อครูแทน)</span>`}</p>
         <p class="meta">แสดงบนแท็บเบราว์เซอร์และตอนแชร์ลิงก์</p></section>
+      <section class="panel set-card"><h2>ชุดสี</h2>
+        <div class="theme-pick" role="group" aria-label="ชุดสี">${Object.entries(App.THEMES).map(([k, t]) => {
+          const p = t.palette, cur = (st.theme || "bright") === k;
+          return `<button type="button" class="theme-opt" data-act="setTheme" data-v="${k}" aria-pressed="${cur}">
+            <span class="sw">${[p.violet, p.sky, p.coral, p.mint, p.gold].map((c) => `<i style="background:${c}"></i>`).join("")}</span>
+            <b>${esc(t.name)}</b><small>${esc(t.note)}</small></button>`;
+        }).join("")}</div>
+        <p class="meta">ใช้กับทั้งหน้าครูและหน้าสาธารณะ สีเมนูที่ตั้งเองในแท็บ "เมนู" จะไม่เปลี่ยน</p></section>
       <section class="panel set-card"><h2 class="row-head">ตัวชี้วัด PA <button class="btn ghost small" data-act="setPA">แก้ไข</button></h2>
         <p>${PA === DEFAULT_PA ? "ใช้ค่าตั้งต้นตาม ว 9/2564 (15 ตัวชี้วัด)" : `กำหนดเอง ${PA_CODES.length} ตัวชี้วัด`}</p>
         <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section></div>`,
@@ -1226,6 +1234,13 @@ App.pages["admin/settings"] = ({ q } = {}) => {
 
   return head("ตั้งค่าเว็บ", "ปรับแบนเนอร์ ชื่อเว็บ เมนู สี ตัวเลือกในฟอร์ม และตัวชี้วัด PA ได้เอง การตั้งค่าบันทึกทันที") +
     tabs + `<p class="meta set-hint">${SET_HINT[tab]}</p>` + body;
+};
+App.actions.setTheme = async (b) => {
+  const st = settingsObj(), old = st.theme;
+  st.theme = b.dataset.v === "bright" ? undefined : b.dataset.v;
+  App.applySettings(); $("#nav").innerHTML = ""; render();
+  try { await saveKV("settings"); toast(`เปลี่ยนเป็นชุดสี${App.THEMES[b.dataset.v].name}แล้ว`); }
+  catch (e) { st.theme = old; App.applySettings(); $("#nav").innerHTML = ""; render(); toast(e.message); }
 };
 App.actions.setTitle = () => editKV("ชื่อเว็บ", "settings", [{ key: "siteTitle", label: "ชื่อเว็บ", hint: "เช่น แฟ้มสะสมผลงาน ครูสมศรี" }],
   (o, r) => { o.siteTitle = r.siteTitle; });

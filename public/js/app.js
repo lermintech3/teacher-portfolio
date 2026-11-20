@@ -77,16 +77,33 @@ App.NAV = {
   ],
 };
 
+// ชุดสี: สีสดเดิม หรือพาสเทล (เปลี่ยนค่าใน C ตรง ๆ ทุกหน้าที่ใช้ C จึงเปลี่ยนตาม)
+const BASE_C = { ...C };
+App.THEMES = {
+  bright: { name: "ม่วงสดใส", note: "สีสดแบบเดิม", palette: BASE_C },
+  pastel: { name: "พาสเทล", note: "อ่อนโยน สบายตา",
+    palette: { violet: "#a99bf6", coral: "#f5a39b", sky: "#86c7ef", gold: "#f2cb72", mint: "#85d5b4", pink: "#f1a6ca", indigo: "#9ca8ef", orange: "#f6b886", teal: "#7fd0d9", slate: "#aab4c6" } },
+};
+const themeColor = (hex) => { // สีเมนูตั้งต้น → สีเดียวกันในชุดสีที่เลือก (สีที่ครูตั้งเองไม่เปลี่ยน)
+  const key = Object.keys(BASE_C).find((k) => BASE_C[k].toLowerCase() === String(hex).toLowerCase());
+  return key ? C[key] : hex;
+};
+
 // เก็บเมนูตั้งต้นไว้ แล้วปรับตามที่ครูตั้งค่า (ชื่อเมนู สี ซ่อน/แสดง)
 const NAV_BASE = JSON.parse(JSON.stringify(App.NAV));
 const LOCKED_ROUTES = new Set(["", "admin", "admin/settings"]); // ซ่อนไม่ได้ กันเข้าหน้าตั้งค่าไม่ได้
 App.applySettings = () => {
   const menus = App.DATA?.settings?.menus || {};
+  const theme = App.THEMES[App.DATA?.settings?.theme] ? App.DATA.settings.theme : "bright";
+  Object.assign(C, App.THEMES[theme].palette);
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.setProperty("--c", C.violet);
   App.NAV = {};
   for (const [mode, groups] of Object.entries(NAV_BASE)) {
     App.NAV[mode] = groups.map((g) => ({
       ...g,
       items: g.items
+        .map((i) => ({ ...i, c: themeColor(i.c) }))
         .map((i) => ({ ...i, ...(menus[i.route]?.label ? { label: menus[i.route].label } : {}), ...(menus[i.route]?.c ? { c: menus[i.route].c } : {}) }))
         .filter((i) => LOCKED_ROUTES.has(i.route) || !menus[i.route]?.hidden),
     })).filter((g) => g.items.length);
@@ -444,10 +461,53 @@ const hrefOf = (route) => `#/${IS_ADMIN ? route.replace(/^admin\/?/, "") : route
 // หน้าที่ใช้ร่วมกัน: admin/certificates → certificates
 const pageFor = (route) => App.pages[route] || App.pages[route.replace(/^admin\//, "")];
 
+// ไอคอนเมนูแบบเส้น (24x24 stroke) วาดเอง ไม่ต้องโหลดไฟล์เพิ่ม สีตามสีประจำเมนู
+const ICON_PATHS = {
+  "": '<path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h4.5v-5h3v5H18V9.5"/>',
+  admin: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4.5" rx="1.5"/><rect x="13" y="10.5" width="7" height="9.5" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/>',
+  home: '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9h17"/><path d="M9 9v10.5"/>',
+  schedule: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/><path d="M8 14h2M12 14h2M16 14h0M8 17h2M12 17h2"/>',
+  plans: '<path d="M6 4h11a1 1 0 0 1 1 1v15H7a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M5 18a2 2 0 0 1 2-2h11"/><path d="M9 8h6M9 11h4"/>',
+  reflections: '<path d="M14.5 5.5l4 4L8 20H4v-4z"/><path d="M12.5 7.5l4 4"/>',
+  grades: '<path d="M4 20h16"/><rect x="5.5" y="12" width="3" height="6" rx=".8"/><rect x="10.5" y="8" width="3" height="10" rx=".8"/><rect x="15.5" y="4.5" width="3" height="13.5" rx=".8"/>',
+  supervision: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+  attendance: '<circle cx="9" cy="8.5" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9.5" r="2.3"/><path d="M16 14.2A4.5 4.5 0 0 1 21 18.5"/>',
+  care: '<path d="M12 19.5s-7.5-4.5-7.5-10A4.2 4.2 0 0 1 12 7a4.2 4.2 0 0 1 7.5 2.5c0 5.5-7.5 10-7.5 10z"/>',
+  activities: '<path d="M5.5 20.5V4"/><path d="M5.5 4.5h11l-2.5 4 2.5 4h-11"/>',
+  orders: '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h4"/><path d="M14 3.5L19 8.5V11"/><path d="M14 3.5v5h5"/><path d="M8.5 9h3M8.5 12.5h5"/><circle cx="17" cy="16" r="2.5"/><path d="M15.7 18.2l-.7 3 2-1 2 1-.7-3"/>',
+  responsibilities: '<rect x="3.5" y="7.5" width="17" height="12" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5"/><path d="M3.5 12.5h17"/>',
+  projects: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2"/>',
+  documents: '<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/>',
+  meetings: '<path d="M4 6.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9l-3.5 3v-3H6a2 2 0 0 1-2-2z"/><path d="M17 9h1a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2h-.5v2.5L15 17.5h-3.5"/>',
+  trainings: '<path d="M2.5 9L12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v4.5c0 1.5 2.5 3 5.5 3s5.5-1.5 5.5-3V11"/><path d="M21.5 9v5"/>',
+  certificates: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5.5H5a3 3 0 0 0 3 4M16 5.5h3a3 3 0 0 1-3 4"/><path d="M12 13v3.5M8.5 20h7M9.5 20l.5-3.5h4l.5 3.5"/>',
+  works: '<path d="M9 17.5h6M10 20.5h4"/><path d="M12 3.5a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3.5z"/>',
+  albums: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M3.5 16.5l5-4.5 4 3.5 2.5-2 5.5 4.5"/>',
+  videos: '<rect x="3.5" y="6" width="12" height="12" rx="2"/><path d="M15.5 10.5l5-3v9l-5-3"/>',
+  facebook: '<path d="M7.5 10.5v9H5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z"/><path d="M7.5 10.5l3.5-6.5a2 2 0 0 1 2 2.5l-.7 3h5.4a2 2 0 0 1 2 2.4l-1.3 6a2 2 0 0 1-2 1.6H7.5"/>',
+  evidence: '<rect x="3.5" y="4.5" width="17" height="4.5" rx="1.2"/><path d="M5 9v9.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V9"/><path d="M10 13h4"/>',
+  pa: '<path d="M9.5 6.5h10M9.5 12h10M9.5 17.5h10"/><path d="M4 6.5l1.3 1.3L7.5 5.3M4 12l1.3 1.3L7.5 10.8M4 17.5l1.3 1.3 2.2-2.5"/>',
+  sar: '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-10z"/><path d="M14 3.5v5h5"/><path d="M9 17v-3M12 17v-5M15 17v-2"/>',
+  reports: '<path d="M14 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-10z"/><path d="M14 3.5v5h5"/><path d="M9 17v-3M12 17v-5M15 17v-2"/>',
+  surveys: '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5s1.2 2 3.5 2 3.5-2 3.5-2"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.6"/>',
+  leaves: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/><path d="M10 13.5l4 4M14 13.5l-4 4"/>',
+  profile: '<circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/>',
+  career: '<circle cx="12" cy="9" r="5"/><path d="M9 13.2L7.5 20.5l4.5-2.3 4.5 2.3-1.5-7.3"/>',
+  sharing: '<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>',
+  files: '<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  media: '<path d="M4.5 4.5h3v15h-3zM9.5 4.5h3v15h-3z"/><path d="M14.3 5.4l2.9-.8 3.9 14.5-2.9.8z"/>',
+  settings: '<path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/>',
+  backup: '<path d="M7 18.5a4.5 4.5 0 0 1-.8-8.9 6 6 0 0 1 11.6 1.4A3.8 3.8 0 0 1 17 18.5z"/><path d="M12 16v-5M9.8 13l2.2-2.2 2.2 2.2"/>',
+};
+const navIcon = (route) => {
+  const p = ICON_PATHS[route] ?? ICON_PATHS[String(route).replace(/^admin\//, "")];
+  return p ? `<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>` : "";
+};
+
 function buildNav() {
   $("#nav").innerHTML = App.NAV[App.mode].map((g) =>
     `${g.group ? `<div class="nav-group">${g.group}</div>` : ""}${g.items.map((i) =>
-      `<a href="${hrefOf(i.route)}" data-route="${i.route}" style="--c:${i.c}">${i.label}</a>`).join("")}`).join("");
+      `<a href="${hrefOf(i.route)}" data-route="${i.route}" style="--c:${i.c}">${navIcon(i.route)}<span>${i.label}</span></a>`).join("")}`).join("");
 }
 
 function render() {
