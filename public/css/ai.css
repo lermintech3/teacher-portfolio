@@ -48,3 +48,29 @@
 .ai-busy > div { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 28px; border-radius: 18px; background: #fff; box-shadow: 0 20px 60px rgba(30, 20, 90, .25); }
 .ai-busy .spark { font-size: 28px; display: inline-block; animation: ai-spin 1.2s linear infinite; }
 .ai-busy small { color: var(--muted); }
+
+/* 💬 ใช้แอป AI (ฟรี) */
+.ai-btns { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-sug { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: center; }
+.ai-btn.ext { background: linear-gradient(135deg, #12a37a, #1d8fd6); box-shadow: 0 4px 12px rgba(20, 140, 140, .25); }
+.ai-btn.ext.ghost { background: #fff; color: #0f7f63; box-shadow: inset 0 0 0 1.5px #a7dcc9; }
+.ai-page-btn.ext { background: linear-gradient(135deg, #12a37a, #1d8fd6) !important; }
+.ai-free { box-shadow: inset 0 0 0 1px #bfe6d8; background: #f3fbf8; }
+.ext-dlg { border: 0; padding: 0; width: min(560px, 94vw); max-height: 90vh; border-radius: 20px; box-shadow: 0 30px 80px rgba(20, 20, 60, .3); }
+.ext-dlg::backdrop { background: rgba(22, 20, 46, .4); backdrop-filter: blur(2px); }
+.ext-in { margin: 0; }
+.ext-dlg header { position: sticky; top: 0; z-index: 1; display: flex; flex-direction: column; padding: 16px 48px 12px 20px; background: #fff; border-bottom: 1px solid var(--line); }
+.ext-dlg header b { font-size: 17px; }
+.ext-dlg header span { font-size: 13px; color: var(--muted); }
+.ext-x { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--paper); cursor: pointer; font-size: 14px; }
+.ext-steps { list-style: none; counter-reset: s; margin: 0; padding: 8px 20px 20px; }
+.ext-steps > li { counter-increment: s; position: relative; padding: 14px 0 14px 40px; border-bottom: 1px dashed var(--line); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ext-steps > li:last-child { border: 0; }
+.ext-steps > li::before { content: counter(s); position: absolute; left: 0; top: 12px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; color: #fff; background: linear-gradient(135deg, #12a37a, #1d8fd6); }
+.ext-h { font-weight: 600; line-height: 1.4; }
+.ext-apps, .ext-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.ext-row { width: 100%; justify-content: space-between; }
+.ext-steps textarea { width: 100%; box-sizing: border-box; font: 13px/1.4 ui-monospace, Menlo, monospace; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper); resize: vertical; }
+.ext-steps details { width: 100%; font-size: 13px; color: var(--muted); }
+.ext-steps pre { white-space: pre-wrap; max-height: 200px; overflow: auto; background: var(--paper); padding: 10px; border-radius: 10px; font-size: 12px; }
+.ext-steps .meta { margin: 0; font-size: 12px; }

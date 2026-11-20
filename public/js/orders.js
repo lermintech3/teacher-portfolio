@@ -28,7 +28,7 @@
     const migrate = legacy.length ? `<div class="notice order-migrate"><span>พบงานเดิม ${legacy.length} งาน ที่ระบุเลขที่คำสั่งไว้ (${legacyOrders} คำสั่ง)</span>
       <button class="btn small" data-act="orderMigrate">จัดกลุ่มเข้าเมนูคำสั่ง</button></div>` : "";
 
-    const aiBtn = `<button class="btn ai-page-btn" data-act="aiImport" data-k="orders">✨ อ่านคำสั่งด้วย AI</button>`;
+    const aiBtn = `<button class="btn ai-page-btn" data-act="aiImport" data-k="orders" ${App.ai?.cfg && !(App.ai.cfg.hasKey && App.ai.cfg.enabled && App.ai.cfg.secretSet) ? "hidden" : ""}>✨ อ่านคำสั่งด้วย AI</button>`;
     return head("คำสั่ง", "คำสั่งแต่งตั้งที่ได้รับ และงานที่ต้องทำในแต่ละคำสั่ง ไม่เก็บไฟล์คำสั่ง (ให้ AI อ่านแล้วทิ้ง)", aiBtn + addBtn("orders", "เพิ่มคำสั่ง")) +
       migrate +
       `<div class="stats">
@@ -112,7 +112,7 @@
     const me = (App.DATA.profile || {}).name || "";
     const types = FORMS.responsibilities.fields.find((x) => x.key === "type").options;
     const r = await App.ai.readRows({
-      title: "คำสั่งโรงเรียน", max: 30,
+      title: "คำสั่งโรงเรียน", max: 30, what: "คำสั่ง",
       header: [
         { key: "no", label: "เลขที่คำสั่ง ใช้เลขอารบิก เช่น 45/2569" }, { key: "date", label: "ลงวันที่ (วันที่ออกคำสั่ง)", type: "date" },
         { key: "title", label: "เรื่อง ไม่ต้องมีคำว่า คำสั่ง… เรื่อง นำหน้า เช่น แต่งตั้งคณะกรรมการดำเนินงานวันเด็กแห่งชาติ ประจำปี 2570" },

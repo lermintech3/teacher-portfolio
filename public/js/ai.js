@@ -76,18 +76,34 @@
     if (!conf) return;
     const box = $("#sheetFields");
     box.insertAdjacentHTML("afterbegin", `<div class="ai-box" id="aiBox">
-      <button type="button" class="ai-btn" id="aiBtn"><span class="spark">✨</span> อ่านด้วย AI</button>
-      <div class="ai-txt"><b>ให้ AI กรอกช่องให้</b><span>เลือก${esc(conf.what)} (ได้สูงสุด 4 ไฟล์) แล้วตรวจก่อนกดบันทึก</span></div>
-      ${conf.suggest ? `<button type="button" class="ai-btn ghost" id="aiSuggest"><span class="spark">✨</span> แนะนำหมวดจากชื่อ</button><div class="ai-txt"><span>พิมพ์ชื่อและคำอธิบายหลักฐานก่อน แล้วให้ AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div>` : ""}
+      <div class="ai-txt" style="grid-column:1/-1"><b>ให้ AI กรอกช่องให้</b><span>ใช้${esc(conf.what)} แล้วตรวจก่อนกดบันทึก</span></div>
+      <div class="ai-btns"><button type="button" class="ai-btn" id="aiBtn" hidden><span class="spark">✨</span> AI กรอกให้</button>
+        <button type="button" class="ai-btn ext" id="aiExt">💬 ใช้แอป AI (ฟรี)</button></div>
+      ${conf.suggest ? `<div class="ai-sug"><button type="button" class="ai-btn ghost" id="aiSuggest"><span class="spark">✨</span> แนะนำหมวดจากชื่อ</button><div class="ai-txt"><span>พิมพ์ชื่อและคำอธิบายหลักฐานก่อน แล้วให้ AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div></div>` : ""}
       <input type="file" id="aiFile" hidden multiple accept="image/*,application/pdf">
       <div class="ai-status" id="aiStatus" role="status"></div></div>`);
     const btn = $("#aiBtn"), input = $("#aiFile"), status = $("#aiStatus"), form = $("#sheetForm");
     const say = (msg, cls = "") => { status.className = `ai-status ${cls}`; status.innerHTML = msg; };
-    try { await AI.load(); } catch { $("#aiBox")?.remove(); return; } // เซิร์ฟเวอร์ยังไม่รองรับ AI
-    if (!ready()) {
-      btn.classList.add("off");
-      say(!AI.cfg.secretSet ? "เจ้าของเว็บยังไม่ได้เปิดใช้ AI (ต้องตั้ง AI_SECRET ใน Cloudflare)" : !AI.cfg.hasKey ? "ยังไม่ได้ใส่ API key แตะปุ่มเพื่อไปตั้งค่า" : "ปิดการใช้ AI อยู่ แตะปุ่มเพื่อไปเปิด", "warn");
-    }
+    const fillIn = (r, extra = "") => {
+      form.querySelectorAll(".ai-filled, .ai-unsure").forEach((c) => c.classList.remove("ai-filled", "ai-unsure"));
+      let n = 0;
+      for (const [k, v] of Object.entries(r.values || {})) if (setField(form, k, v)) { n++; cellOf(k)?.classList.add("ai-filled"); }
+      for (const k of r.uncertain || []) cellOf(k)?.classList.add("ai-unsure");
+      say(n
+        ? `กรอกให้ ${n} ช่อง${r.uncertain?.length ? ` · <b>ช่องสีเหลือง AI ไม่แน่ใจ</b> ตรวจอีกครั้ง` : ""}${extra}${r.note ? `<small>${esc(r.note)}</small>` : ""}`
+        : `AI อ่านแล้วแต่ไม่พบข้อมูลที่ตรงกับฟอร์ม${r.note ? `<small>${esc(r.note)}</small>` : ""}`, n ? "ok" : "warn");
+      return n;
+    };
+    const profileHint = () => { const p = App.DATA.profile || {}; return [p.name && `ผู้รับเกียรติบัตรคือครู ${p.name}`, p.school && `โรงเรียน ${p.school}`].filter(Boolean).join(" "); };
+    // 💬 ใช้แอป AI (ฟรี): ใช้ได้เสมอ ไม่ต้องมี API key
+    $("#aiExt").onclick = async () => {
+      const text = (conf.suggestFrom || []).map((k) => document.getElementById(`f_${k}`)?.value || "").filter(Boolean).join("\n");
+      const r = await App.aiExt.fill({ title, fields: specOf(fields), hint: profileHint(), text, what: conf.what.replace(/\s*\(.*\)$/, "") });
+      if (r) fillIn(r, conf.attach ? " · ถ้าต้องการเก็บไฟล์ แนบในช่องไฟล์ด้านล่างเอง" : "");
+    };
+    try { await AI.load(); } catch { return; } // เซิร์ฟเวอร์ยังไม่รองรับ AI → ใช้ได้แค่แอปภายนอก
+    if (ready()) { btn.hidden = false; $("#aiExt").classList.add("ghost"); }
+    else $("#aiSuggest")?.closest(".ai-sug")?.remove();
     btn.onclick = () => {
       if (!ready()) { $("#sheet").close(); location.hash = `#/settings?tag=${encodeURIComponent("AI ผู้ช่วย")}`; return; }
       input.click();
@@ -118,14 +134,7 @@
         say("กำลังเตรียมไฟล์…");
         const parts = await Promise.all(files.map(toPart));
         say(`AI กำลังอ่าน${files.length > 1 ? ` ${files.length} ไฟล์` : ""}… (ประมาณ 5–20 วินาที)`);
-        const p = App.DATA.profile || {};
-        const r = await api("POST", "/api/admin/ai/fill", {
-          title, fields: specOf(fields), files: parts,
-          hint: [p.name && `ผู้รับเกียรติบัตรคือครู ${p.name}`, p.school && `โรงเรียน ${p.school}`].filter(Boolean).join(" "),
-        });
-        let n = 0;
-        for (const [k, v] of Object.entries(r.values || {})) if (setField(form, k, v)) { n++; cellOf(k)?.classList.add("ai-filled"); }
-        for (const k of r.uncertain || []) cellOf(k)?.classList.add("ai-unsure");
+        const r = await api("POST", "/api/admin/ai/fill", { title, fields: specOf(fields), files: parts, hint: profileHint() });
         // แนบไฟล์แรกลงช่องไฟล์ของฟอร์มให้ด้วย (ถ้ายังว่างและเชื่อม Drive แล้ว)
         const tgt = conf.attach && document.getElementById(`f_${conf.attach}`);
         const zone = tgt && form.querySelector(`.drop[data-target="f_${conf.attach}"]`);
@@ -137,9 +146,7 @@
           try { const dt = new DataTransfer(); dt.items.add(first); fileIn.files = dt.files; fileIn.dispatchEvent(new Event("change")); attached = true; } catch { /* เบราว์เซอร์เก่า */ }
         }
         AI.cfg.used = (AI.cfg.used || 0) + 1;
-        say(n
-          ? `กรอกให้ ${n} ช่อง${r.uncertain?.length ? ` · <b>ช่องสีเหลือง AI ไม่แน่ใจ</b> ตรวจอีกครั้ง` : ""}${attached ? " · กำลังแนบไฟล์ลง Drive" : ""}${r.note ? `<small>${esc(r.note)}</small>` : ""}`
-          : `AI อ่านแล้วแต่ไม่พบข้อมูลที่ตรงกับฟอร์ม${r.note ? `<small>${esc(r.note)}</small>` : ""}`, n ? "ok" : "warn");
+        fillIn(r, attached ? " · กำลังแนบไฟล์ลง Drive" : "");
       } catch (e) {
         say(esc(e.message || "อ่านไม่สำเร็จ"), "err");
       } finally {
@@ -157,7 +164,8 @@
     inp.click();
   });
   // เลือกไฟล์ → AI อ่าน → คืนแถว (แสดงสถานะด้วย toast)
-  async function readRows({ title, fields, hint, max, header }) {
+  async function readRows({ title, fields, hint, max, header, what }) {
+    if (AI.extNext) { AI.extNext = false; return App.aiExt.rows({ title, fields, hint, max, header, what }); }
     await AI.load().catch(() => null);
     if (!ready()) { toast("ยังไม่ได้ตั้งค่า AI ไปที่ ตั้งค่าเว็บ → AI ผู้ช่วย"); location.hash = `#/settings?tag=${encodeURIComponent("AI ผู้ช่วย")}`; return null; }
     const files = await pickFiles();
@@ -181,7 +189,7 @@
   // ตารางสอน: อ่านจากรูป/PDF แล้วให้ครูเลือกคาบก่อนบันทึก
   A_IMPORT.schedule = async () => {
     const r = await readRows({
-      title: "ตารางสอน", max: 60,
+      title: "ตารางสอน", max: 60, what: "รูปตารางสอน",
       fields: [
         { key: "day", label: "วัน", options: DAYS }, { key: "period", label: "คาบที่ (นับเฉพาะคาบเรียน ไม่นับพัก)", type: "number" },
         { key: "subject", label: "วิชา (ใช้รหัสวิชาถ้ามี เช่น ค15101 ถ้าไม่มีใช้ชื่อวิชาสั้น ๆ)" }, { key: "room", label: "ห้อง / ชั้น เช่น ป.5/1" },
@@ -222,14 +230,19 @@
   }
 
   // ปุ่มบนหน้าเมนู (ใส่หลังวาดหน้า)
-  const PAGE_BTNS = { "admin/schedule": ["schedule", "✨ นำเข้าจากรูป"], "admin/responsibilities": ["orders", "✨ อ่านคำสั่งด้วย AI"] };
+  // ✨ = ใช้ API key (แสดงเมื่อตั้งค่าแล้ว) · 💬 = ใช้แอป AI ภายนอก (แสดงเสมอ)
+  const PAGE_BTNS = { "admin/schedule": ["schedule", "✨ นำเข้าจากรูป"], "admin/responsibilities": ["orders", "✨ อ่านคำสั่งด้วย AI"], "admin/orders": ["orders", "✨ อ่านคำสั่งด้วย AI"] };
   const prevAfter = App.afterRender;
   App.afterRender = () => {
     prevAfter?.();
     const conf = PAGE_BTNS[parseHash().route];
     const bar = $(".band-actions");
-    if (!conf || !bar || bar.querySelector(".ai-page-btn")) return;
-    bar.insertAdjacentHTML("afterbegin", `<button class="btn ai-page-btn" data-act="aiImport" data-k="${conf[0]}">${conf[1]}</button>`);
+    if (!conf || !bar) return;
+    if (!bar.querySelector(".ai-page-btn")) bar.insertAdjacentHTML("afterbegin", `<button class="btn ai-page-btn" data-act="aiImport" data-k="${conf[0]}">${conf[1]}</button>`);
+    const main = bar.querySelector(".ai-page-btn:not(.ext)");
+    if (!bar.querySelector(".ai-page-btn.ext")) main.insertAdjacentHTML("afterend", `<button class="btn ai-page-btn ext" data-act="aiImport" data-k="${conf[0]}" data-ext="1">💬 ใช้แอป AI (ฟรี)</button>`);
+    main.hidden = !ready();
+    if (!AI.cfg) AI.load().then(() => { main.hidden = !ready(); }).catch(() => {});
   };
 
   // ---------- หน้าตั้งค่า → AI ผู้ช่วย ----------
@@ -269,12 +282,17 @@
         ${Object.entries(P).map(([k, p]) => `<div class="ai-prov"><b>${esc(p.name)}</b> <a href="${esc(p.keyUrl)}" target="_blank" rel="noopener">เปิดหน้าสร้างคีย์ ↗</a>
           <span class="meta">${k === "gemini" ? "ล็อกอินด้วยบัญชี Google แล้วกด Create API key มีโควตาใช้ฟรีรายวัน (เงื่อนไขอาจเปลี่ยน)" : "สมัครบัญชี เติมเครดิตขั้นต่ำ แล้วกด Create key คิดเงินตามการใช้งาน"}</span></div>`).join("")}
         <p class="meta">คัดลอกคีย์มาวางในปุ่ม "ตั้งค่า" คีย์จะถูกเข้ารหัสเก็บที่เซิร์ฟเวอร์ หลังบันทึกจะเห็นแค่ตัวย่อ ไม่มีใครดูคีย์เต็มได้อีก</p></section></div>
+      <section class="panel ai-free"><h2>💬 ไม่มี API key? ใช้แอป AI ฟรีได้</h2>
+        <p>ทุกที่ที่มีปุ่ม ✨ จะมีปุ่ม <b>💬 ใช้แอป AI (ฟรี)</b> คู่กันเสมอ ไม่ต้องตั้งค่าอะไร</p>
+        <ol class="ai-steps"><li>กดปุ่ม 💬 แล้วกด <b>คัดลอกคำสั่ง</b></li><li>เปิดแอป ChatGPT, Gemini หรือ Claude (บัญชีฟรีก็ได้) วางคำสั่ง แนบรูปหรือไฟล์ แล้วส่ง</li>
+          <li>คัดลอกคำตอบของ AI กลับมาวางในเว็บ แล้วกด <b>✨ กรอกให้</b></li></ol>
+        <p class="meta">ไฟล์ส่งจากเครื่องคุณไปที่แอป AI โดยตรง ไม่ผ่านเว็บนี้ และไม่นับรวมในโควตาการใช้ของเว็บ</p></section>
       <section class="panel"><h2>ใช้ AI ได้ที่ไหนบ้าง</h2><div class="ai-where">
-        <div><b>เกียรติบัตร / รางวัล</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI → เลือกรูปเกียรติบัตร</span></div>
-        <div><b>อบรม / PLC</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI → เลือกรูปหรือ PDF วุฒิบัตร</span></div>
+        <div><b>เกียรติบัตร / รางวัล</b><span>เพิ่มรายการ → ✨ AI กรอกให้ → เลือกรูปเกียรติบัตร</span></div>
+        <div><b>อบรม / PLC</b><span>เพิ่มรายการ → ✨ AI กรอกให้ → เลือกรูปหรือ PDF วุฒิบัตร</span></div>
         <div><b>ตารางสอน</b><span>ปุ่ม ✨ นำเข้าจากรูป → เลือกรูปตารางสอน → ติ๊กเลือกคาบ</span></div>
         <div><b>คำสั่ง</b><span>ปุ่ม ✨ อ่านคำสั่งด้วย AI → ได้เลขที่ เรื่อง และงานที่มีชื่อคุณ ไม่เก็บไฟล์คำสั่ง</span></div>
-        <div><b>โครงการ · นิเทศ · หนังสือราชการ · ประชุม · กิจกรรม · ผลงาน · การลา</b><span>เพิ่มรายการ → ✨ อ่านด้วย AI</span></div>
+        <div><b>โครงการ · นิเทศ · หนังสือราชการ · ประชุม · กิจกรรม · ผลงาน · การลา</b><span>เพิ่มรายการ → ✨ AI กรอกให้</span></div>
         <div><b>หลักฐาน</b><span>✨ แนะนำหมวดจากชื่อ: AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div></div></section>`;
   };
   function randomSecret() {
@@ -284,7 +302,7 @@
   }
 
   const A = App.actions;
-  A.aiImport = (b) => (A_IMPORT[b.dataset.k] || App.aiImporters?.[b.dataset.k])?.();
+  A.aiImport = (b) => { AI.extNext = !!b.dataset.ext; return (A_IMPORT[b.dataset.k] || App.aiImporters?.[b.dataset.k])?.(); };
   A.aiSetup = () => {
     const c = AI.cfg || {}, P = c.providers || {};
     const names = Object.fromEntries(Object.entries(P).map(([k, p]) => [p.name, k]));
