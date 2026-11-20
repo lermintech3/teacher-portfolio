@@ -1168,12 +1168,13 @@ const MODE_LABEL = { public: "หน้าสาธารณะ", admin: "หน
 const menuRows = () => Object.entries(App.navBase()).flatMap(([mode, groups]) =>
   groups.flatMap((g) => g.items.map((i) => ({ ...i, mode, group: g.group || "" }))));
 
-const SET_TABS = ["ทั่วไป", "เมนู", "ตัวเลือกฟอร์ม", "AI ผู้ช่วย", "บัญชี"];
+const SET_TABS = ["ทั่วไป", "ธีมและไอคอน", "เมนู", "ตัวเลือกฟอร์ม", "AI ผู้ช่วย", "บัญชี"];
 const SET_HINT = {
   "ทั่วไป": "แบนเนอร์และสไลด์โชว์หน้าแรก ชื่อเว็บ และตัวชี้วัด PA",
   "เมนู": "เปลี่ยนชื่อ เปลี่ยนสี หรือซ่อนเมนูที่ไม่ใช้ เมนูที่ซ่อนจะหายจากแถบด้านข้าง ข้อมูลข้างในยังอยู่ครบ",
   "ตัวเลือกฟอร์ม": "เพิ่มหรือแก้รายการให้เลือก เช่น ประเภทงาน ระดับรางวัล ให้ตรงกับโรงเรียน",
   "บัญชี": "รหัสผ่านและการคืนค่าตั้งต้น",
+  "ธีมและไอคอน": "เลือกชุดสีสำเร็จรูป หรือกำหนดสีเองทุกสี เลือกสไตล์ไอคอน และเปลี่ยนไอคอนแต่ละเมนู ดูตัวอย่างก่อนเลือกได้ ใช้กับทั้งหน้าครูและหน้าสาธารณะ",
   "AI ผู้ช่วย": "ใส่ API key ของตัวเอง เลือกค่าย AI ได้ (Claude, ChatGPT, Gemini) แล้วใช้ปุ่ม ✨ ในฟอร์มให้ AI อ่านเอกสารและกรอกช่องให้",
 };
 App.pages["admin/settings"] = ({ q } = {}) => {
@@ -1187,7 +1188,7 @@ App.pages["admin/settings"] = ({ q } = {}) => {
     const sw = LOCKED_ROUTES.has(r.route)
       ? `<span class="meta">ซ่อนไม่ได้</span>`
       : `<button type="button" class="ios-switch sm" role="switch" aria-checked="${!m.hidden}" aria-label="แสดงเมนู ${esc(r.label)}" data-act="toggleMenu" data-route="${esc(r.route)}"><span></span></button>`;
-    return `<div class="set-row"><span class="name"><span class="swatch" style="background:${esc(m.c || r.c)}"></span>${esc(m.label || r.label)}</span>${sw}<button type="button" class="ico" data-act="setMenu" data-route="${esc(r.route)}">ปรับ</button></div>`;
+    return `<div class="set-row"><span class="name" style="--c:${esc(m.c || themeColor(r.c))}">${navIcon(m.icon || r.route) || `<span class="swatch" style="background:${esc(m.c || r.c)}"></span>`}${esc(m.label || r.label)}</span>${sw}<button type="button" class="ico" data-act="setMenu" data-route="${esc(r.route)}">ปรับ</button></div>`;
   };
   const menuPanel = (mode) => {
     const rows = menuRows().filter((r) => r.mode === mode);
@@ -1211,20 +1212,15 @@ App.pages["admin/settings"] = ({ q } = {}) => {
       <section class="panel set-card"><h2 class="row-head">ชื่อเว็บ <button class="btn ghost small" data-act="setTitle">แก้ไข</button></h2>
         <p>${esc(st.siteTitle || "") || `<span class="meta">ยังไม่ได้ตั้ง (ใช้ชื่อครูแทน)</span>`}</p>
         <p class="meta">แสดงบนแท็บเบราว์เซอร์และตอนแชร์ลิงก์</p></section>
-      <section class="panel set-card"><h2>ชุดสี</h2>
-        <div class="theme-pick" role="group" aria-label="ชุดสี">${Object.entries(App.THEMES).map(([k, t]) => {
-          const p = t.palette, cur = (st.theme || "bright") === k;
-          return `<button type="button" class="theme-opt" data-act="setTheme" data-v="${k}" aria-pressed="${cur}">
-            <span class="sw">${[p.violet, p.sky, p.coral, p.mint, p.gold].map((c) => `<i style="background:${c}"></i>`).join("")}</span>
-            <b>${esc(t.name)}</b><small>${esc(t.note)}</small></button>`;
-        }).join("")}</div>
-        <p class="meta">ใช้กับทั้งหน้าครูและหน้าสาธารณะ สีเมนูที่ตั้งเองในแท็บ "เมนู" จะไม่เปลี่ยน</p></section>
+      <section class="panel set-card"><h2 class="row-head">ธีมและไอคอน <a class="btn ghost small" href="#/settings?tag=${encodeURIComponent("ธีมและไอคอน")}">ปรับแต่ง</a></h2>
+        <p>${esc(st.theme === "custom" ? "กำหนดสีเอง" : (App.THEMES[st.theme] || App.THEMES.bright).name)} · ไอคอน${esc(App.ICON_STYLES[st.iconStyle] || App.ICON_STYLES.line)}</p></section>
       <section class="panel set-card"><h2 class="row-head">ตัวชี้วัด PA <button class="btn ghost small" data-act="setPA">แก้ไข</button></h2>
         <p>${PA === DEFAULT_PA ? "ใช้ค่าตั้งต้นตาม ว 9/2564 (15 ตัวชี้วัด)" : `กำหนดเอง ${PA_CODES.length} ตัวชี้วัด`}</p>
         <p class="meta">ถ้าโรงเรียนใช้แบบฟอร์มต่างจากนี้ แก้ให้ตรงได้ หลักฐานที่แท็กรหัสเดิมไว้ยังอยู่</p></section></div>`,
     "เมนู": () => `<div class="cols set-cols">${Object.keys(MODE_LABEL).map(menuPanel).join("")}</div>`,
     "ตัวเลือกฟอร์ม": () => `<div class="grid set-grid">${Object.entries(FORMS).map(optionPanel).join("")}</div>`,
     "AI ผู้ช่วย": () => (App.aiSettings ? App.aiSettings() : ""),
+    "ธีมและไอคอน": () => (App.themeSettings ? App.themeSettings() : ""),
     "บัญชี": () => `<div class="cols">
       <section class="panel set-card"><h2 class="row-head">รหัสผ่าน <button class="btn ghost small" data-act="changePw">เปลี่ยนรหัสผ่าน</button></h2>
         <p class="meta">เปลี่ยนแล้วเครื่องอื่นที่เคยเข้าสู่ระบบไว้จะต้องเข้าใหม่ ถ้าลืมรหัส ให้ตั้งรหัสใหม่ใน Cloudflare แล้ว deploy ใหม่</p></section>
@@ -1235,13 +1231,6 @@ App.pages["admin/settings"] = ({ q } = {}) => {
   return head("ตั้งค่าเว็บ", "ปรับแบนเนอร์ ชื่อเว็บ เมนู สี ตัวเลือกในฟอร์ม และตัวชี้วัด PA ได้เอง การตั้งค่าบันทึกทันที") +
     tabs + `<p class="meta set-hint">${SET_HINT[tab]}</p>` + body;
 };
-App.actions.setTheme = async (b) => {
-  const st = settingsObj(), old = st.theme;
-  st.theme = b.dataset.v === "bright" ? undefined : b.dataset.v;
-  App.applySettings(); $("#nav").innerHTML = ""; render();
-  try { await saveKV("settings"); toast(`เปลี่ยนเป็นชุดสี${App.THEMES[b.dataset.v].name}แล้ว`); }
-  catch (e) { st.theme = old; App.applySettings(); $("#nav").innerHTML = ""; render(); toast(e.message); }
-};
 App.actions.setTitle = () => editKV("ชื่อเว็บ", "settings", [{ key: "siteTitle", label: "ชื่อเว็บ", hint: "เช่น แฟ้มสะสมผลงาน ครูสมศรี" }],
   (o, r) => { o.siteTitle = r.siteTitle; });
 App.actions.setMenu = (b) => {
@@ -1250,18 +1239,21 @@ App.actions.setMenu = (b) => {
   const cur = settingsObj().menus?.[route] || {};
   const fields = [
     { key: "label", label: "ชื่อเมนู", value: cur.label || base.label, required: true },
-    { key: "c", label: "สีประจำเมนู", type: "color", value: cur.c || base.c },
+    { key: "c", label: "สีประจำเมนู", type: "color", value: cur.c || themeColor(base.c) },
+    { key: "icon", label: "ไอคอน", value: cur.icon || "" }, // เลือกจากตารางไอคอน (theme.js แทนช่องนี้ด้วยตาราง)
   ];
   if (!LOCKED_ROUTES.has(route)) fields.push({ key: "show", label: "แสดงเมนูนี้", toggle: { on: "แสดง", off: "ซ่อน" }, value: cur.hidden ? "ซ่อน" : "แสดง" });
   openForm(`ปรับเมนู "${base.label}"`, fields, (r) => saveSettings((st) => {
     st.menus = st.menus || {};
     st.menus[route] = {
       ...(r.label !== base.label ? { label: r.label } : {}),
-      ...(r.c.toLowerCase() !== base.c.toLowerCase() ? { c: r.c } : {}),
+      ...(r.c.toLowerCase() !== base.c.toLowerCase() && r.c.toLowerCase() !== themeColor(base.c).toLowerCase() ? { c: r.c } : {}),
+      ...(r.icon && r.icon !== route.replace(/^admin\//, "") ? { icon: r.icon } : {}),
       ...(r.show === "ซ่อน" ? { hidden: true } : {}),
     };
     if (!Object.keys(st.menus[route]).length) delete st.menus[route];
   }));
+  App.iconPicker?.(route); // ตารางเลือกไอคอน (theme.js)
 };
 App.actions.toggleMenu = async (b) => {
   const route = b.dataset.route;
