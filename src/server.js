@@ -290,14 +290,24 @@ export const DRIVE_CATEGORIES = {
 export const DRIVE_PRIVATE = new Set(["documents", "meetings", "care", "leaves"]);
 export const MAX_UPLOAD_BYTES = 28 * 1024 * 1024; // base64 ของไฟล์ราว 20 MB
 
+const b64url = (s) => {
+  let bin = "";
+  for (const byte of new TextEncoder().encode(s)) bin += String.fromCharCode(byte);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_");
+};
+
 export function driveTarget(env, site, params) {
   if (!env.DRIVE_SCRIPT_URL || !env.DRIVE_SECRET) {
     throw new HttpError(503, "ยังไม่ได้เชื่อม Google Drive (ตั้ง DRIVE_SCRIPT_URL และ DRIVE_SECRET ใน Cloudflare)");
   }
   const url = new URL(env.DRIVE_SCRIPT_URL);
   url.searchParams.set("secret", env.DRIVE_SECRET);
-  url.searchParams.set("person", siteBySlug(site).name);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const all = { person: siteBySlug(site).name, ...params };
+  for (const [k, v] of Object.entries(all)) {
+    url.searchParams.set(k, v);
+    // ภาษาไทยใน POST ถูก Apps Script อ่านผิดรหัส → ส่งแบบ base64 (UTF-8) คู่ไปด้วย สคริปต์ใหม่ใช้ค่านี้
+    if (/[^\x00-\x7f]/.test(String(v))) url.searchParams.set(`${k}_b64`, b64url(String(v)));
+  }
   return url;
 }
 
