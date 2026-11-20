@@ -170,7 +170,7 @@ App.editItem = (key, item, preset = {}) => {
       arr(key).unshift(await api("POST", `/api/admin/items/${key}`, { ...(preset._extra || {}), ...body }));
     }
   });
-  App.aiAttach?.(key, fields, F.name); // ปุ่ม "✨ อ่านด้วย AI" (ai.js)
+  App.aiAttach?.(key, fields, F.name); // ปุ่ม "✨ AI กรอกให้" และ "💬 ใช้แอป AI (ฟรี)" (ai.js, ai-ext.js)
 };
 for (const key of Object.keys(FORMS)) App.adders[key] = () => App.editItem(key);
 
