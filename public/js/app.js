@@ -79,10 +79,35 @@ App.NAV = {
 
 // ชุดสี: สีสดเดิม หรือพาสเทล (เปลี่ยนค่าใน C ตรง ๆ ทุกหน้าที่ใช้ C จึงเปลี่ยนตาม)
 const BASE_C = { ...C };
+// ชุดสีสำเร็จรูป: แต่ละชุดกำหนดสี 10 ช่องเดียวกับ C (ช่องไหนใช้กับเมนูไหนดูได้ในหน้าตั้งค่า → ธีมและไอคอน)
 App.THEMES = {
   bright: { name: "ม่วงสดใส", note: "สีสดแบบเดิม", palette: BASE_C },
-  pastel: { name: "พาสเทล", note: "อ่อนโยน สบายตา",
-    palette: { violet: "#a99bf6", coral: "#f5a39b", sky: "#86c7ef", gold: "#f2cb72", mint: "#85d5b4", pink: "#f1a6ca", indigo: "#9ca8ef", orange: "#f6b886", teal: "#7fd0d9", slate: "#aab4c6" } },
+  pastel: { name: "พาสเทล", note: "อ่อนโยน สบายตา", palette: { violet: "#a99bf6", coral: "#f5a39b", sky: "#86c7ef", gold: "#f2cb72", mint: "#85d5b4", pink: "#f1a6ca", indigo: "#9ca8ef", orange: "#f6b886", teal: "#7fd0d9", slate: "#aab4c6" } },
+  sea: { name: "ทะเลคราม", note: "สุภาพ ดูเป็นทางการ", palette: { violet: "#0f5f8c", coral: "#e4572e", sky: "#1aa6b7", gold: "#e2a72e", mint: "#2a9d8f", pink: "#c8507a", indigo: "#2b4c9b", orange: "#f08a24", teal: "#0e8f9e", slate: "#5b6b7f" } },
+  forest: { name: "ป่าเขียว", note: "ธรรมชาติ ดอยเต่า", palette: { violet: "#2f7d4f", coral: "#c8553d", sky: "#4f8fb0", gold: "#c9a227", mint: "#8bb33d", pink: "#b35c7a", indigo: "#3b6e5a", orange: "#d98e2b", teal: "#3a9188", slate: "#7a6a58" } },
+  orange: { name: "ส้มอบอุ่น", note: "สดชื่น เป็นกันเอง", palette: { violet: "#e8590c", coral: "#d6336c", sky: "#0b84a5", gold: "#e0a100", mint: "#5c940d", pink: "#c2255c", indigo: "#c2410c", orange: "#f59f00", teal: "#0f9b8e", slate: "#7c6f64" } },
+  lanna: { name: "ล้านนา", note: "แดงครั่ง ทองเก่า", palette: { violet: "#7b2d26", coral: "#b5462f", sky: "#3d6f8e", gold: "#c08a2d", mint: "#3e5641", pink: "#9c4a5e", indigo: "#5a3a6e", orange: "#c0782d", teal: "#3e7c74", slate: "#7d6b57" } },
+  rose: { name: "ชมพูกุหลาบ", note: "หวาน สดใส", palette: { violet: "#c2185b", coral: "#f0605d", sky: "#4ba3d9", gold: "#e9a23b", mint: "#4caf8a", pink: "#f06292", indigo: "#7e57c2", orange: "#f28b50", teal: "#26a69a", slate: "#8e7d8a" } },
+  flag: { name: "ธงชาติ", note: "น้ำเงิน แดง ขาว", palette: { violet: "#1e3a8a", coral: "#b91c1c", sky: "#2563eb", gold: "#ca8a04", mint: "#15803d", pink: "#be185d", indigo: "#1e40af", orange: "#c2410c", teal: "#0e7490", slate: "#64748b" } },
+  emerald: { name: "มรกต", note: "เขียวน้ำทะเล ทันสมัย", palette: { violet: "#0f766e", coral: "#f97316", sky: "#0ea5e9", gold: "#eab308", mint: "#10b981", pink: "#e11d48", indigo: "#155e75", orange: "#fb923c", teal: "#14b8a6", slate: "#64748b" } },
+  rainbow: { name: "สายรุ้ง", note: "สีจัด สนุกแบบห้องเรียน", palette: { violet: "#4338ca", coral: "#dc2626", sky: "#0284c7", gold: "#f59e0b", mint: "#10b981", pink: "#db2777", indigo: "#6d28d9", orange: "#ea580c", teal: "#0d9488", slate: "#64748b" } },
+  graphite: { name: "เทาเรียบหรู", note: "นิ่ง สุขุม มืออาชีพ", palette: { violet: "#475569", coral: "#b45353", sky: "#0284c7", gold: "#a8892a", mint: "#4d7c63", pink: "#9d5c7a", indigo: "#334155", orange: "#b7791f", teal: "#0f766e", slate: "#94a3b8" } },
+  gold: { name: "ทองพระราชทาน", note: "ทอง เหลือง น้ำตาล", palette: { violet: "#a16207", coral: "#b45309", sky: "#9a7b4f", gold: "#eab308", mint: "#65803a", pink: "#9f4f3c", indigo: "#7c2d12", orange: "#d97706", teal: "#6b7d3a", slate: "#8b7d6b" } },
+};
+// ไอคอนเมนู: line = เส้น (ค.), tile = เส้นในกรอบสีอ่อน (ก.), solid = ทึบสีเต็ม (ข.), bar = แถบสีแบบเดิม
+App.ICON_STYLES = { line: "เส้นเรียบ", tile: "เส้นในกรอบสีอ่อน", solid: "ทึบสีเต็ม", bar: "แถบสี (ไม่มีไอคอน)" };
+// ความสว่างเฉลี่ยของชุดสี: สว่างมาก (เช่น พาสเทล) → ตัวอักษรบนพื้นสีใช้สีเข้มแทนสีขาว
+const lum = (hex) => {
+  const n = parseInt(String(hex).slice(1), 16);
+  if (isNaN(n)) return 0;
+  return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0);
+};
+App.paletteTone = (pal) => { const v = Object.values(pal); return v.reduce((a, c) => a + lum(c), 0) / v.length > 0.33 ? "light" : "normal"; };
+// ชุดสีที่ใช้อยู่ (ชุดสำเร็จรูป หรือ "custom" = กำหนดเอง)
+App.activePalette = (st = App.DATA?.settings || {}) => {
+  if (st.theme === "custom" && st.palette) return { ...BASE_C, ...Object.fromEntries(Object.entries(st.palette).filter(([k, v]) => k in BASE_C && /^#[0-9a-f]{6}$/i.test(v))) };
+  return (App.THEMES[st.theme] || App.THEMES.bright).palette;
 };
 const themeColor = (hex) => { // สีเมนูตั้งต้น → สีเดียวกันในชุดสีที่เลือก (สีที่ครูตั้งเองไม่เปลี่ยน)
   const key = Object.keys(BASE_C).find((k) => BASE_C[k].toLowerCase() === String(hex).toLowerCase());
@@ -94,16 +119,21 @@ const NAV_BASE = JSON.parse(JSON.stringify(App.NAV));
 const LOCKED_ROUTES = new Set(["", "admin", "admin/settings"]); // ซ่อนไม่ได้ กันเข้าหน้าตั้งค่าไม่ได้
 App.applySettings = () => {
   const menus = App.DATA?.settings?.menus || {};
-  const theme = App.THEMES[App.DATA?.settings?.theme] ? App.DATA.settings.theme : "bright";
-  Object.assign(C, App.THEMES[theme].palette);
-  document.documentElement.dataset.theme = theme;
-  document.documentElement.style.setProperty("--c", C.violet);
+  const st = App.DATA?.settings || {};
+  Object.assign(C, App.activePalette(st));
+  const root = document.documentElement;
+  root.dataset.theme = st.theme === "custom" ? "custom" : App.THEMES[st.theme] ? st.theme : "bright";
+  root.dataset.tone = App.paletteTone(C);
+  root.dataset.icons = App.ICON_STYLES[st.iconStyle] ? st.iconStyle : "line";
+  root.style.setProperty("--c", C.violet);
+  root.style.setProperty("--brand2", C.pink);
+  root.style.setProperty("--brand3", C.gold);
   App.NAV = {};
   for (const [mode, groups] of Object.entries(NAV_BASE)) {
     App.NAV[mode] = groups.map((g) => ({
       ...g,
       items: g.items
-        .map((i) => ({ ...i, c: themeColor(i.c) }))
+        .map((i) => ({ ...i, c: themeColor(i.c), ...(menus[i.route]?.icon ? { icon: menus[i.route].icon } : {}) }))
         .map((i) => ({ ...i, ...(menus[i.route]?.label ? { label: menus[i.route].label } : {}), ...(menus[i.route]?.c ? { c: menus[i.route].c } : {}) }))
         .filter((i) => LOCKED_ROUTES.has(i.route) || !menus[i.route]?.hidden),
     })).filter((g) => g.items.length);
@@ -499,6 +529,34 @@ const ICON_PATHS = {
   settings: '<path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/>',
   backup: '<path d="M7 18.5a4.5 4.5 0 0 1-.8-8.9 6 6 0 0 1 11.6 1.4A3.8 3.8 0 0 1 17 18.5z"/><path d="M12 16v-5M9.8 13l2.2-2.2 2.2 2.2"/>',
 };
+// ไอคอนเพิ่มเติมให้ครูเลือกใช้กับเมนูไหนก็ได้
+Object.assign(ICON_PATHS, {
+  "x-star": '<path d="M12 4l2.4 5 5.4.6-4 3.8 1.1 5.4L12 16.1 7.1 18.8l1.1-5.4-4-3.8 5.4-.6z"/>',
+  "x-book": '<path d="M12 7c-2-1.5-5-2-8-1.5V18c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5.5C17 5 14 5.5 12 7z"/><path d="M12 7v12.5"/>',
+  "x-music": '<circle cx="7" cy="17" r="2.5"/><circle cx="17" cy="15" r="2.5"/><path d="M9.5 17V6l10-2v11"/>',
+  "x-ball": '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5l3.5 2.5-1.3 4h-4.4l-1.3-4z"/><path d="M12 3.5v4M15.5 10l4.5-1.5M14.2 14l2.6 4M9.8 14l-2.6 4M8.5 10L4 8.5"/>',
+  "x-globe": '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5z"/>',
+  "x-leaf": '<path d="M5 19c0-8 5-13.5 14-14 .5 9-5 14-13 14z"/><path d="M5 19l7-7"/>',
+  "x-flask": '<path d="M9.5 3.5h5M10.5 3.5v6L5 18.5a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2l-5.5-9v-6"/><path d="M7.5 14.5h9"/>',
+  "x-calc": '<rect x="5" y="3.5" width="14" height="17" rx="2"/><rect x="8" y="6.5" width="8" height="3.5" rx=".8"/><path d="M8.5 13.5h.01M12 13.5h.01M15.5 13.5h.01M8.5 17h.01M12 17h.01M15.5 17h.01" stroke-width="2.4"/>',
+  "x-palette": '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.2-.9-1.5-.9-2.5 0-1 .8-1.8 1.8-1.8h2.1a3.7 3.7 0 0 0 3.7-3.7C20.5 7 16.7 3.5 12 3.5z"/><path d="M7.5 11h.01M10 7.5h.01M14.5 7.5h.01" stroke-width="2.6"/>',
+  "x-lang": '<path d="M4 6h8M8 4v2M10.5 6c-.5 3-3 6-6.5 7.5M6 9.5c1 1.8 2.8 3.2 5 4"/><path d="M12.5 20l3.5-8.5 3.5 8.5M13.7 17.2h4.6"/>',
+  "x-laptop": '<rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M3 18.5h18"/>',
+  "x-camera": '<path d="M4 8.5a2 2 0 0 1 2-2h2l1.5-2h5l1.5 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.3"/>',
+  "x-mic": '<rect x="9" y="3.5" width="6" height="10" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3"/>',
+  "x-bell": '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  "x-bookmark": '<path d="M7 3.5h10a1 1 0 0 1 1 1v16l-6-4-6 4v-16a1 1 0 0 1 1-1z"/>',
+  "x-rocket": '<path d="M12.5 15.5l-4-4c1.5-4.5 5-7.5 11-8-.5 6-3.5 9.5-7 12z"/><path d="M8.5 11.5L5 11l2.5-3.5h4M12.5 15.5l.5 3.5 3.5-2.5v-4"/><path d="M6.5 15.5c-1.5.5-2.5 2-2.5 4.5 2.5 0 4-1 4.5-2.5"/>',
+  "x-puzzle": '<path d="M5 8h3a2 2 0 1 1 4 0h3v3a2 2 0 1 1 0 4v3h-3a2 2 0 1 0-4 0H5v-3a2 2 0 1 0 0-4z"/>',
+  "x-sun": '<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/>',
+  "x-clock": '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  "x-pin": '<path d="M12 20.5s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0c0 5.3-6.5 11-6.5 11z"/><circle cx="12" cy="9.5" r="2.3"/>',
+  "x-gift": '<rect x="4" y="9" width="16" height="4" rx="1"/><path d="M5.5 13v6.5h13V13M12 9v10.5"/><path d="M12 9c-1.5-3.5-5-4-5-1.5S12 9 12 9zM12 9c1.5-3.5 5-4 5-1.5S12 9 12 9z"/>',
+  "x-apple": '<path d="M12 7.5c-1-1.5-3-2-4.5-1C4.5 8 5 13 7 16.5c1.2 2 2.5 3.5 4 3 .5-.2.7-.3 1-.3s.5.1 1 .3c1.5.5 2.8-1 4-3 2-3.5 2.5-8.5-.5-10-1.5-1-3.5-.5-4.5 1z"/><path d="M12 7.5c0-2 1-3.5 3-4"/>',
+  "x-school": '<path d="M3.5 20.5h17M5.5 20.5v-9l6.5-4 6.5 4v9"/><path d="M12 7.5V3.5l3 1.5-3 1.5"/><path d="M10 20.5v-4h4v4"/>',
+  "x-check": '<circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/>',
+});
+App.ICON_PATHS = ICON_PATHS;
 const navIcon = (route) => {
   const p = ICON_PATHS[route] ?? ICON_PATHS[String(route).replace(/^admin\//, "")];
   return p ? `<svg class="nav-ico" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>` : "";
@@ -507,7 +565,7 @@ const navIcon = (route) => {
 function buildNav() {
   $("#nav").innerHTML = App.NAV[App.mode].map((g) =>
     `${g.group ? `<div class="nav-group">${g.group}</div>` : ""}${g.items.map((i) =>
-      `<a href="${hrefOf(i.route)}" data-route="${i.route}" style="--c:${i.c}">${navIcon(i.route)}<span>${i.label}</span></a>`).join("")}`).join("");
+      `<a href="${hrefOf(i.route)}" data-route="${i.route}" style="--c:${i.c}">${navIcon(i.icon || i.route)}<span>${i.label}</span></a>`).join("")}`).join("");
 }
 
 function render() {

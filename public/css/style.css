@@ -758,35 +758,61 @@ details.folder summary b { font-family: var(--display); color: var(--c-deep); }
 .term-bar { flex-wrap: wrap; }
 .term-bar .term-new { border: 1.5px dashed var(--line); background: transparent; color: var(--muted); }
 
-/* ---------- ไอคอนเมนู (แบบเส้น สีตามสีประจำเมนู) ---------- */
+/* ---------- ไอคอนเมนู: สไตล์ตาม html[data-icons] ---------- */
 .nav-ico {
   width: 21px; height: 21px; flex: none; fill: none; stroke: var(--ico, var(--c)); stroke-width: 1.8;
-  stroke-linecap: round; stroke-linejoin: round;
+  stroke-linecap: round; stroke-linejoin: round; box-sizing: border-box;
 }
-.nav a:has(.nav-ico)::before { display: none; }
+html:not([data-icons="bar"]) .nav a:has(.nav-ico)::before { display: none; }
+html[data-icons="bar"] .nav-ico { display: none; }
 .nav a.active .nav-ico { stroke-width: 2.1; }
+html[data-icons="tile"] .nav-ico { width: 30px; height: 30px; padding: 5px; border-radius: 9px; background: var(--c-tint); stroke: var(--c-deep); }
+html[data-icons="solid"] .nav-ico { width: 30px; height: 30px; padding: 6px; border-radius: 50%; background: var(--c); stroke: #fff; stroke-width: 2; }
+html[data-icons="solid"][data-tone="light"] .nav-ico { stroke: var(--c-deep); }
+html[data-icons="tile"] .nav a, html[data-icons="solid"] .nav a { padding-top: 6px; padding-bottom: 6px; }
 
-/* ---------- ชุดสีพาสเทล ----------
-   สีหลักอ่อนลง: ตัวอักษรบนพื้นสีใช้สีเข้มของเฉดเดียวกันแทนสีขาว เพื่อให้อ่านชัด */
-html[data-theme="pastel"] { --paper: #faf8fe; --line: #ece8f6; }
-html[data-theme="pastel"], html[data-theme="pastel"] body, html[data-theme="pastel"] .nav a, html[data-theme="pastel"] .stat {
+/* ---------- พื้นหลังตามชุดสี + ชุดสีโทนสว่าง (พาสเทล ฯลฯ) ---------- */
+html[data-theme] { --paper: color-mix(in srgb, var(--c) 5%, #fafafc); --line: color-mix(in srgb, var(--c) 12%, #eceaf2); }
+html[data-theme="bright"] { --paper: #f7f6fc; --line: #e6e3f3; }
+html[data-tone="light"], html[data-tone="light"] body, html[data-tone="light"] .nav a, html[data-tone="light"] .stat {
   --c-deep: color-mix(in srgb, var(--c) 46%, #1e1a3a);
   --c-tint: color-mix(in srgb, var(--c) 16%, #ffffff);
   --c-soft: color-mix(in srgb, var(--c) 32%, #ffffff);
   --ico: color-mix(in srgb, var(--c) 78%, #2a2550);
 }
-html[data-theme="pastel"] .sched td.has { color: color-mix(in srgb, var(--c) 28%, #1a1733); }
-html[data-theme="pastel"] .ios-chip[aria-pressed="true"] { background: var(--c-deep); }
-html[data-theme="pastel"] .avatar:not(.photo) { background: linear-gradient(135deg, #a99bf6, #f1a6ca); color: #2a2550; }
-html[data-theme="pastel"] .hero-photo:not(.photo) { background: linear-gradient(135deg, #a99bf6 0%, #f1a6ca 60%, #f2cb72 100%); color: #2a2550; box-shadow: 0 16px 30px -16px rgba(120, 100, 200, .45); }
-html[data-theme="pastel"] .ai-btn, html[data-theme="pastel"] .ai-page-btn { background: linear-gradient(135deg, #8f7cf0, #6fa8ee) !important; }
+html[data-tone="light"] .sched td.has { color: color-mix(in srgb, var(--c) 28%, #1a1733); }
+html[data-tone="light"] .ios-chip[aria-pressed="true"] { background: var(--c-deep); }
+/* รูปโปรไฟล์ตั้งต้นและปุ่ม AI ใช้สีของชุดสี */
+html:not([data-theme="bright"]) .avatar:not(.photo) { background: linear-gradient(135deg, var(--c), var(--brand2)); }
+html:not([data-theme="bright"]) .hero-photo:not(.photo) { background: linear-gradient(135deg, var(--c) 0%, var(--brand2) 60%, var(--brand3) 100%); }
+html[data-tone="light"] .avatar:not(.photo), html[data-tone="light"] .hero-photo:not(.photo) { color: #2a2550; }
+html:not([data-theme="bright"]) .ai-btn, html:not([data-theme="bright"]) .ai-page-btn { background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 50%, #3d7bf1)) !important; }
+html[data-tone="light"] .ai-btn, html[data-tone="light"] .ai-page-btn { color: #1e1a3a !important; }
 
-/* ตัวเลือกชุดสีในหน้าตั้งค่า */
-.theme-pick { display: flex; flex-wrap: wrap; gap: 10px; margin: 6px 0 4px; }
-.theme-opt { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; width: 150px; padding: 10px; border-radius: 14px; box-shadow: inset 0 0 0 1.5px var(--line); }
-.theme-opt[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--c-deep); background: var(--c-tint); }
-.theme-opt .sw { display: flex; height: 26px; border-radius: 8px; overflow: hidden; }
-.theme-opt .sw i { flex: 1; }
-.theme-opt .sw i:first-child { flex: 2; }
-.theme-opt b { font-size: .92rem; }
-.theme-opt small { color: var(--muted); font-size: .78rem; margin-top: -4px; }
+/* ---------- ตั้งค่าเว็บ → ธีมและไอคอน ---------- */
+.tp-wrap { display: grid; gap: 16px; }
+.tp-live .tp { max-width: 560px; }
+.tp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 6px 0 8px; }
+.tp-grid.icons { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.tp-card { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 10px; border-radius: 16px; box-shadow: inset 0 0 0 1.5px var(--line); transition: transform .12s; }
+.tp-card:hover { transform: translateY(-2px); }
+.tp-card:focus-visible { outline: 2px solid var(--c-deep); outline-offset: 2px; }
+.tp-card[aria-pressed="true"] { box-shadow: inset 0 0 0 2.5px var(--c-deep); background: var(--c-tint); }
+.tp-card b { font-size: .92rem; padding: 0 4px; }
+.tp-card small { color: var(--muted); font-size: .78rem; margin-top: -4px; padding: 0 4px; }
+.tp-custom .tp-plus { display: grid; place-items: center; height: 92px; border-radius: 10px; border: 2px dashed var(--line); color: var(--muted); font-size: 2rem; }
+.tp-icon .tp-icons { display: flex; gap: 10px; align-items: center; justify-content: center; padding: 12px 4px; border-radius: 10px; background: var(--paper); min-height: 52px; }
+.tp-editor { margin: 0 0 12px; display: grid; gap: 10px; }
+.tp-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tp-tools select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); }
+/* ตารางเลือกไอคอนในฟอร์มปรับเมนู */
+.icon-pick { padding: 10px 16px 14px; }
+.icon-pick-h { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.icon-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 6px; }
+.icon-pick-grid button { all: unset; cursor: pointer; display: grid; place-items: center; height: 42px; border-radius: 11px; background: var(--paper); }
+.icon-pick-grid button:hover { background: var(--c-tint); }
+.icon-pick-grid button[aria-pressed="true"] { background: color-mix(in srgb, var(--c) 18%, #fff); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 72%, #2a2550); }
+.icon-pick-grid svg { width: 22px; height: 22px; fill: none; stroke: color-mix(in srgb, var(--c) 72%, #2a2550); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.set-row .name { display: flex; align-items: center; gap: 10px; }
+.set-row .name .nav-ico { width: 20px; height: 20px; padding: 0; background: none; stroke: var(--c); }
+.tp-use { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 1px; }
