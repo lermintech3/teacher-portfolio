@@ -192,22 +192,32 @@
       title: "ตารางสอน", max: 60, what: "รูปตารางสอน",
       fields: [
         { key: "day", label: "วัน", options: DAYS }, { key: "period", label: "คาบที่ (นับเฉพาะคาบเรียน ไม่นับพัก)", type: "number" },
-        { key: "subject", label: "วิชา (ใช้รหัสวิชาถ้ามี เช่น ค15101 ถ้าไม่มีใช้ชื่อวิชาสั้น ๆ)" }, { key: "room", label: "ห้อง / ชั้น เช่น ป.5/1" },
+        { key: "subject", label: "ชื่อวิชาหรือกิจกรรม เช่น การงานอาชีพ 6, ชุมนุม, ลูกเสือ (ไม่ต้องใส่รหัส)" },
+        { key: "code", label: "รหัสวิชา ตามที่เขียนในตาราง เช่น ง16101 หรือ ก1 (ไม่ต้องมีวงเล็บ ถ้าไม่มีใส่ \"\")" },
+        { key: "room", label: "ชั้น / ห้องเรียนของนักเรียน เช่น ป.6 หรือ ป.5/1 (ไม่ต้องมีคำว่า ชั้น)" },
+        { key: "place", label: "สถานที่เรียน ถ้าตารางระบุ เช่น COM (ห้องคอมพิวเตอร์) หรือ GYM (โรงพลศึกษา) ไม่ต้องมีคำว่า ห้อง นำหน้า" },
         { key: "time", label: "เวลาของคาบนั้นจากหัวตาราง รูปแบบ 08:30–09:20 (ถ้ามี)" },
       ],
-      hint: `${me() ? `ถ้าเป็นตารางสอนรวมของโรงเรียนหรือของหลายครู ให้เอาเฉพาะคาบของครู ${me()} ` : ""}ถ้าเป็นตารางของครูคนเดียวให้เอาทุกคาบที่มีวิชา ไม่ต้องใส่ช่องว่าง พักกลางวัน โฮมรูม หรือกิจกรรมหน้าเสาธง หนึ่งช่องในตาราง = หนึ่งรายการ ถ้าวิชาเดียวกันต่อเนื่องหลายคาบให้แยกเป็นคาบละรายการ`,
+      header: [
+        { key: "lunchAfter", label: "ถ้าตารางมีคอลัมน์พักกลางวัน/พักเที่ยง คั่นระหว่างคาบ ให้ใส่เลขคาบที่อยู่ก่อนช่องพัก (ไม่มีใส่ null)", type: "number" },
+        { key: "lunchTime", label: "เวลาพักกลางวันจากหัวตาราง รูปแบบ 12:00–13:00 (ถ้ามี)" },
+      ],
+      hint: `${me() ? `ถ้าเป็นตารางสอนรวมของโรงเรียนหรือของหลายครู ให้เอาเฉพาะคาบของครู ${me()} ` : ""}ถ้าเป็นตารางของครูคนเดียวให้เอาทุกคาบที่มีวิชา ไม่ต้องใส่ช่องว่าง ช่องขีด (—) พักกลางวัน โฮมรูม หรือกิจกรรมหน้าเสาธง หนึ่งช่องในตาราง = หนึ่งรายการ ถ้าวิชาเดียวกันต่อเนื่องหลายคาบให้แยกเป็นคาบละรายการ`,
     });
     if (!r) return;
-    const rows = r.rows.filter((x) => x.day && x.period && x.subject).sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.period - b.period);
+    const rows = r.rows.filter((x) => x.day && x.period && (x.subject || x.code)).sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.period - b.period);
     if (!rows.length) return toast("อ่านได้แต่ข้อมูลไม่ครบ (ต้องมีวัน คาบ และวิชา)");
     const s = schedOf();
     const times = {};
     rows.forEach((x) => { if (/^\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}$/.test(x.time || "")) times[x.period] = x.time.replace(/\./g, ":").replace(/\s*[-–]\s*/, "–"); });
     const maxP = Math.max(...rows.map((x) => x.period));
+    const H = r.header || {};
+    const lunch = Number(H.lunchAfter) > 0 && Number(H.lunchAfter) < maxP ? { after: Number(H.lunchAfter), time: /^\d{1,2}[:.]\d{2}\s*[-–]\s*\d{1,2}[:.]\d{2}$/.test(H.lunchTime || "") ? H.lunchTime.replace(/\./g, ":").replace(/\s*[-–]\s*/, "–") : "" } : null;
     openForm(`ตรวจตารางสอนที่ AI อ่านได้ (${rows.length} คาบ)${VIEW_TERM ? ` · ภาคเรียน ${VIEW_TERM}` : ""}`, [
       { key: "mode", label: "วิธีนำเข้า", options: ["ล้างตารางเดิม แล้วใช้ของใหม่", "เพิ่มลงตารางเดิม (ช่องที่ซ้ำจะถูกแทน)"], value: (s.classes || []).length ? "เพิ่มลงตารางเดิม (ช่องที่ซ้ำจะถูกแทน)" : "ล้างตารางเดิม แล้วใช้ของใหม่" },
       ...(Object.keys(times).length ? [{ key: "times", label: `ใช้เวลาคาบตามรูป (${Object.entries(times).map(([p, t]) => `คาบ ${p} ${t}`).slice(0, 3).join(", ")}…)`, type: "check", value: true }] : []),
-      ...rows.map((x, i) => ({ key: `r${i}`, label: `${x.day} คาบ ${x.period} · ${x.subject}${x.room ? ` · ${x.room}` : ""}`, type: "check", value: true })),
+      ...(lunch ? [{ key: "lunch", label: `แสดงช่องพักกลางวันหลังคาบ ${lunch.after}${lunch.time ? ` (${lunch.time})` : ""}`, type: "check", value: true }] : []),
+      ...rows.map((x, i) => ({ key: `r${i}`, label: `${x.day} คาบ ${x.period} · ${App.classText(x)}${x.code && x.subject ? ` [${x.code}]` : ""}`, type: "check", value: true })),
     ], async (f) => {
       const pick = rows.filter((_, i) => f[`r${i}`]);
       if (!pick.length) throw new Error("ยังไม่ได้เลือกคาบ");
@@ -215,9 +225,11 @@
         if (f.mode.startsWith("ล้าง")) sc.classes = [];
         for (let n = sc.periods.length + 1; n <= maxP; n++) sc.periods.push({ no: n, time: times[n] || "" });
         if (f.times) sc.periods.forEach((p) => { if (times[p.no]) p.time = times[p.no]; });
+        if (f.lunch) sc.lunch = lunch;
         for (const x of pick) {
+          const v = { subject: x.subject || "", code: x.code || "", room: x.room || "", place: x.place || "" };
           const hit = sc.classes.find((c) => c.day === x.day && Number(c.period) === x.period);
-          if (hit) { hit.subject = x.subject; hit.room = x.room || ""; } else sc.classes.push({ day: x.day, period: x.period, subject: x.subject, room: x.room || "" });
+          if (hit) Object.assign(hit, v); else sc.classes.push({ day: x.day, period: x.period, ...v });
         }
       });
       toast(`นำเข้า ${pick.length} คาบแล้ว`);
@@ -290,7 +302,7 @@
       <section class="panel"><h2>ใช้ AI ได้ที่ไหนบ้าง</h2><div class="ai-where">
         <div><b>เกียรติบัตร / รางวัล</b><span>เพิ่มรายการ → ✨ AI กรอกให้ → เลือกรูปเกียรติบัตร</span></div>
         <div><b>อบรม / PLC</b><span>เพิ่มรายการ → ✨ AI กรอกให้ → เลือกรูปหรือ PDF วุฒิบัตร</span></div>
-        <div><b>ตารางสอน</b><span>ปุ่ม ✨ นำเข้าจากรูป → เลือกรูปตารางสอน → ติ๊กเลือกคาบ</span></div>
+        <div><b>ตารางสอน</b><span>ปุ่ม ✨ นำเข้าจากรูป → เลือกรูปตารางสอน → ได้ชื่อวิชา รหัส ชั้น สถานที่ และช่องพักเที่ยง → ติ๊กเลือกคาบ</span></div>
         <div><b>คำสั่ง</b><span>ปุ่ม ✨ อ่านคำสั่งด้วย AI → ได้เลขที่ เรื่อง และงานที่มีชื่อคุณ ไม่เก็บไฟล์คำสั่ง</span></div>
         <div><b>โครงการ · นิเทศ · หนังสือราชการ · ประชุม · กิจกรรม · ผลงาน · การลา</b><span>เพิ่มรายการ → ✨ AI กรอกให้</span></div>
         <div><b>หลักฐาน</b><span>✨ แนะนำหมวดจากชื่อ: AI เลือกตัวชี้วัด PA และหัวข้อ SAR ให้</span></div></div></section>`;

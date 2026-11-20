@@ -147,15 +147,16 @@
     if (!s) return [];
     const groups = {};
     for (const c of s.classes || []) {
-      if (!c.subject) continue;
-      const k = `${c.subject}|${room2class(c.room)}`;
-      const g = (groups[k] = groups[k] || { subject: c.subject, cls: room2class(c.room), rooms: new Set(), n: 0 });
+      const ci = App.classInfo(c);
+      if (!ci.name && !ci.code) continue;
+      const k = `${ci.code}|${ci.name}|${room2class(c.room)}`;
+      const g = (groups[k] = groups[k] || { code: ci.code, name: ci.name, cls: room2class(c.room), rooms: new Set(), n: 0 });
       if (c.room) g.rooms.add(c.room);
       g.n++;
     }
     return Object.values(groups).map((g) => {
       const rooms = Math.max(1, g.rooms.size);
-      return [isCode(g.subject) ? g.subject : "", isCode(g.subject) ? "" : g.subject, g.cls, String(rooms), String(Math.round((g.n / rooms) * 10) / 10)];
+      return [g.code, g.name, g.cls, String(rooms), String(Math.round((g.n / rooms) * 10) / 10)];
     });
   };
   const TABLES = {
@@ -177,7 +178,13 @@
       auto: () => {
         const g = {};
         for (const p of L("plans").filter((x) => !x.type || x.type === "แผนการสอน")) g[p.subject] = (g[p.subject] || 0) + 1;
-        return Object.entries(g).map(([s, n]) => [isCode(s) ? s : "", isCode(s) ? "" : s, "", String(n)]);
+        // รหัสวิชา → ชื่อวิชาและชั้น จากตารางสอน (ทุกภาคเรียน)
+        const sc = App.DATA.schedule || {};
+        const known = [sc, ...Object.values(sc.terms || {})].flatMap((t) => (t.classes || []).map(App.classInfo)).filter((c) => c.code);
+        return Object.entries(g).map(([s, n]) => {
+          const k = isCode(s) && known.find((c) => c.code === s);
+          return [isCode(s) ? s : "", isCode(s) ? k?.name || "" : s, k ? room2class(k.room) : "", String(n)];
+        });
       } },
     media: { title: "ผลิตสื่อ / นวัตกรรม", cols: ["ชื่อสื่อ/นวัตกรรม/เทคโนโลยี", "จำนวน ชั่วโมง/คาบเรียน"], autoNote: "เมนูแผนการสอนและสื่อ และผลงาน",
       auto: () => [
