@@ -387,6 +387,31 @@ App.pages.responsibilities = ({ q }) => {
       : empty());
 };
 
+// คาบสอน: { day, period, subject: ชื่อวิชา, code: รหัสวิชา, room: ชั้น/ห้องเรียน, place: สถานที่เรียน }
+// ข้อมูลเก่าเก็บรหัสไว้ในช่อง subject → แยกให้ตอนแสดง (ไม่ต้องแก้ข้อมูลเดิม)
+const SUBJ_CODE = /^[ก-ฮ]\d{5}$/;
+App.classInfo = (c = {}) => {
+  const raw = String(c.subject || "").trim();
+  const code = String(c.code || "").trim() || (SUBJ_CODE.test(raw) ? raw : "");
+  const name = raw === code ? "" : raw;
+  return { name, code, room: String(c.room || "").trim(), place: String(c.place || "").trim(), title: name || code || "-" };
+};
+App.classHtml = (c) => {
+  const i = App.classInfo(c);
+  return `<b>${esc(i.title)}</b>${i.code && i.name ? `<small class="sc-code">[${esc(i.code)}]</small>` : ""}${i.room ? `<span class="sc-room">${/^ชั้น/.test(i.room) ? "" : "ชั้น "}${esc(i.room)}</span>` : ""}${i.place ? `<i class="sc-place">${/^ห้อง/.test(i.place) ? "" : "ห้อง "}${esc(i.place)}</i>` : ""}`;
+};
+App.classText = (c) => { const i = App.classInfo(c); return [i.title, i.room, i.place].filter(Boolean).join(" · "); };
+// คอลัมน์พักกลางวัน: s.lunch = { after: เลขคาบ, time }
+App.lunchOf = (s) => { const l = s?.lunch; return l && Number(l.after) ? { after: Number(l.after), time: String(l.time || "") } : null; };
+App.schedCols = (s, th, td) => {
+  const l = App.lunchOf(s);
+  return (s.periods || []).flatMap((p) => {
+    const out = [th ? th(p) : td(p)];
+    if (l && Number(p.no) === l.after) out.push(th ? `<th class="lunch">🍱 พักเที่ยง${l.time ? `<small>${esc(l.time)}</small>` : ""}</th>` : `<td class="lunch">พักกลางวัน</td>`);
+    return out;
+  }).join("");
+};
+
 App.scheduleTable = () => {
   const s = App.DATA.schedule || {};
   const periods = s.periods || [];
@@ -394,11 +419,11 @@ App.scheduleTable = () => {
   if (!periods.length) return empty();
   const cell = (day, no) => {
     const c = classes.filter((x) => x.day === day && Number(x.period) === no);
-    return c.length ? `<td class="has">${c.map((x) => `<b>${esc(x.subject)}</b>${esc(x.room)}`).join("<br>")}</td>` : "<td></td>";
+    return c.length ? `<td class="has">${c.map(App.classHtml).join("<hr>")}</td>` : "<td></td>";
   };
   return `<div class="table-wrap"><table class="sched">
-      <thead><tr><th>วัน</th>${periods.map((p) => `<th>คาบ ${esc(p.no)}<small>${esc(p.time)}</small></th>`).join("")}</tr></thead>
-      <tbody>${DAYS.map((d) => `<tr><th>${d}</th>${periods.map((p) => cell(d, Number(p.no))).join("")}</tr>`).join("")}</tbody>
+      <thead><tr><th>วัน / คาบ</th>${App.schedCols(s, (p) => `<th>คาบ ${esc(p.no)}<small>${esc(p.time)}</small></th>`)}</tr></thead>
+      <tbody>${DAYS.map((d) => `<tr><th>${d}</th>${App.schedCols(s, null, (p) => cell(d, Number(p.no)))}</tr>`).join("")}</tbody>
     </table></div>`;
 };
 
