@@ -37,7 +37,8 @@ functions/api/          ← API (Cloudflare Pages Functions)
   admin/kv/[key].js     PUT ค่าเดี่ยว (profile schedule grades attendance attendanceDates sarNotes settings)
   admin/import.js       POST นำเข้า (?replace=1 แทนที่ทั้งหมด)
   admin/export.js       GET  ดาวน์โหลดไฟล์สำรอง
-  admin/drive/          upload / list / delete / status — ส่งต่อไป Google Apps Script
+  admin/drive/          upload / list / delete / status — ส่งต่อไป Google Apps Script (ที่เก็บหลักของครู หรือ ?loc=)
+  admin/storage/        ที่เก็บไฟล์ของครูแต่ละคน: เพิ่ม/ทดสอบ/ตั้งที่หลัก/เลิกใช้ และ migrate (ย้ายไฟล์ + แก้ลิงก์)
 google-apps-script/Code.gs  ← ตัวรับไฟล์ลง Google Drive (ครูติดตั้งเองใน script.google.com)
 src/server.js           ← โค้ดฝั่งเซิร์ฟเวอร์ที่ใช้ร่วมกัน (สร้างตารางอัตโนมัติ, ล็อกอิน, กันเดารหัส)
 ```
@@ -49,7 +50,7 @@ src/server.js           ← โค้ดฝั่งเซิร์ฟเวอ�
 3. โปรเจกต์ → Settings → Bindings → D1 database ชื่อตัวแปร `DB` → `teacher-db`
 4. โปรเจกต์ → Settings → Variables and Secrets → Secret: `ADMIN_PASSWORD` (เฉลิมพล) และ `PASSWORD_WARAPORN` (วราภรณ์) ต้องไม่ซ้ำกัน
 
-5. (ไฟล์) `DRIVE_SCRIPT_URL` และ Secret `DRIVE_SECRET` ดูคู่มือหัวข้อ 5
+5. (ไฟล์ ไม่บังคับ) ที่เก็บกลาง `DRIVE_SCRIPT_URL` และ Secret `DRIVE_SECRET` ดูคู่มือหัวข้อ 5 · ครูแต่ละคนเพิ่ม Google Drive ของตัวเองได้ในหน้าเว็บ (หน้าไฟล์ → ที่เก็บไฟล์)
 6. (AI ผู้ช่วย ไม่บังคับ) Secret `AI_SECRET` ข้อความสุ่มยาว 16 ตัวขึ้นไป ใช้เข้ารหัส API key ที่ครูใส่เอง ดูคู่มือหัวข้อ 5.3
 
 ตารางในฐานข้อมูลสร้างเองอัตโนมัติตอนเรียก API ครั้งแรก ไม่ต้องรัน SQL ฐานข้อมูลรุ่นแรก (ก่อนแยกสองคน) ย้ายเองอัตโนมัติ ข้อมูลเดิมเป็นของคนแรก

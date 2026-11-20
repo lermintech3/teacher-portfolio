@@ -924,3 +924,41 @@ table.sched.cute { border-spacing: 6px; min-width: 820px; table-layout: fixed; }
 .du-top b { color: var(--ink); font-weight: 600; }
 .du-mine { margin-top: 8px; } .du-mine b { font-family: var(--display); font-size: 1.6rem; }
 .du-hint { margin: 10px 0 0; font-size: .8rem; }
+
+/* ---------- ที่เก็บไฟล์ (หลายที่ต่อครู) ---------- */
+.st-locs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-top: 12px; }
+.st-loc { border-radius: 16px; padding: 14px 16px; box-shadow: inset 0 0 0 1px var(--line); background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.st-loc.is-primary { box-shadow: inset 0 0 0 2px var(--c, #6c4cf1); background: color-mix(in srgb, var(--c, #6c4cf1) 5%, var(--surface)); }
+.st-loc.is-full { box-shadow: inset 0 0 0 2px #e5484d; }
+.st-top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.st-top b { font-family: var(--display); font-size: 1.05rem; margin-right: 4px; }
+.st-url { font-size: .8rem; word-break: break-all; }
+.st-usage { display: grid; gap: 4px; }
+.st-bar { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ink, #222) 8%, transparent); overflow: hidden; }
+.st-bar.big { height: 12px; margin: 6px 0; }
+.st-bar i { display: block; height: 100%; border-radius: inherit; background: #1f9d61; transition: width .4s ease; }
+.st-bar.warn i { background: #e08a00; }
+.st-bar.bad i { background: #e5484d; }
+.st-err { color: #c62828; font-size: .88rem; margin: 0; }
+.st-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+.st-add summary, .st-mig summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.st-add summary b, .st-mig summary b { font-family: var(--display); color: var(--c-deep); }
+.st-guide { margin: 12px 0; padding: 10px 14px; border-radius: 12px; background: var(--c-tint); }
+.st-guide summary { cursor: pointer; font-weight: 600; }
+.st-guide .steps { margin-top: 10px; }
+.st-form { display: grid; gap: 10px; max-width: 560px; }
+.st-form .check { display: flex; gap: 8px; align-items: center; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.st-msg { margin: 0; min-height: 1.2em; font-size: .9rem; }
+.st-msg.err { color: #c62828; }
+.st-mig-sel { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-top: 12px; }
+.st-mig-sel .field { flex: 1 1 180px; }
+.st-arrow { font-size: 1.4rem; padding-bottom: 10px; color: var(--muted); }
+.st-mig-box { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--c-tint); }
+.st-skip { margin-top: 8px; }
+.st-skip summary { cursor: pointer; }
+.st-skip ul { margin: 6px 0 0; padding-left: 20px; font-size: .9rem; }
+.st-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.st-tabs button { border: 0; border-radius: 99px; padding: 8px 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font: inherit; cursor: pointer; }
+.st-tabs button.on { background: var(--c, #6c4cf1); color: #fff; box-shadow: none; }
+@media (max-width: 600px) { .st-arrow { display: none; } }

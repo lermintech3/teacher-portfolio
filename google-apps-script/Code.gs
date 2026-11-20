@@ -1,21 +1,31 @@
 /**
  * แฟ้มสะสมผลงานครู — ตัวรับไฟล์ลง Google Drive
  *
- * วิธีติดตั้ง (ทำครั้งเดียว ดูรายละเอียดใน docs/คู่มือการใช้งาน.md หัวข้อ Google Drive)
- * 1. script.google.com → New project → วางโค้ดทั้งไฟล์นี้แทนของเดิม → บันทึก
- * 2. Project Settings → Script Properties → Add property
- *      SECRET = รหัสลับยาวๆ (ตัวเดียวกับ DRIVE_SECRET ใน Cloudflare)
- * 3. Deploy → New deployment → ชนิด Web app
- *      Execute as: Me   |   Who has access: Anyone
- *    → Authorize access (อนุญาตให้เข้าถึง Drive) → คัดลอก Web app URL
- * 4. ใส่ Web app URL ใน Cloudflare ชื่อ DRIVE_SCRIPT_URL แล้ว deploy เว็บใหม่
+ * วิธีติดตั้ง (ทำครั้งเดียว ประมาณ 10 นาที ดูภาพประกอบใน docs/คู่มือการใช้งาน.md หัวข้อ "ที่เก็บไฟล์")
+ * 1. script.google.com → โครงการใหม่ → ลบโค้ดเดิม วางโค้ดทั้งไฟล์นี้ → บันทึก → ตั้งชื่อโครงการ เช่น "แฟ้มผลงานครู - Drive"
+ * 2. การตั้งค่าโครงการ (⚙️) → พร็อพเพอร์ตี้ของสคริปต์ → เพิ่ม
+ *      SECRET = รหัสลับยาวๆ ที่คิดเอง (อย่างน้อย 8 ตัว)
+ * 3. การทำให้ใช้งานได้ → การทำให้ใช้งานได้รายการใหม่ → ประเภท: เว็บแอป
+ *      ดำเนินการในฐานะ: ฉัน   |   ผู้ที่มีสิทธิ์เข้าถึง: ทุกคน
+ *    → ให้สิทธิ์เข้าถึง Drive → คัดลอก URL ของเว็บแอป
+ * 4. ในเว็บแฟ้มผลงาน: หน้าครู → ไฟล์ใน Google Drive → ที่เก็บไฟล์ → เพิ่มที่เก็บ
+ *      วาง URL ของเว็บแอป และรหัสลับจากข้อ 2
+ *
+ * ไฟล์จะอยู่ในโฟลเดอร์ "แฟ้มสะสมผลงานครู" ในไดรฟ์ของคุณ (สร้างให้เอง) แยกโฟลเดอร์ตามชื่อครูและหมวดงาน
+ * อยากใช้โฟลเดอร์อื่น: เพิ่มพร็อพเพอร์ตี้ ROOT_FOLDER_ID = รหัสโฟลเดอร์ (จากลิงก์ drive.google.com/drive/folders/<รหัส>)
+ *
+ * แก้โค้ดภายหลัง: บันทึก → การทำให้ใช้งานได้ → จัดการการทำให้ใช้งานได้ → ✏️ → เวอร์ชัน: เวอร์ชันใหม่ → ทำให้ใช้งานได้
+ * (อย่าสร้าง "รายการใหม่" ซ้ำ เพราะจะได้ URL ใหม่)
  *
  * สคริปต์นี้ทำงานในนามเจ้าของบัญชี จึงไม่ต้องแชร์โฟลเดอร์ให้ใคร
  * เว็บเรียกสคริปต์นี้ผ่าน Cloudflare เท่านั้น (ต้องมี SECRET ถูกต้อง)
  */
 
-// โฟลเดอร์หลัก (จากลิงก์ drive.google.com/drive/folders/<ID>)
+// โฟลเดอร์หลัก: ใช้พร็อพเพอร์ตี้ ROOT_FOLDER_ID ถ้ามี ถ้าไม่มีลองค่านี้ (ของเว็บต้นฉบับ)
+// ถ้าเปิดไม่ได้ (เช่น ติดตั้งในบัญชีอื่น) จะสร้างโฟลเดอร์ "แฟ้มสะสมผลงานครู" ในไดรฟ์ให้เองแล้วจำไว้
 var ROOT_FOLDER_ID = '1bnLe62mvOmopg8mYMEl13vHlKNwd35GL';
+var ROOT_NAME = 'แฟ้มสะสมผลงานครู';
+var SCRIPT_VERSION = 2; // 2 = รองรับหลายที่เก็บ ย้ายไฟล์ (files/raw) และบอกพื้นที่ตอน ping
 var MAX_LIST = 300;
 
 function doPost(e) { return handle_(e); }
@@ -26,7 +36,9 @@ function handle_(e) {
   var secret = PropertiesService.getScriptProperties().getProperty('SECRET');
   if (!secret || p.secret !== secret) return out_({ error: 'รหัสลับไม่ถูกต้อง (SECRET ใน Apps Script กับ DRIVE_SECRET ใน Cloudflare ต้องตรงกัน)' });
   try {
-    if (p.action === 'ping') return out_({ ok: true, root: DriveApp.getFolderById(ROOT_FOLDER_ID).getName() });
+    if (p.action === 'ping') return out_(ping_());
+    if (p.action === 'files') return out_(files_(param_(p, 'person')));
+    if (p.action === 'raw') return raw_(param_(p, 'person'), p.id);
     if (p.action === 'upload') return out_(upload_(p, e.postData ? e.postData.contents : ''));
     if (p.action === 'list') return out_(list_(param_(p, 'person')));
     if (p.action === 'delete') return out_(remove_(param_(p, 'person'), p.id));
@@ -46,9 +58,69 @@ function child_(parent, name) {
   return it.hasNext() ? it.next() : parent.createFolder(name);
 }
 
+function root_() {
+  var props = PropertiesService.getScriptProperties();
+  var ids = [props.getProperty('ROOT_FOLDER_ID'), ROOT_FOLDER_ID];
+  for (var i = 0; i < ids.length; i++) {
+    if (!ids[i]) continue;
+    try { var f = DriveApp.getFolderById(ids[i]); if (!f.isTrashed()) return f; } catch (err) { /* ไม่มีสิทธิ์/ไม่มีโฟลเดอร์นี้ ลองตัวถัดไป */ }
+  }
+  var it = DriveApp.getRootFolder().getFoldersByName(ROOT_NAME);
+  var made = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder(ROOT_NAME);
+  props.setProperty('ROOT_FOLDER_ID', made.getId());
+  return made;
+}
+
 function personFolder_(person) {
   if (!person) throw new Error('ไม่ระบุเจ้าของไฟล์');
-  return child_(DriveApp.getFolderById(ROOT_FOLDER_ID), person);
+  return child_(root_(), person);
+}
+
+function ping_() {
+  var r = { ok: true, root: root_().getName(), version: SCRIPT_VERSION };
+  try { r.used = DriveApp.getStorageUsed(); r.limit = DriveApp.getStorageLimit(); } catch (err) { /* บางบัญชีอ่านไม่ได้ */ }
+  return r;
+}
+
+// ไฟล์นี้อยู่ในโฟลเดอร์ของครูคนนี้ไหม (ในโฟลเดอร์ครู หรือโฟลเดอร์หมวดข้างใน)
+function owns_(root, file) {
+  var parents = file.getParents();
+  while (parents.hasNext()) {
+    var parent = parents.next();
+    if (parent.getId() === root.getId()) return parent;
+    var up = parent.getParents();
+    if (up.hasNext() && up.next().getId() === root.getId()) return parent;
+  }
+  return null;
+}
+
+// รายการไฟล์ทั้งหมดของครูคนนี้ (ใช้ตอนย้ายที่เก็บ) ไม่จำกัด 300 แต่ไม่เกิน 3000
+function files_(person) {
+  var root = personFolder_(person), out = [], n = 0;
+  var add = function (file, folderName) {
+    var mime = file.getMimeType();
+    out.push({ id: file.getId(), name: file.getName(), mime: mime, size: file.getSize(), folder: folderName,
+      native: mime.indexOf('application/vnd.google-apps') === 0 });
+    n++;
+  };
+  var folders = root.getFolders();
+  while (folders.hasNext() && n < 3000) {
+    var f = folders.next(), it = f.getFiles();
+    while (it.hasNext() && n < 3000) add(it.next(), f.getName());
+  }
+  var loose = root.getFiles();
+  while (loose.hasNext() && n < 3000) add(loose.next(), 'อื่นๆ');
+  return { ok: true, files: out, truncated: n >= 3000 };
+}
+
+// เนื้อไฟล์แบบ base64 (ข้อความล้วน) ให้เว็บส่งต่อไปที่เก็บใหม่ เฉพาะไฟล์ในโฟลเดอร์ของครูคนนั้น
+function raw_(person, id) {
+  if (!/^[\w-]{10,}$/.test(id || '')) return out_({ error: 'รหัสไฟล์ไม่ถูกต้อง' });
+  var root = personFolder_(person);
+  var file = DriveApp.getFileById(id);
+  if (!owns_(root, file)) return out_({ error: 'ย้ายได้เฉพาะไฟล์ในโฟลเดอร์ของตัวเอง' });
+  if (file.getMimeType().indexOf('application/vnd.google-apps') === 0) return out_({ error: 'ไฟล์ Google Docs/Sheets/Slides ย้ายแบบนี้ไม่ได้ ใช้ลิงก์เดิมต่อได้' });
+  return ContentService.createTextOutput(Utilities.base64Encode(file.getBlob().getBytes())).setMimeType(ContentService.MimeType.TEXT);
 }
 
 function upload_(p, base64) {
@@ -81,7 +153,7 @@ function info_(file, folder) {
 
 function list_(person) {
   var repaired = 0;
-  try { repaired = repair_(DriveApp.getFolderById(ROOT_FOLDER_ID), person); } catch (err) { /* ซ่อมไม่ได้ก็แสดงรายการตามปกติ */ }
+  try { repaired = repair_(root_(), person); } catch (err) { /* ซ่อมไม่ได้ก็แสดงรายการตามปกติ */ }
   var root = personFolder_(person);
   var result = { ok: true, url: root.getUrl(), folders: [], repaired: repaired };
   var count = 0;
@@ -119,18 +191,10 @@ function usage_(root) {
 
 // ย้ายไฟล์ไปถังขยะ (กู้คืนได้ใน Drive 30 วัน) เฉพาะไฟล์ในโฟลเดอร์ของคนนั้น
 function remove_(person, id) {
-  var root = personFolder_(person);
   var file = DriveApp.getFileById(id);
-  var parents = file.getParents();
-  while (parents.hasNext()) {
-    var parent = parents.next();
-    var up = parent.getParents();
-    if (parent.getId() === root.getId() || (up.hasNext() && up.next().getId() === root.getId())) {
-      file.setTrashed(true);
-      return { ok: true };
-    }
-  }
-  throw new Error('ลบได้เฉพาะไฟล์ในโฟลเดอร์ของตัวเอง');
+  if (!owns_(personFolder_(person), file)) throw new Error('ลบได้เฉพาะไฟล์ในโฟลเดอร์ของตัวเอง');
+  file.setTrashed(true);
+  return { ok: true };
 }
 
 // ---------- แก้ชื่อภาษาไทยเพี้ยน ----------
