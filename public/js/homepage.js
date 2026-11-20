@@ -1,10 +1,13 @@
 // หน้าแรกแบบบล็อก: ครูเลือกบล็อก เรียงลำดับ (ลากวาง) ซ่อน/แสดง และเลือกความกว้างได้เอง
-// เก็บใน settings.home.blocks = [{ id, on, w: "full"|"half", ...ตัวเลือกของบล็อก }]  แยกตามครูแต่ละคน
+// เก็บใน settings.home.blocks = [{ id, uid, on, w: "full"|"half"|"third", title?, bg?, ...ตัวเลือก/เนื้อหาของบล็อก }]  แยกตามครูแต่ละคน
+// id = ชนิดบล็อก, uid = บล็อกแต่ละอัน (ชนิดเดียวกันมีหลายอันได้ บล็อกอิสระ เช่น ข้อความ รูป เพิ่มได้ไม่จำกัด)
 // โหลดหลัง features.js
 
 const LEVEL_ORDER = { "ประเทศ": 5, "ภาค": 4, "จังหวัด": 3, "เขตพื้นที่": 2, "โรงเรียน": 1 };
 const more = (route, label = "ดูทั้งหมด") => `<a class="hb-more" href="#/${route}">${label}</a>`;
 const hbHead = (title, route) => `<div class="hb-head"><h2>${title}</h2>${route ? more(route) : ""}</div>`;
+// หัวข้อบล็อก: ครูตั้งชื่อเองได้ ถ้าไม่ตั้งใช้ชื่อเดิม
+const ttl = (o, id) => esc(String(o.title || "").trim() || HB[id].head);
 const STAR = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z"/></svg>`;
 
 // ---------- บล็อกทั้งหมด ----------
@@ -25,8 +28,8 @@ const HB = {
     },
   },
   quote: {
-    label: "ปรัชญาการสอน", w: "full", empty: "ยังไม่ได้เขียนปรัชญาการสอน ใส่ได้ที่เมนู \"โปรไฟล์\"",
-    render: () => { const t = App.DATA.profile?.philosophy; return t ? `<blockquote class="quote"><b>ปรัชญาการสอน</b>${esc(t)}</blockquote>` : ""; },
+    label: "ปรัชญาการสอน", head: "ปรัชญาการสอน", w: "full", empty: "ยังไม่ได้เขียนปรัชญาการสอน ใส่ได้ที่เมนู \"โปรไฟล์\"",
+    render: (o) => { const t = App.DATA.profile?.philosophy; return t ? `<blockquote class="quote"><b>${ttl(o, "quote")}</b>${esc(t)}</blockquote>` : ""; },
   },
   stats: {
     label: "ตัวเลขผลงาน", w: "full",
@@ -48,7 +51,7 @@ const HB = {
     render: () => App.slideshowHTML(),
   },
   featured: {
-    label: "ผลงานและเกียรติบัตรเด่น", w: "full", empty: "ยังไม่มีผลงานหรือเกียรติบัตรที่เป็นสาธารณะ",
+    label: "ผลงานและเกียรติบัตรเด่น", head: "ผลงานและเกียรติบัตรเด่น", w: "full", empty: "ยังไม่มีผลงานหรือเกียรติบัตรที่เป็นสาธารณะ",
     opts: [{ key: "n", label: "จำนวน", choices: [3, 4, 6], def: 4 }, { key: "pick", type: "pick" }],
     render: (o) => {
       const all = featuredPool();
@@ -56,7 +59,7 @@ const HB = {
       const auto = all.filter((x) => !picked.includes(x)).sort((a, b) => b.rank - a.rank || String(b.date || "").localeCompare(String(a.date || "")));
       const items = [...picked, ...auto].slice(0, o.n || 4);
       if (!items.length) return "";
-      return hbHead("ผลงานและเกียรติบัตรเด่น") + `<div class="feat-grid">${items.map((x) => {
+      return hbHead(ttl(o, "featured")) + `<div class="feat-grid">${items.map((x) => {
         const img = safeUrl(x.img);
         return `<article class="feat" style="--c:${x.c}">
           ${x.k[0] === "w" ? App.docCover({ link: x.link, tag: x.tag, title: x.title, sub: x.sub, desc: x.desc, cls: "feat-img doc" }) : img ? `<button class="feat-img" data-img="${esc(img)}" data-cap="${esc(x.title)}" style="background-image:url('${esc(img)}')" aria-label="ดูภาพ ${esc(x.title)}"></button>` : `<a class="feat-img none" href="#/${x.route}" aria-hidden="true" tabindex="-1">${x.icon}</a>`}
@@ -66,12 +69,12 @@ const HB = {
     },
   },
   albums: {
-    label: "อัลบั้มภาพล่าสุด", w: "full", empty: "ยังไม่มีอัลบั้มที่เป็นสาธารณะ",
+    label: "อัลบั้มภาพล่าสุด", head: "อัลบั้มภาพกิจกรรม", w: "full", empty: "ยังไม่มีอัลบั้มที่เป็นสาธารณะ",
     opts: [{ key: "n", label: "จำนวน", choices: [3, 4, 6], def: 3 }],
     render: (o) => {
       const al = [...list("albums")].filter((a) => (a.photos || []).length).sort(byDateDesc).slice(0, o.n || 3);
       if (!al.length) return "";
-      return hbHead("อัลบั้มภาพกิจกรรม", "albums") + `<div class="album-grid hb-albums">${al.map((a) => {
+      return hbHead(ttl(o, "albums"), "albums") + `<div class="album-grid hb-albums">${al.map((a) => {
         const c = a.photos[0];
         return `<article class="album"><a href="#/albums?id=${a.id}" class="album-cover"><img src="${esc(c.img || c.url)}" alt="" loading="lazy"><span class="album-count">${a.photos.length} รูป</span></a>
           <div class="album-body"><h3><a href="#/albums?id=${a.id}">${esc(a.title)}</a></h3><div class="meta">${thDate(a.date)}</div></div></article>`;
@@ -79,30 +82,30 @@ const HB = {
     },
   },
   facebook: {
-    label: "กิจกรรมจาก Facebook ล่าสุด", w: "full", empty: "ยังไม่มีโพสต์ Facebook ที่เป็นสาธารณะ",
+    label: "กิจกรรมจาก Facebook ล่าสุด", head: "กิจกรรมจาก Facebook", w: "full", empty: "ยังไม่มีโพสต์ Facebook ที่เป็นสาธารณะ",
     opts: [{ key: "n", label: "จำนวนโพสต์", choices: [1, 2, 3], def: 3 }],
     render: (o) => {
       const posts = [...list("fbposts")].filter((p) => fbUrlOk(p.url)).sort(byDateDesc).slice(0, o.n || 3);
       if (!posts.length) return "";
-      return hbHead("กิจกรรมจาก Facebook", "facebook") + `<div class="fb-strip" data-fb-lazy>${posts.map((p) => `<article class="fb-card">
+      return hbHead(ttl(o, "facebook"), "facebook") + `<div class="fb-strip" data-fb-lazy>${posts.map((p) => `<article class="fb-card">
         ${p.title ? `<div class="fb-head"><h3>${esc(p.title)}</h3><span class="meta">${thDate(p.date)}</span></div>` : ""}
         <div class="${fbKind(p.url)}" data-href="${esc(p.url)}" data-width="350" data-show-text="true"></div><p class="fb-wait meta">กำลังโหลดโพสต์…</p></article>`).join("")}</div>`;
     },
   },
   video: {
-    label: "วิดีโอการสอนแนะนำ", w: "half", on: false, empty: "ยังไม่มีวิดีโอที่เป็นสาธารณะ",
+    label: "วิดีโอการสอนแนะนำ", head: "วิดีโอการสอน", w: "half", on: false, empty: "ยังไม่มีวิดีโอที่เป็นสาธารณะ",
     opts: [{ key: "vid", type: "video" }],
     render: (o) => {
       const vs = [...list("videos")].sort(byDateDesc);
       const v = vs.find((x) => String(x.id) === String(o.vid)) || vs[0];
       const id = v && ytId(v.url);
       if (!id) return "";
-      return hbHead("วิดีโอการสอน", "videos") + `<article class="card video hb-video"><button class="yt" data-act="playYT" data-id="${id}" aria-label="เล่นวิดีโอ ${esc(v.title)}"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy"><span class="yt-play" aria-hidden="true"></span></button>
+      return hbHead(ttl(o, "video"), "videos") + `<article class="card video hb-video"><button class="yt" data-act="playYT" data-id="${id}" aria-label="เล่นวิดีโอ ${esc(v.title)}"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy"><span class="yt-play" aria-hidden="true"></span></button>
         <div class="video-body">${v.type ? `<span class="tag">${esc(v.type)}</span>` : ""}<h3>${esc(v.title)}</h3><div class="meta">${thDate(v.date)}</div></div></article>`;
     },
   },
   timeline: {
-    label: "ความเคลื่อนไหวล่าสุด", w: "half", empty: "ยังไม่มีรายการที่มีวันที่",
+    label: "ความเคลื่อนไหวล่าสุด", head: "ความเคลื่อนไหวล่าสุด", w: "half", empty: "ยังไม่มีรายการที่มีวันที่",
     opts: [{ key: "n", label: "จำนวน", choices: [5, 8, 12], def: 5 }],
     render: (o) => {
       const ev = [
@@ -113,18 +116,18 @@ const HB = {
         ...list("fbposts").filter((x) => x.title).map((x) => ({ d: x.date, t: x.title, r: "facebook", c: C.sky })),
       ].filter((x) => x.d).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, o.n || 5);
       if (!ev.length) return "";
-      return hbHead("ความเคลื่อนไหวล่าสุด") + `<ol class="tl">${ev.map((x) => `<li style="--c:${x.c}"><a href="#/${x.r}"><span class="meta">${thDate(x.d)}</span>${esc(x.t)}</a></li>`).join("")}</ol>`;
+      return hbHead(ttl(o, "timeline")) + `<ol class="tl">${ev.map((x) => `<li style="--c:${x.c}"><a href="#/${x.r}"><span class="meta">${thDate(x.d)}</span>${esc(x.t)}</a></li>`).join("")}</ol>`;
     },
   },
   survey: {
-    label: "ความพึงพอใจต่อการสอน", w: "half", empty: "ยังไม่มีแบบประเมินที่เปิดรับคำตอบ สร้างได้ที่เมนู \"แบบประเมินความพึงพอใจ\"",
-    render: () => {
+    label: "ความพึงพอใจต่อการสอน", head: "ความพึงพอใจต่อการสอน", w: "half", empty: "ยังไม่มีแบบประเมินที่เปิดรับคำตอบ สร้างได้ที่เมนู \"แบบประเมินความพึงพอใจ\"",
+    render: (o) => {
       const ss = App.DATA._surveys || [];
       const s = [...ss].sort((a, b) => b.counted - a.counted)[0];
       if (!s) return "";
       const url = `${location.origin}/${SITE}/#/survey?id=${s.id}`;
       const pct = (s.overall / 5) * 100;
-      return hbHead("ความพึงพอใจต่อการสอน") + `<div class="card sat">
+      return hbHead(ttl(o, "survey")) + `<div class="card sat">
         <div class="sat-score">${s.counted ? `<b>${s.overall.toFixed(2)}</b><span class="sat-stars" style="--p:${pct}%" role="img" aria-label="${s.overall.toFixed(2)} จาก 5 ดาว">${STAR.repeat(5)}<i>${STAR.repeat(5)}</i></span>
           <span class="meta">จากผู้ประเมิน ${s.counted.toLocaleString("th-TH")} คน${s.target ? ` (${esc(s.target)})` : ""}</span>` : `<span class="meta">ยังไม่มีผู้ประเมิน มาเป็นคนแรกได้เลย</span>`}
           <a class="btn small" href="#/survey?id=${s.id}">ร่วมประเมินการสอน</a></div>
@@ -136,17 +139,121 @@ const HB = {
     render: () => App.badgesHTML(true),
   },
   about: {
-    label: "ประวัติการศึกษาและการติดต่อ", w: "full", empty: "ยังไม่ได้ใส่ประวัติการศึกษาหรืออีเมลติดต่อ ใส่ได้ที่เมนู \"โปรไฟล์\"",
-    render: () => {
+    label: "ประวัติการศึกษาและการติดต่อ", head: "ประวัติการศึกษา", w: "full", empty: "ยังไม่ได้ใส่ประวัติการศึกษาหรืออีเมลติดต่อ ใส่ได้ที่เมนู \"โปรไฟล์\"",
+    render: (o) => {
       const p = App.DATA.profile || {};
       const ed = p.education || [];
       if (!ed.length && !p.contactEmail) return "";
-      return (ed.length ? `${hbHead("ประวัติการศึกษา")}<div class="stack">${ed.map((e) => `
+      return (ed.length ? `${hbHead(ttl(o, "about"))}<div class="stack">${ed.map((e) => `
         <div class="card item"><div class="item-body"><h3>${esc(e.degree)}</h3><div class="meta">${esc(e.institution)}</div></div><div class="item-side meta">${esc(e.year)}</div></div>`).join("")}</div>` : "") +
         (p.contactEmail ? `<p class="meta hb-contact">ติดต่อ: <a href="mailto:${esc(p.contactEmail)}">${esc(p.contactEmail)}</a></p>` : "");
     },
   },
+
+  // ---------- บล็อกอิสระ: ครูเพิ่มเอง ใส่ซ้ำได้หลายอัน (custom: true) ----------
+  text: {
+    label: "ข้อความ", custom: true, icon: "¶", w: "full", empty: "ยังไม่ได้เขียนข้อความ กด \"แก้เนื้อหา\"",
+    form: [
+      { key: "title", label: "หัวข้อ", hint: "เว้นว่างได้" },
+      { key: "body", label: "ข้อความ", type: "textarea", hint: "เว้นบรรทัดว่างเพื่อขึ้นย่อหน้าใหม่ ใส่ **คำ** เพื่อทำตัวหนา ลิงก์ที่ขึ้นต้นด้วย https:// กดได้อัตโนมัติ" },
+      { key: "align", label: "จัดข้อความ", options: ["ชิดซ้าย", "กึ่งกลาง"] },
+    ],
+    render: (o) => {
+      if (!o.title && !o.body) return "";
+      return `<div class="hb-text ${o.align === "กึ่งกลาง" ? "center" : ""}">${o.title ? `<h2>${esc(o.title)}</h2>` : ""}${richText(o.body)}</div>`;
+    },
+  },
+  image: {
+    label: "รูปภาพ", custom: true, icon: "▣", w: "half", empty: "ยังไม่ได้เลือกรูป กด \"แก้เนื้อหา\"",
+    form: [
+      { key: "title", label: "หัวข้อ", hint: "เว้นว่างได้" },
+      { key: "img", label: "รูป", type: "file", store: "img", accept: "image/*", category: "homepage" },
+      { key: "caption", label: "คำบรรยายใต้รูป" },
+      { key: "link", label: "กดรูปแล้วไปที่", type: "url", hint: "เว้นว่าง = กดแล้วขยายรูป" },
+    ],
+    render: (o) => {
+      const src = safeUrl(o.img);
+      if (!src) return "";
+      const link = safeUrl(o.link);
+      const pic = `<img src="${esc(src)}" alt="${esc(o.caption || o.title || "")}" loading="lazy">`;
+      return `${o.title ? hbHead(esc(o.title)) : ""}<figure class="hb-figure">
+        ${link ? `<a href="${esc(link)}" ${/^\//.test(link) ? "" : 'target="_blank" rel="noopener"'}>${pic}</a>` : `<button type="button" data-img="${esc(src)}" data-cap="${esc(o.caption || o.title || "")}" aria-label="ขยายรูป">${pic}</button>`}
+        ${o.caption ? `<figcaption>${esc(o.caption)}</figcaption>` : ""}</figure>`;
+    },
+  },
+  links: {
+    label: "ปุ่มลิงก์", custom: true, icon: "↗", w: "half", empty: "ยังไม่ได้ใส่ปุ่ม กด \"แก้เนื้อหา\"",
+    form: [
+      { key: "title", label: "หัวข้อ", hint: "เว้นว่างได้" },
+      { key: "body", label: "ข้อความสั้นๆ", type: "textarea" },
+      ...[1, 2, 3].flatMap((n) => [
+        { key: `b${n}t`, label: `ปุ่มที่ ${n}: ชื่อปุ่ม`, hint: n === 1 ? "เช่น ดาวน์โหลดแผนการสอน, เว็บไซต์โรงเรียน" : "" },
+        { key: `b${n}u`, label: `ปุ่มที่ ${n}: ลิงก์`, type: "url" },
+      ]),
+    ],
+    render: (o) => {
+      const btns = [1, 2, 3].map((n) => ({ t: o[`b${n}t`], u: safeUrl(o[`b${n}u`]) })).filter((b) => b.t && b.u);
+      if (!btns.length && !o.title && !o.body) return "";
+      return `<div class="hb-links">${o.title ? `<h2>${esc(o.title)}</h2>` : ""}${richText(o.body)}
+        ${btns.length ? `<div class="hb-btns">${btns.map((b, i) => `<a class="btn ${i ? "ghost" : ""}" href="${esc(b.u)}" ${/^\//.test(b.u) ? "" : 'target="_blank" rel="noopener"'}>${esc(b.t)}</a>`).join("")}</div>` : ""}</div>`;
+    },
+  },
+  embed: {
+    label: "ฝังวิดีโอ / เอกสาร / แผนที่", custom: true, icon: "▶", w: "half", empty: "ยังไม่ได้ใส่ลิงก์ กด \"แก้เนื้อหา\"",
+    form: [
+      { key: "title", label: "หัวข้อ", hint: "เว้นว่างได้" },
+      { key: "url", label: "ลิงก์", type: "url", required: true, hint: "YouTube, ไฟล์ Google Drive, Google Docs / Slides / Sheets, Canva, PDF หรือลิงก์ฝังของ Google Maps (เมนู แชร์ → ฝังแผนที่)" },
+      { key: "caption", label: "คำอธิบายใต้ลิงก์" },
+    ],
+    render: (o) => {
+      const m = embedOf(o.url);
+      if (!m) return "";
+      const body = m.yt
+        ? `<button class="yt" data-act="playYT" data-id="${m.yt}" aria-label="เล่นวิดีโอ ${esc(o.title || "")}"><img src="https://i.ytimg.com/vi/${m.yt}/hqdefault.jpg" alt="" loading="lazy"><span class="yt-play" aria-hidden="true"></span></button>`
+        : m.img ? `<img src="${esc(m.img)}" alt="${esc(o.caption || o.title || "")}" loading="lazy">`
+        : m.src ? `<iframe src="${esc(m.src)}" title="${esc(o.title || "เนื้อหาที่ฝัง")}" loading="lazy" allow="fullscreen" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>`
+        : `<a class="btn" href="${esc(m.link)}" target="_blank" rel="noopener">เปิดลิงก์</a>`;
+      return `${o.title ? hbHead(esc(o.title)) : ""}<div class="hb-embed ${m.tall ? "tall" : ""} ${m.link ? "plain" : ""}">${body}</div>${o.caption ? `<p class="meta hb-cap">${esc(o.caption)}</p>` : ""}`;
+    },
+  },
 };
+const CUSTOM = Object.keys(HB).filter((id) => HB[id].custom);
+
+// ข้อความหลายย่อหน้า: เว้นบรรทัด = ย่อหน้าใหม่, **ตัวหนา**, ลิงก์ https กดได้
+function richText(t) {
+  const s = String(t || "").trim();
+  if (!s) return "";
+  return s.split(/\n\s*\n/).map((p) => `<p>${esc(p)
+    .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+    .replace(/https?:\/\/[^\s<]*[^\s<.,;:!?)\]'"]/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`)
+    .replace(/\n/g, "<br>")}</p>`).join("");
+}
+
+// ลิงก์ → วิธีแสดงในบล็อกฝัง
+function embedOf(url) {
+  const u = safeUrl(String(url || "").trim());
+  if (!/^https:\/\//i.test(u)) return null;
+  if (/^https:\/\/(www\.)?google\.[a-z.]+\/maps\/embed/i.test(u)) return { src: u, tall: true };
+  const canva = u.match(/^https:\/\/(?:www\.)?canva\.com\/design\/([\w-]+)\/([\w-]+)\//i);
+  if (canva) return { src: `https://www.canva.com/design/${canva[1]}/${canva[2]}/view?embed` };
+  const m = paMedia(u);
+  if (m.kind === "video") return { yt: ytId(u) };
+  if (m.kind === "image") return { img: u };
+  if (m.embed) return { src: m.embed, tall: ["doc", "sheet", "pdf"].includes(m.kind) };
+  return { link: u };
+}
+
+// ความกว้าง (หน่วยจาก 6 ช่อง) และสีพื้นของบล็อก
+const WIDTHS = { full: ["เต็มแถว", 6], half: ["ครึ่งแถว", 3], third: ["1/3 แถว", 2] };
+const W_NEXT = { full: "half", half: "third", third: "full" };
+const span = (w) => (WIDTHS[w] || WIDTHS.full)[1];
+const BGS = {
+  "": ["ไม่มี", "transparent"], card: ["การ์ดขาว", "#ffffff"], violet: ["ม่วง", "#f1edfe"], sky: ["ฟ้า", "#e7f4fd"],
+  mint: ["เขียว", "#e5f8f0"], gold: ["เหลือง", "#fff5d9"], pink: ["ชมพู", "#fdecf4"], peach: ["ส้ม", "#fff0e5"],
+};
+const bgCls = (b) => (b.bg && BGS[b.bg] ? "hb-bg" : "");
+const bgStyle = (b) => (b.bg && BGS[b.bg] ? `--hb-bg:${BGS[b.bg][1]};` : "");
+const newUid = (id) => `${id}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 // ลำดับเริ่มต้น (เรียงแบบที่ผู้ประเมินอ่านง่าย)
 const HB_DEFAULT = ["hero", "quote", "stats", "slideshow", "featured", "albums", "facebook", "timeline", "survey", "video", "badges", "about"];
 
@@ -160,30 +267,38 @@ function featuredPool() {
 }
 
 // รวมค่าที่ครูตั้งไว้กับค่าเริ่มต้น บล็อกใหม่ที่เพิ่มภายหลังจะต่อท้ายแบบซ่อนไว้
+// แต่ละบล็อกมี uid ไม่ซ้ำกัน (บล็อกเดิมใช้ uid = id จึงอ่านค่าที่บันทึกไว้ก่อนหน้าได้) บล็อกชนิดเดียวกันมีได้หลายอัน
+const blockDefaults = (id) => ({ id, uid: id, on: HB[id].on !== false, w: HB[id].w, ...Object.fromEntries((HB[id].opts || []).filter((o) => o.def !== undefined).map((o) => [o.key, o.def])) });
 App.homeBlocks = () => {
   const saved = App.DATA.settings?.home?.blocks;
-  const def = (id) => ({ id, on: HB[id].on !== false, w: HB[id].w, ...Object.fromEntries((HB[id].opts || []).filter((o) => o.def !== undefined).map((o) => [o.key, o.def])) });
-  if (!Array.isArray(saved)) return HB_DEFAULT.map(def);
-  const out = saved.filter((b) => HB[b?.id]).map((b) => ({ ...def(b.id), ...b }));
-  for (const id of HB_DEFAULT) if (!out.some((b) => b.id === id)) out.push({ ...def(id), on: false });
+  if (!Array.isArray(saved)) return HB_DEFAULT.map(blockDefaults);
+  const seen = new Set();
+  const out = saved.filter((b) => HB[b?.id]).map((b) => ({ ...blockDefaults(b.id), ...b, uid: b.uid || b.id }))
+    .filter((b) => !seen.has(b.uid) && seen.add(b.uid));
+  for (const id of HB_DEFAULT) if (!out.some((b) => b.id === id)) out.push({ ...blockDefaults(id), on: false });
   return out;
 };
 
 const blockHTML = (b) => { try { return HB[b.id].render(b) || ""; } catch (e) { console.error(b.id, e); return ""; } };
 
-// บล็อกครึ่งแถวที่ไม่มีคู่ ขยายเต็มแถวให้ จะได้ไม่เหลือช่องว่าง
-const pairHalves = (arr) => {
-  let run = [];
-  const flush = () => { if (run.length % 2) run.at(-1).solo = true; run = []; };
-  for (const x of arr) { if (x.w === "half") run.push(x); else flush(); }
+// จัดบล็อกลงแถวละ 6 ช่อง แถวที่ไม่เต็ม แบ่งความกว้างให้เท่ากัน จะได้ไม่เหลือช่องว่าง
+const packRows = (arr) => {
+  let row = [], sum = 0;
+  const flush = () => { if (row.length && sum < 6) row.forEach((x) => (x.span = 6 / row.length)); row = []; sum = 0; };
+  for (const x of arr) {
+    x.span = span(x.w);
+    if (sum + x.span > 6) flush();
+    row.push(x); sum += x.span;
+    if (sum === 6) flush();
+  }
   flush();
   return arr;
 };
 
 // ---------- หน้าแรกสาธารณะ ----------
 App.pages[""] = () => {
-  const shown = pairHalves(App.homeBlocks().filter((b) => b.on).map((b) => ({ ...b, html: blockHTML(b) })).filter((b) => b.html));
-  return `<div class="home-grid">${shown.map((b) => `<section class="hb hb-${b.id} ${b.w === "half" && !b.solo ? "half" : ""}">${b.html}</section>`).join("")}</div>`;
+  const shown = packRows(App.homeBlocks().filter((b) => b.on).map((b) => ({ ...b, html: blockHTML(b) })).filter((b) => b.html));
+  return `<div class="home-grid">${shown.map((b) => `<section class="hb hb-${b.id} ${bgCls(b)}" style="--span:${b.span};${bgStyle(b)}">${b.html}</section>`).join("")}</div>`;
 };
 
 // โหลดโพสต์ Facebook เมื่อเลื่อนมาถึงเท่านั้น หน้าแรกจะได้ไม่ช้า
@@ -204,39 +319,58 @@ App.afterRender = () => {
 // ---------- หน้าจัดหน้าแรก (ครู) ----------
 let hbState = null; // รายการบล็อกที่กำลังแก้
 const asPublic = (fn) => { const m = App.mode; App.mode = "public"; try { return fn(); } finally { App.mode = m; } };
+const byUid = (uid) => hbState.find((x) => x.uid === uid);
 
-const optsHTML = (b) => (HB[b.id].opts || []).map((o) => {
-  if (o.type === "pick") {
-    const pool = asPublic(featuredPool);
-    const picked = new Set(b.pick || []);
-    return pool.length ? `<div class="hb-opt"><span>เลือกชิ้นที่จะโชว์ก่อน <small>(ที่ไม่ได้เลือก ระบบเติมให้จากรางวัลระดับสูงสุด)</small></span>
-      <div class="hb-picks">${pool.map((x) => `<label><input type="checkbox" class="ios-check" data-hb-pick="${x.k}" ${picked.has(x.k) ? "checked" : ""}> ${esc(x.icon)} ${esc(x.title)}</label>`).join("")}</div></div>` : "";
-  }
-  if (o.type === "video") {
-    const vs = asPublic(() => [...list("videos")].sort(byDateDesc));
-    return vs.length ? `<label class="hb-opt"><span>วิดีโอที่จะโชว์</span><select data-hb-opt="vid"><option value="">ล่าสุดเสมอ</option>
-      ${vs.map((v) => `<option value="${v.id}" ${String(b.vid) === String(v.id) ? "selected" : ""}>${esc(v.title)}</option>`).join("")}</select></label>` : "";
-  }
-  return `<div class="hb-opt"><span>${o.label}</span><div class="seg" role="group" aria-label="${o.label}">${o.choices.map((c) => `<button type="button" data-hb-opt="${o.key}" data-v="${c}" aria-pressed="${Number(b[o.key] ?? o.def) === c}">${c}</button>`).join("")}</div></div>`;
-}).join("");
+const optsHTML = (b) => {
+  const def = HB[b.id];
+  const common = [
+    def.head ? `<label class="hb-opt"><span>หัวข้อบล็อก <small>(เว้นว่าง = "${esc(def.head)}")</small></span><input type="text" data-hb-title value="${esc(b.title || "")}" placeholder="${esc(def.head)}" maxlength="80"></label>` : "",
+    `<div class="hb-opt"><span>สีพื้นหลัง</span><div class="hb-swatches" role="radiogroup" aria-label="สีพื้นหลัง">${Object.entries(BGS).map(([k, [label, c]]) =>
+      `<button type="button" role="radio" data-hb-bg="${k}" aria-checked="${(b.bg || "") === k}" title="${label}" aria-label="${label}" style="--sw:${c}"></button>`).join("")}</div></div>`,
+  ];
+  const own = (def.opts || []).map((o) => {
+    if (o.type === "pick") {
+      const pool = asPublic(featuredPool);
+      const picked = new Set(b.pick || []);
+      return pool.length ? `<div class="hb-opt"><span>เลือกชิ้นที่จะโชว์ก่อน <small>(ที่ไม่ได้เลือก ระบบเติมให้จากรางวัลระดับสูงสุด)</small></span>
+        <div class="hb-picks">${pool.map((x) => `<label><input type="checkbox" class="ios-check" data-hb-pick="${x.k}" ${picked.has(x.k) ? "checked" : ""}> ${esc(x.icon)} ${esc(x.title)}</label>`).join("")}</div></div>` : "";
+    }
+    if (o.type === "video") {
+      const vs = asPublic(() => [...list("videos")].sort(byDateDesc));
+      return vs.length ? `<label class="hb-opt"><span>วิดีโอที่จะโชว์</span><select data-hb-opt="vid"><option value="">ล่าสุดเสมอ</option>
+        ${vs.map((v) => `<option value="${v.id}" ${String(b.vid) === String(v.id) ? "selected" : ""}>${esc(v.title)}</option>`).join("")}</select></label>` : "";
+    }
+    return `<div class="hb-opt"><span>${o.label}</span><div class="seg" role="group" aria-label="${o.label}">${o.choices.map((c) => `<button type="button" data-hb-opt="${o.key}" data-v="${c}" aria-pressed="${Number(b[o.key] ?? o.def) === c}">${c}</button>`).join("")}</div></div>`;
+  });
+  return [...common, ...own].join("");
+};
+
+const contentHTML = (b) => {
+  const html = asPublic(() => blockHTML(b));
+  return html ? `<div class="hb-inner ${bgCls(b)}" style="${bgStyle(b)}">${html}</div>`
+    : `<p class="hb-empty">${esc(HB[b.id].empty || "ยังไม่มีข้อมูล")} <small>บล็อกว่างจะไม่แสดงในหน้าสาธารณะ</small></p>`;
+};
 
 const editBlockHTML = (b, i, n) => {
   const def = HB[b.id];
-  const html = asPublic(() => blockHTML(b));
-  return `<section class="hb edit ${b.on ? "" : "off"} ${b.w === "half" ? "half" : ""}" data-id="${b.id}">
+  const name = def.custom ? (b.title ? `${def.label}: ${b.title}` : def.label) : (b.title ? `${def.label} (“${b.title}”)` : def.label);
+  return `<section class="hb edit ${b.on ? "" : "off"}" data-uid="${b.uid}" style="--span:${span(b.w)}">
     <div class="hb-bar">
       <button type="button" class="hb-handle" aria-label="ลากเพื่อย้าย ${esc(def.label)}" title="ลากเพื่อย้าย"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-      <b class="hb-name">${esc(def.label)}</b><span class="hb-off-tag">ซ่อนอยู่</span>
+      <b class="hb-name">${esc(name)}</b><span class="hb-off-tag">ซ่อนอยู่</span>
       <span class="hb-tools">
         <button type="button" class="hb-btn" data-hb="up" aria-label="เลื่อนขึ้น" ${i === 0 ? "disabled" : ""}>↑</button>
         <button type="button" class="hb-btn" data-hb="down" aria-label="เลื่อนลง" ${i === n - 1 ? "disabled" : ""}>↓</button>
-        <button type="button" class="hb-btn hb-w" data-hb="width" title="ความกว้างบนคอมพิวเตอร์">${b.w === "half" ? "ครึ่งแถว" : "เต็มแถว"}</button>
-        ${def.opts ? `<button type="button" class="hb-btn" data-hb="opts" aria-expanded="false">ตั้งค่า</button>` : ""}
+        <button type="button" class="hb-btn hb-w" data-hb="width" title="ความกว้างบนคอมพิวเตอร์ กดเพื่อสลับ">${WIDTHS[b.w]?.[0] || "เต็มแถว"}</button>
+        ${def.form ? `<button type="button" class="hb-btn hb-main" data-hb="edit">แก้เนื้อหา</button>` : ""}
+        <button type="button" class="hb-btn" data-hb="opts" aria-expanded="false">ตั้งค่า</button>
+        <button type="button" class="hb-btn" data-hb="copy" title="ทำซ้ำบล็อกนี้">ทำซ้ำ</button>
+        ${b.uid !== b.id ? `<button type="button" class="hb-btn hb-del" data-hb="del">ลบ</button>` : ""}
         <button type="button" class="hb-btn hb-eye" data-hb="eye" aria-pressed="${b.on}">${b.on ? "แสดงอยู่" : "ซ่อนอยู่"}</button>
       </span>
     </div>
-    ${def.opts ? `<div class="hb-opts" hidden>${optsHTML(b)}</div>` : ""}
-    <div class="hb-content" inert>${html || `<p class="hb-empty">${esc(def.empty || "ยังไม่มีข้อมูล")} <small>บล็อกว่างจะไม่แสดงในหน้าสาธารณะ</small></p>`}</div>
+    <div class="hb-opts" hidden>${optsHTML(b)}</div>
+    <div class="hb-content" inert>${contentHTML(b)}</div>
   </section>`;
 };
 
@@ -244,7 +378,8 @@ App.pages["admin/home"] = () => {
   hbState = App.homeBlocks();
   const acts = `<button class="btn ghost" data-act="hbReset">คืนค่าเริ่มต้น</button><a class="btn ghost" href="/${esc(SITE)}/" target="_blank" rel="noopener">ดูหน้าจริง</a><button class="btn" data-act="hbDone">เสร็จ</button>`;
   return head("จัดหน้าแรก", "ลากที่จับ ☰ เพื่อย้ายบล็อก กด \"แสดงอยู่ / ซ่อนอยู่\" เพื่อเลือกว่าจะโชว์หรือไม่ บันทึกให้อัตโนมัติ", acts) +
-    `<p class="meta hb-note">ตัวอย่างนี้แสดงเฉพาะข้อมูลที่เป็นสาธารณะ เหมือนที่ผู้เยี่ยมชมเห็น บนมือถือทุกบล็อกจะเรียงเป็นแถวเดียว</p>
+    `<div class="hb-add"><b>เพิ่มบล็อกใหม่</b>${CUSTOM.map((id) => `<button type="button" class="hb-btn" data-hb-add="${id}"><span aria-hidden="true">${HB[id].icon}</span> ${esc(HB[id].label)}</button>`).join("")}</div>
+    <p class="meta hb-note">ตัวอย่างนี้แสดงเฉพาะข้อมูลที่เป็นสาธารณะ เหมือนที่ผู้เยี่ยมชมเห็น บนมือถือทุกบล็อกจะเรียงเป็นแถวเดียว ถ้าแถวไหนบล็อกไม่เต็ม ระบบจะขยายให้เต็มแถวเอง</p>
     <div class="home-grid editing" id="hbGrid">${hbState.map((b, i) => editBlockHTML(b, i, hbState.length)).join("")}</div>`;
 };
 
@@ -257,18 +392,34 @@ const hbSave = () => {
 const hbSync = () => {
   const grid = $("#hbGrid");
   const els = [...grid.querySelectorAll(".hb")];
-  hbState = els.map((el) => hbState.find((b) => b.id === el.dataset.id));
+  hbState = els.map((el) => byUid(el.dataset.uid)).filter(Boolean);
   els.forEach((el, i) => { el.querySelector('[data-hb="up"]').disabled = i === 0; el.querySelector('[data-hb="down"]').disabled = i === els.length - 1; });
   hbSave();
 };
 const hbRefresh = (el) => {
-  const b = hbState.find((x) => x.id === el.dataset.id);
-  el.querySelector(".hb-content").innerHTML = asPublic(() => blockHTML(b)) || `<p class="hb-empty">${esc(HB[b.id].empty || "ยังไม่มีข้อมูล")}</p>`;
+  el.querySelector(".hb-content").innerHTML = contentHTML(byUid(el.dataset.uid));
   App.wireSlideshow?.(); App.afterRender();
+};
+const hbFocus = (uid) => setTimeout(() => {
+  const el = $(`#hbGrid .hb[data-uid="${uid}"]`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
+  el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 1400);
+}, 60);
+
+// ฟอร์มเนื้อหาของบล็อกอิสระ (เพิ่มใหม่ หรือแก้ของเดิม)
+const editContent = (id, b) => {
+  const def = HB[id];
+  openForm(b ? `แก้บล็อก${def.label}` : `เพิ่มบล็อก${def.label}`, def.form.map((f) => ({ ...f, value: b ? b[f.key] ?? "" : f.options ? f.options[0] : "" })), async (rec) => {
+    if (b) Object.assign(b, rec);
+    else { b = { ...blockDefaults(id), uid: newUid(id), ...rec }; hbState.push(b); }
+    hbSave();
+    hbFocus(b.uid);
+  });
 };
 
 App.actions.hbReset = () => {
-  if (!confirm("คืนหน้าแรกเป็นแบบเริ่มต้น? ลำดับและการซ่อนที่จัดไว้จะหายไป")) return;
+  if (!confirm("คืนหน้าแรกเป็นแบบเริ่มต้น? ลำดับ การซ่อน และบล็อกที่เพิ่มเองจะหายไป")) return;
   delete App.DATA.settings.home;
   saveKV("settings").then(() => { toast("คืนค่าเริ่มต้นแล้ว"); render(); }).catch((e) => toast(e.message));
 };
@@ -278,10 +429,12 @@ App.actions.hbDone = async () => {
 };
 
 main.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-hb], [data-hb-opt]");
+  const add = e.target.closest("[data-hb-add]");
+  if (add && $("#hbGrid")) return editContent(add.dataset.hbAdd);
+  const btn = e.target.closest("[data-hb], [data-hb-opt], [data-hb-bg]");
   if (!btn || !$("#hbGrid")?.contains(btn)) return;
   const el = btn.closest(".hb");
-  const b = hbState.find((x) => x.id === el.dataset.id);
+  const b = byUid(el.dataset.uid);
   const a = btn.dataset.hb;
   if (a === "eye") {
     b.on = !b.on;
@@ -291,9 +444,9 @@ main.addEventListener("click", (e) => {
     toast(b.on ? `แสดง "${HB[b.id].label}" แล้ว` : `ซ่อน "${HB[b.id].label}" แล้ว`);
     hbSave();
   } else if (a === "width") {
-    b.w = b.w === "half" ? "full" : "half";
-    el.classList.toggle("half", b.w === "half");
-    btn.textContent = b.w === "half" ? "ครึ่งแถว" : "เต็มแถว";
+    b.w = W_NEXT[b.w] || "half";
+    el.style.setProperty("--span", span(b.w));
+    btn.textContent = WIDTHS[b.w][0];
     hbSave();
   } else if (a === "up" || a === "down") {
     const sib = a === "up" ? el.previousElementSibling : el.nextElementSibling;
@@ -305,25 +458,49 @@ main.addEventListener("click", (e) => {
     const box = el.querySelector(".hb-opts");
     box.hidden = !box.hidden;
     btn.setAttribute("aria-expanded", String(!box.hidden));
+  } else if (a === "edit") {
+    editContent(b.id, b);
+  } else if (a === "copy") {
+    const c = { ...structuredClone(b), uid: newUid(b.id), on: true };
+    hbState.splice(hbState.indexOf(b) + 1, 0, c);
+    el.insertAdjacentHTML("afterend", editBlockHTML(c, 1, 3));
+    hbSync(); App.wireSlideshow?.(); App.afterRender();
+    toast(`ทำซ้ำ "${HB[b.id].label}" แล้ว ปรับตั้งค่าของอันใหม่ได้เลย`);
+    hbFocus(c.uid);
+  } else if (a === "del") {
+    if (!confirm(`ลบบล็อก "${b.title || HB[b.id].label}"?`)) return;
+    flip(() => el.remove());
+    hbSync();
+    toast("ลบบล็อกแล้ว");
+  } else if (btn.dataset.hbBg !== undefined) {
+    b.bg = btn.dataset.hbBg;
+    btn.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-checked", String(x === btn)));
+    hbRefresh(el); hbSave();
   } else if (btn.dataset.hbOpt) {
     b[btn.dataset.hbOpt] = Number(btn.dataset.v);
     btn.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === btn)));
     hbRefresh(el); hbSave();
   }
 });
-main.addEventListener("change", (e) => {
+const onOptInput = (e) => {
   const t = e.target;
   if (!$("#hbGrid")?.contains(t)) return;
   const el = t.closest(".hb");
-  const b = hbState.find((x) => x.id === el.dataset.id);
+  const b = byUid(el.dataset.uid);
   if (t.dataset.hbPick) {
     const set = new Set(b.pick || []);
     t.checked ? set.add(t.dataset.hbPick) : set.delete(t.dataset.hbPick);
     b.pick = [...set];
   } else if (t.dataset.hbOpt) b[t.dataset.hbOpt] = t.value;
-  else return;
+  else if (t.hasAttribute("data-hb-title")) {
+    b.title = t.value.trim();
+    const def = HB[b.id];
+    el.querySelector(".hb-name").textContent = b.title ? `${def.label} (“${b.title}”)` : def.label;
+  } else return;
   hbRefresh(el); hbSave();
-});
+};
+main.addEventListener("change", onOptInput);
+main.addEventListener("input", (e) => { if (e.target.hasAttribute?.("data-hb-title")) onOptInput(e); });
 
 // ขยับบล็อกอื่นแบบนุ่มนวลตอนสลับตำแหน่ง (FLIP)
 function flip(change) {
@@ -348,7 +525,8 @@ main.addEventListener("pointerdown", (e) => {
   const el = h.closest(".hb");
   const r = el.getBoundingClientRect();
   const ph = document.createElement("div");
-  ph.className = `hb-ph ${el.classList.contains("half") ? "half" : ""}`;
+  ph.className = "hb-ph";
+  ph.style.setProperty("--span", el.style.getPropertyValue("--span") || 6);
   ph.style.height = `${Math.min(r.height, 220)}px`;
   el.before(ph);
   Object.assign(el.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, maxHeight: "220px", zIndex: 50 });
@@ -372,7 +550,7 @@ const placeAt = (x, y) => {
     || [...$("#hbGrid").querySelectorAll(".hb:not(.dragging)")].find((el) => el.getBoundingClientRect().bottom >= y);
   if (!under) return;
   const r = under.getBoundingClientRect();
-  const before = under.classList.contains("half") && innerWidth > 860 ? x < r.left + r.width / 2 : y < r.top + r.height / 2;
+  const before = Number(under.style.getPropertyValue("--span") || 6) < 6 && innerWidth > 860 ? x < r.left + r.width / 2 : y < r.top + r.height / 2;
   const target = before ? under : under.nextSibling;
   if (target === drag.ph || target === drag.ph.nextSibling) return;
   flip(() => under.parentNode.insertBefore(drag.ph, target));

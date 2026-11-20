@@ -292,7 +292,7 @@ export const DRIVE_CATEGORIES = {
   works: "ผลงาน วิจัย นวัตกรรม", reports: "รายงาน SAR และ PA", evidence: "หลักฐาน PA",
   projects: "โครงการ", activities: "กิจกรรมพัฒนาผู้เรียน", responsibilities: "งานที่รับผิดชอบ",
   documents: "หนังสือราชการ", meetings: "บันทึกการประชุม", care: "ดูแลช่วยเหลือนักเรียน", leaves: "การลา",
-  other: "อื่นๆ",
+  homepage: "รูปหน้าแรก", other: "อื่นๆ",
 };
 // หมวดที่ไม่เปิดลิงก์แชร์ (ข้อมูลส่วนตัว/นักเรียน)
 export const DRIVE_PRIVATE = new Set(["documents", "meetings", "care", "leaves"]);
