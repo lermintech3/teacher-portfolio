@@ -11,7 +11,7 @@ export const PROVIDERS = {
   openai: { name: "ChatGPT (OpenAI)", keyUrl: "https://platform.openai.com/api-keys", keyPrefix: "sk-",
     models: [["gpt-6.1-terra", "GPT-6.1 Terra — สมดุล อ่านภาพดี (แนะนำ)"], ["gpt-6-luna", "GPT-6 Luna — ประหยัดที่สุด"]] },
   gemini: { name: "Gemini (Google)", keyUrl: "https://aistudio.google.com/apikey", keyPrefix: "",
-    models: [["gemini-flash-latest", "Gemini Flash รุ่นล่าสุด (แนะนำ มีโควตาฟรี)"], ["gemini-3.8-flash", "Gemini 3.8 Flash"]] },
+    models: [["gemini-flash-latest", "Gemini Flash รุ่นล่าสุด (แนะนำ มีโควตาฟรี)"], ["gemini-flash-lite-latest", "Gemini Flash-Lite (เร็ว คนใช้น้อยกว่า มีโควตาฟรี)"], ["gemini-3.8-flash", "Gemini 3.8 Flash"]] },
 };
 export const DEFAULT_LIMIT = 300;
 const MAX_FILES = 4;
@@ -100,7 +100,32 @@ export async function saveConfig(env, db, site, body) {
 
 // ---------- เรียก AI ----------
 // parts: [{ text }] หรือ [{ mime, data(base64), name }]
-async function callProvider(provider, model, key, system, parts, { json = true, maxTokens = 2000 } = {}) {
+// รุ่นสำรองเมื่อรุ่นที่เลือก "คนใช้เยอะ" (503/529) — ลองรุ่นเดิมซ้ำก่อน แล้วค่อยสลับ
+const FALLBACK = {
+  gemini: ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-3.8-flash"],
+  anthropic: [], openai: [],
+};
+const BUSY = new Set([500, 502, 503, 504, 529]);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function callProvider(provider, model, key, system, parts, opts = {}) {
+  const models = [model, ...(FALLBACK[provider] || []).filter((m) => m !== model)].slice(0, 3);
+  let last;
+  for (let i = 0; i < models.length; i++) {
+    for (let attempt = 0; attempt < (i === 0 ? 3 : 2); attempt++) {
+      try {
+        return await callOnce(provider, models[i], key, system, parts, opts);
+      } catch (e) {
+        last = e;
+        if (!e.busy) throw e;
+        await sleep(attempt === 0 ? 1200 : 2500);
+      }
+    }
+  }
+  throw new HttpError(503, `ตอนนี้ AI ของผู้ให้บริการมีคนใช้เยอะมาก (ลองซ้ำและสลับรุ่นสำรองแล้ว) รอสัก 1-2 นาทีแล้วกดใหม่ ${last?.detail ? `(${last.detail})` : ""}`.trim());
+}
+
+async function callOnce(provider, model, key, system, parts, { json = true, maxTokens = 2000 } = {}) {
   const files = parts.filter((p) => p.data);
   const text = parts.filter((p) => p.text).map((p) => p.text).join("\n\n");
   let url, init, pick;
@@ -135,7 +160,7 @@ async function callProvider(provider, model, key, system, parts, { json = true, 
   try {
     res = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...init.headers }, body: JSON.stringify(init.body), signal: AbortSignal.timeout(90_000) });
   } catch {
-    throw new HttpError(504, "ติดต่อผู้ให้บริการ AI ไม่ได้ หรือใช้เวลานานเกินไป ลองใหม่อีกครั้ง");
+    throw Object.assign(new HttpError(504, "ติดต่อผู้ให้บริการ AI ไม่ได้ หรือใช้เวลานานเกินไป ลองใหม่อีกครั้ง"), { busy: true, detail: "timeout" });
   }
   let data = {};
   try { data = await res.json(); } catch { /* */ }
@@ -145,7 +170,9 @@ async function callProvider(provider, model, key, system, parts, { json = true, 
     if (res.status === 404) throw new HttpError(400, `ไม่พบรุ่น "${model}" ลองเลือกรุ่นอื่นในหน้าตั้งค่า`);
     if (res.status === 429) throw new HttpError(429, "ใช้ AI ถี่เกินไปหรือเครดิต/โควตาหมด รอสักครู่ หรือตรวจยอดเงินในบัญชีผู้ให้บริการ");
     if (res.status === 402 || /credit|billing|quota/i.test(msg)) throw new HttpError(402, "เครดิตในบัญชีผู้ให้บริการ AI หมด กรุณาเติมเงิน");
-    throw new HttpError(502, `AI ตอบกลับผิดพลาด (${res.status}) ${msg.slice(0, 160)}`);
+    const err = new HttpError(502, `AI ตอบกลับผิดพลาด (${res.status}) ${msg.slice(0, 160)}`);
+    if (BUSY.has(res.status) || /overloaded|high demand|unavailable/i.test(msg)) Object.assign(err, { busy: true, detail: `${model} ${res.status}` });
+    throw err;
   }
   return pick(data) || "";
 }
