@@ -96,6 +96,14 @@ export async function ensureSchema(db) {
       answers TEXT NOT NULL, comment TEXT NOT NULL DEFAULT '', ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_survey ON survey_responses (site, survey_id)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS auth (site TEXT PRIMARY KEY, salt TEXT NOT NULL, hash TEXT NOT NULL, env_fp TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    // ที่เก็บไฟล์ของครูแต่ละคน (Google Apps Script ของตัวเอง) ใช้ได้หลายที่ ที่หลัก = ที่เก็บไฟล์ใหม่
+    db.prepare(`CREATE TABLE IF NOT EXISTS storage (id INTEGER PRIMARY KEY AUTOINCREMENT, site TEXT NOT NULL, name TEXT NOT NULL,
+      url TEXT NOT NULL, secret TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`),
+    // ค่าที่ใช้ภายในของครูแต่ละคน (เช่น ที่เก็บหลัก) ไม่ส่งออกไปหน้าเว็บโดยตรง
+    db.prepare(`CREATE TABLE IF NOT EXISTS site_prefs (site TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (site, key))`),
+    // ไฟล์ที่ย้ายที่เก็บแล้ว (กันคัดลอกซ้ำเมื่อสั่งย้ายใหม่)
+    db.prepare(`CREATE TABLE IF NOT EXISTS storage_moves (site TEXT NOT NULL, old_id TEXT NOT NULL, to_loc TEXT NOT NULL, new_id TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (site, old_id, to_loc))`),
   ]);
   // ย้ายตารางรุ่นแรก (ยังไม่มีช่อง site) ข้อมูลเดิมเป็นของคนแรก
   if (!(await columns(db, "items")).includes("site")) {
@@ -296,12 +304,42 @@ const b64url = (s) => {
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_");
 };
 
-export function driveTarget(env, site, params) {
-  if (!env.DRIVE_SCRIPT_URL || !env.DRIVE_SECRET) {
-    throw new HttpError(503, "ยังไม่ได้เชื่อม Google Drive (ตั้ง DRIVE_SCRIPT_URL และ DRIVE_SECRET ใน Cloudflare)");
-  }
-  const url = new URL(env.DRIVE_SCRIPT_URL);
-  url.searchParams.set("secret", env.DRIVE_SECRET);
+// ---------- ที่เก็บไฟล์ (หลายที่ต่อครู) ----------
+// "env" = ที่เก็บกลางที่ตั้งใน Cloudflare (DRIVE_SCRIPT_URL + DRIVE_SECRET) ใช้ร่วมกันทุกคน
+// ตัวเลข = ที่เก็บที่ครูเพิ่มเองในหน้าเว็บ (Apps Script ใน Google Drive ของตัวเอง) เก็บในตาราง storage
+export const SCRIPT_URL_RE = /^https:\/\/script\.google\.com\/(a\/macros\/[\w.-]+|macros)\/s\/[\w-]{20,}\/exec$/;
+const envLoc = (env) => (env.DRIVE_SCRIPT_URL && env.DRIVE_SECRET ? { id: "env", name: "ที่เก็บกลางของเว็บ", url: env.DRIVE_SCRIPT_URL, secret: env.DRIVE_SECRET, builtin: true } : null);
+
+export async function getPref(db, site, key) {
+  const r = await db.prepare(`SELECT value FROM site_prefs WHERE site = ? AND key = ?`).bind(site, key).first();
+  return r ? r.value : null;
+}
+export const setPref = (db, site, key, value) =>
+  db.prepare(`INSERT OR REPLACE INTO site_prefs (site, key, value) VALUES (?, ?, ?)`).bind(site, key, String(value)).run();
+
+// ที่เก็บทั้งหมดของครูคนนี้ (มีรหัสลับ ใช้ฝั่งเซิร์ฟเวอร์เท่านั้น)
+export async function storageLocations(env, site) {
+  const rows = (await env.DB.prepare(`SELECT id, name, url, secret FROM storage WHERE site = ? ORDER BY id`).bind(site).all()).results || [];
+  const locs = [envLoc(env), ...rows.map((r) => ({ ...r, id: String(r.id) }))].filter(Boolean);
+  const want = await getPref(env.DB, site, "storage_primary");
+  const primary = locs.find((l) => l.id === want) || locs[0] || null; // ยังไม่เลือก = ที่เก็บกลาง (ถ้ามี)
+  return locs.map((l) => ({ ...l, primary: !!primary && l.id === primary.id }));
+}
+// เลือกที่เก็บ: ระบุ id หรือใช้ที่หลัก
+export async function storageLoc(env, site, id) {
+  const locs = await storageLocations(env, site);
+  if (!locs.length) throw new HttpError(503, "ยังไม่ได้เชื่อม Google Drive: เพิ่มที่เก็บไฟล์ในหน้า \"ไฟล์ใน Google Drive\"");
+  const loc = id ? locs.find((l) => l.id === String(id)) : locs.find((l) => l.primary);
+  if (!loc) throw new HttpError(404, "ไม่พบที่เก็บไฟล์นี้");
+  return loc;
+}
+// ข้อมูลที่ส่งให้หน้าเว็บได้ (ไม่มีรหัสลับ ซ่อนกลาง URL)
+export const publicLoc = (l) => ({ id: l.id, name: l.name, builtin: !!l.builtin, primary: !!l.primary,
+  url: l.builtin ? "" : l.url.replace(/(\/s\/[\w-]{6})[\w-]+([\w-]{4}\/exec)$/, "$1…$2") });
+
+export function driveTarget(loc, site, params) {
+  const url = new URL(loc.url);
+  url.searchParams.set("secret", loc.secret);
   const all = { person: siteBySlug(site).name, ...params };
   for (const [k, v] of Object.entries(all)) {
     url.searchParams.set(k, v);
@@ -311,9 +349,8 @@ export function driveTarget(env, site, params) {
   return url;
 }
 
-// เรียก Apps Script แล้วแปลงผลเป็น JSON
-// Apps Script ตอบ POST ด้วย 302 ไปอีกที่อยู่ ต้องตามไปด้วย GET เอง (ปลอดภัยกว่าให้ fetch ตามเอง)
-export async function callDrive(url, init = {}) {
+// ตามที่อยู่ที่ Apps Script ส่งต่อ (302) แล้วคืน Response ดิบ (ใช้กับข้อมูลไฟล์ที่ไม่ใช่ JSON)
+export async function fetchDrive(url, init = {}) {
   let res;
   try {
     res = await fetch(url, { ...init, redirect: "manual" });
@@ -324,11 +361,18 @@ export async function callDrive(url, init = {}) {
     console.error("drive fetch", e);
     throw new HttpError(502, `ติดต่อ Google Drive ไม่ได้ (${e.message || e}) ลองใหม่อีกครั้ง`);
   }
+  return res;
+}
+
+// เรียก Apps Script แล้วแปลงผลเป็น JSON
+// Apps Script ตอบ POST ด้วย 302 ไปอีกที่อยู่ ต้องตามไปด้วย GET เอง (ปลอดภัยกว่าให้ fetch ตามเอง)
+export async function callDrive(url, init = {}) {
+  const res = await fetchDrive(url, init);
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch {
     const hint = /accounts\.google|ServiceLogin/i.test(text) ? "Apps Script ขอให้ล็อกอิน: ตั้ง Who has access เป็น Anyone แล้ว deploy ใหม่"
-      : res.status === 404 ? "ไม่พบ Apps Script: ตรวจ DRIVE_SCRIPT_URL ว่าคัดลอกครบและลงท้าย /exec"
+      : res.status === 404 ? "ไม่พบ Apps Script: ตรวจ Web app URL ว่าคัดลอกครบและลงท้าย /exec"
       : "ตรวจว่า deploy เป็น Web app แบบ Anyone และใช้ URL ล่าสุด";
     throw new HttpError(502, `Google Apps Script ตอบกลับไม่ถูกต้อง (${res.status}) ${hint}`);
   }
