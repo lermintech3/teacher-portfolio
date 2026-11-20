@@ -326,14 +326,14 @@ App.scheduleEditor = () => {
   if (!periods.length) return `<p class="empty">ยังไม่ได้ตั้งเวลาคาบ กดปุ่ม "ภาคเรียนและเวลาคาบ" ก่อน</p>`;
   const cell = (day, no) => {
     const c = cellOf(day, no);
-    const body = c.length ? c.map(App.classHtml).join("<hr>") : `<span class="plus">+</span>`;
-    return `<td class="${c.length ? "has" : ""}${c.length > 1 ? " clash" : ""}"><button type="button" class="cell" data-act="editCell" data-day="${esc(day)}" data-period="${no}" aria-label="${esc(day)} คาบ ${no}">${body}</button></td>`;
+    const body = c.length ? `<div class="sc-card">${c.map(App.classHtml).join("<hr>")}</div>` : `<span class="plus">+</span>`;
+    return `<td ${App.cellAttr(c)}><button type="button" class="cell" data-act="editCell" data-day="${esc(day)}" data-period="${no}" aria-label="${esc(day)} คาบ ${no}">${body}</button></td>`;
   };
   const s = schedOf();
-  return `<div class="table-wrap"><table class="sched edit">
-    <thead><tr><th>วัน / คาบ</th>${App.schedCols(s, (p) => `<th><button type="button" class="th-btn" data-act="editPeriod" data-no="${esc(p.no)}">คาบ ${esc(p.no)}<small>${esc(p.time)}</small></button></th>`)}</tr></thead>
-    <tbody>${DAYS.map((d) => `<tr><th>${d}</th>${App.schedCols(s, null, (p) => cell(d, Number(p.no)))}</tr>`).join("")}</tbody>
-  </table></div>`;
+  return `<div class="sched-wrap"><div class="table-wrap"><table class="sched cute edit">
+    <thead><tr><th class="corner">วัน / คาบ</th>${App.schedCols(s, (p) => `<th class="per"><button type="button" class="th-btn" data-act="editPeriod" data-no="${esc(p.no)}"><span>คาบ ${esc(p.no)}</span><small>${esc(p.time)}</small></button></th>`)}</tr></thead>
+    <tbody>${DAYS.map((d, i) => `<tr>${App.dayTh(d)}${App.schedCols(s, null, (p) => cell(d, Number(p.no)), i)}</tr>`).join("")}</tbody>
+  </table></div>${App.schedLegend(s)}</div>`;
 };
 
 const schedProblems = () => {
@@ -355,13 +355,18 @@ App.pages["admin/schedule"] = ({ q }) => {
   const total = (s.classes || []).length;
   const { orphans, clashes } = schedProblems();
   const isCur = VIEW_TERM === base.term;
+  // ภาคเรียนคู่ของปีการศึกษาเดียวกัน (มี 2/2569 แต่ยังไม่มี 1/2569) → ปุ่มลัดเพิ่ม
+  const [ta, ty] = String(VIEW_TERM || base.term || termGuess()).split("/");
+  const sibling = ty && !terms.includes(`${ta === "1" ? 2 : 1}/${ty}`) ? `${ta === "1" ? 2 : 1}/${ty}` : "";
   const termBar = `<div class="filters term-bar">${terms.map((t) => `<button data-act="viewTerm" data-t="${esc(t)}" class="${t === VIEW_TERM ? "on" : ""}">ภาคเรียน ${esc(t)}${t === base.term ? " · ปัจจุบัน" : ""}</button>`).join("")}
-    <button class="term-new" data-act="newTerm">+ ภาคเรียนใหม่</button></div>`;
+    ${sibling ? `<button class="term-new" data-act="quickTerm" data-t="${esc(sibling)}">+ ภาคเรียน ${esc(sibling)}</button>` : ""}
+    <button class="term-new" data-act="newTerm">+ ภาคเรียนอื่น</button></div>`;
   const curNote = isCur ? `<p class="meta">ภาคเรียนนี้เป็น<b>ภาคเรียนปัจจุบัน</b> ใช้แสดงในหน้าแรกและหน้าสาธารณะ${base.autoTerm === false ? "" : " · เปลี่ยนให้เองตามวันที่ เมื่อภาคเรียนถัดไปมีตารางแล้ว"}</p>`
     : `<p class="meta warn">กำลังดูภาคเรียน ${esc(VIEW_TERM)} ซึ่งไม่ใช่ภาคเรียนปัจจุบัน (${esc(base.term)}) <button class="btn ghost small" data-act="setTerm" data-t="${esc(VIEW_TERM)}">ตั้งเป็นภาคเรียนปัจจุบัน</button></p>`;
   return head("ตารางสอน", `ภาคเรียนที่ ${esc(VIEW_TERM || "-")} สอน ${total} คาบต่อสัปดาห์`,
     `<button class="btn" data-act="editTerm">ภาคเรียนและเวลาคาบ</button><button class="btn ghost" data-act="print">พิมพ์</button><button class="btn ghost" data-act="clearSched">ล้างทั้งหมด</button>`) +
     (terms.length ? termBar : "") + (terms.length > 1 || !isCur ? curNote : "") +
+    App.schedSummary(s) +
     `<p class="meta">แตะช่องว่างเพื่อเพิ่มวิชา · แตะวิชาเดิมเพื่อแก้หรือลบ · แตะหัวคาบเพื่อเปลี่ยนเวลา</p>` +
     App.scheduleEditor() +
     (clashes ? `<p class="meta warn">มี ${clashes} ช่องที่มีหลายวิชาซ้อนกัน (กรอบสีแดง) แตะช่องนั้นเพื่อแก้หรือลบทีละรายการ</p>` : "") +
@@ -382,7 +387,6 @@ App.actions.editCell = (b) => {
     { key: "subject", label: "ชื่อวิชา", placeholder: "เช่น การงานอาชีพ 6", value: ci.name },
     { key: "code", label: "รหัสวิชา", placeholder: "เช่น ง16101 (ไม่มีก็เว้นว่าง)", value: ci.code },
     { key: "room", label: "ชั้น", placeholder: "เช่น ป.6 หรือ ป.5/1", value: ci.room },
-    { key: "place", label: "สถานที่เรียน", placeholder: "เช่น COM (ห้องคอมพิวเตอร์)", value: ci.place },
     ...others.map((d) => {
       const there = cellOf(d, no)[0];
       return { key: `d_${DAYS.indexOf(d)}`, label: `ใส่คาบ ${no} วัน${d} ด้วย${there ? ` (ทับ ${App.classInfo(there).title})` : ""}`, type: "check" };
@@ -393,7 +397,7 @@ App.actions.editCell = (b) => {
     if (r.del) { await saveSched((s) => { s.classes = s.classes.filter((c) => c !== cur); }); return; }
     if (!r.subject && !r.code) throw new Error(cur ? "กรอกชื่อวิชาหรือรหัสวิชา หรือติ๊ก \"ลบคาบนี้\"" : "กรอกชื่อวิชาหรือรหัสวิชา");
     const targets = [day, ...others.filter((d) => r[`d_${DAYS.indexOf(d)}`])];
-    const v = { subject: r.subject || "", code: r.code || "", room: r.room || "", place: r.place || "" };
+    const v = { subject: r.subject || "", code: r.code || "", room: r.room || "" };
     await saveSched((s) => {
       targets.forEach((d) => {
         const hit = s.classes.find((c) => c.day === d && Number(c.period) === no);
@@ -415,13 +419,12 @@ App.actions.editCell = (b) => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
       if (key === "subject") { // เลือกวิชาที่เคยใช้: เติมรหัสและสถานที่เดิมให้ด้วย ถ้ายังว่าง
         const prev = infos.find((x) => x.name === chip.dataset.v);
-        for (const k of ["code", "place"]) { const el = document.getElementById(`f_${k}`); if (prev?.[k] && el && !el.value) { el.value = prev[k]; el.dispatchEvent(new Event("input", { bubbles: true })); } }
+        for (const k of ["code", "room"]) { const el = document.getElementById(`f_${k}`); if (prev?.[k] && el && !el.value) { el.value = prev[k]; el.dispatchEvent(new Event("input", { bubbles: true })); } }
       }
     });
     input.closest(".ios-cell").after(row);
   };
   const infos = (schedOf().classes || []).map(App.classInfo);
-  chips("place", uniq(infos.map((c) => c.place)).slice(0, 8));
   chips("room", uniq(infos.map((c) => c.room)).slice(0, 12));
   chips("subject", uniq(infos.map((c) => c.name)).slice(0, 12));
 };
@@ -480,6 +483,16 @@ App.actions.newTerm = () => {
     goTerm(r.term);
     toast(`เพิ่มภาคเรียน ${r.term} แล้ว${copy ? "" : " แตะช่องในตาราง หรือกด ✨ นำเข้าจากรูป"}`);
   });
+};
+// ปุ่มลัด: เพิ่มภาคเรียนคู่ (ตารางว่าง ใช้เวลาคาบและช่องพักเดิม) แล้วเปิดดูเลย
+App.actions.quickTerm = async (b) => {
+  const t = b.dataset.t, s = schedBase(), src = schedOf(), backup = JSON.stringify(s);
+  s.terms = s.terms || {};
+  const fresh = { periods: (src.periods || []).map((p) => ({ ...p })), classes: [], ...(src.lunch ? { lunch: { ...src.lunch } } : {}) };
+  if (!s.term) { s.term = t; s.periods = fresh.periods; s.classes = []; if (fresh.lunch) s.lunch = fresh.lunch; } else s.terms[t] = fresh;
+  try { await saveKV("schedule"); } catch (e) { App.DATA.schedule = JSON.parse(backup); return toast(e.message); }
+  goTerm(t);
+  toast(`เพิ่มภาคเรียน ${t} แล้ว แตะช่องในตาราง หรือนำเข้าจากรูป`);
 };
 // ภาคเรียนที่กำลังดู: เปลี่ยนชื่อ เวลาคาบ ลบ และการเปลี่ยนภาคเรียนอัตโนมัติ
 App.actions.editTerm = () => {
