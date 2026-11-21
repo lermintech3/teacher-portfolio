@@ -962,3 +962,19 @@ table.sched.cute { border-spacing: 6px; min-width: 820px; table-layout: fixed; }
 .st-tabs button { border: 0; border-radius: 99px; padding: 8px 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); font: inherit; cursor: pointer; }
 .st-tabs button.on { background: var(--c, #6c4cf1); color: #fff; box-shadow: none; }
 @media (max-width: 600px) { .st-arrow { display: none; } }
+
+/* ---------- จัดการรายชื่อนักเรียน (students.js) ---------- */
+.stu-name { font: inherit; border: 0; background: none; padding: 0; color: inherit; text-align: left; cursor: pointer; text-decoration: underline dotted var(--muted); text-underline-offset: 4px; }
+.stu-name:hover, .stu-name:focus-visible { color: var(--c, #6c4cf1); text-decoration-color: currentColor; }
+.stu-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 8px; }
+.stu-bar .btn:disabled { opacity: .45; cursor: default; }
+.stu-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: .9rem; }
+.stu-check input { width: 20px; height: 20px; accent-color: var(--c, #6c4cf1); }
+.stu-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.stu-list li { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.stu-no { min-width: 2.2em; height: 2.2em; border-radius: 50%; display: grid; place-items: center; background: var(--paper); font-weight: 700; font-size: .9rem; flex: none; }
+.stu-main { flex: 1; min-width: 0; font: inherit; color: inherit; border: 0; background: none; padding: 4px 0; text-align: left; cursor: pointer; display: flex; flex-direction: column; }
+.stu-main b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stu-main small { color: var(--muted); font-size: .8rem; }
+.stu-acts { display: flex; gap: 4px; flex: none; }
+@media (max-width: 560px) { .stu-acts .ico:not(.del) { display: none; } }

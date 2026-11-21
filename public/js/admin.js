@@ -625,23 +625,25 @@ App.pages["admin/supervision"] = listPage({
 // ---------- นักเรียน ----------
 const ATT = ["มา", "สาย", "ลา", "ขาด"];
 const attCls = { "มา": "a-ok", "สาย": "a-late", "ลา": "a-leave", "ขาด": "a-miss" };
-App.pages["admin/attendance"] = () => {
+App.pages["admin/attendance"] = ({ q } = {}) => {
+  if (q?.view === "list" && App.studentManage) return App.studentManage();
   const dates = (App.DATA.attendanceDates = App.DATA.attendanceDates || []);
   const att = (App.DATA.attendance = App.DATA.attendance || {});
   const studs = studentsSorted();
   const recent = dates.slice(-10);
   const offset = dates.length - recent.length;
   return head("รายชื่อและเช็กชื่อ", `${studs.length} คน แตะช่องเพื่อเปลี่ยนสถานะ บันทึกอัตโนมัติ`,
-    `<button class="btn" data-act="addDay">+ เช็กชื่อวันนี้</button><button class="btn ghost" data-add="students">+ เพิ่มนักเรียน</button><button class="btn ghost" data-act="importXlsx">นำเข้าจาก Excel</button>`) +
+    `<button class="btn" data-act="addDay">+ เช็กชื่อวันนี้</button><button class="btn ghost" data-add="students">+ เพิ่มนักเรียน</button>`) +
+    (App.studentTabs ? App.studentTabs("check") : "") +
     `<p class="private-note">ข้อมูลนักเรียนเป็นข้อมูลส่วนบุคคล (PDPA) ระบบเก็บแบบส่วนตัวเสมอ ไม่แสดงในหน้าสาธารณะ</p>` +
-    (studs.length ? `<div class="table-wrap"><table class="data att"><thead><tr><th class="num">เลขที่</th><th>ชื่อ</th>${recent.map((d) => `<th class="num">${thDate(d).replace(/ \d{4}$/, "")}</th>`).join("")}<th class="num">มาเรียน</th><th></th></tr></thead><tbody>
+    (studs.length ? `<div class="table-wrap"><table class="data att"><thead><tr><th class="num">เลขที่</th><th>ชื่อ</th>${recent.map((d) => `<th class="num">${thDate(d).replace(/ \d{4}$/, "")}</th>`).join("")}<th class="num">มาเรียน</th></tr></thead><tbody>
     ${studs.map((s) => {
       const row = att[s.no] || [];
       const marked = row.filter(Boolean);
       const pct = marked.length ? Math.round((marked.filter((x) => x === "มา" || x === "สาย").length / marked.length) * 100) : null;
-      return `<tr><td class="num">${esc(s.no)}</td><td>${esc(s.name)}</td>${recent.map((d, j) => `<td class="num"><button class="att-btn ${attCls[row[offset + j]] || ""}" data-act="att" data-s="${esc(s.no)}" data-j="${offset + j}">${esc(row[offset + j] || "-")}</button></td>`).join("")}<td class="num ${pct !== null && pct < 80 ? "warn" : ""}">${pct === null ? "-" : pct + "%"}</td><td class="nowrap">${tools("students", s)}</td></tr>`;
+      return `<tr><td class="num">${esc(s.no)}</td><td><button class="stu-name" data-act="edit" data-key="students" data-id="${esc(s.id)}" title="แตะเพื่อแก้ไข">${esc(s.name)}</button></td>${recent.map((d, j) => `<td class="num"><button class="att-btn ${attCls[row[offset + j]] || ""}" data-act="att" data-s="${esc(s.no)}" data-j="${offset + j}">${esc(row[offset + j] || "-")}</button></td>`).join("")}<td class="num ${pct !== null && pct < 80 ? "warn" : ""}">${pct === null ? "-" : pct + "%"}</td></tr>`;
     }).join("")}</tbody></table></div>
-    <p class="meta">แสดง 10 วันล่าสุด มาเรียนต่ำกว่า 80% จะขึ้นสีแดง เพื่อเตือนเรื่องสิทธิ์สอบ (มส.)</p>` : empty("ยังไม่มีรายชื่อ กด \"+ เพิ่มนักเรียน\""));
+    <p class="meta">แตะชื่อนักเรียนเพื่อแก้ไข · ลบหรือจัดการหลายคนที่แท็บ "จัดการรายชื่อ" · แสดง 10 วันล่าสุด มาเรียนต่ำกว่า 80% จะขึ้นสีแดง เพื่อเตือนเรื่องสิทธิ์สอบ (มส.)</p>` : empty("ยังไม่มีรายชื่อ กด \"+ เพิ่มนักเรียน\""));
 };
 App.actions.att = (b) => {
   const att = App.DATA.attendance;
