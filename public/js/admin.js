@@ -632,7 +632,7 @@ App.pages["admin/attendance"] = () => {
   const recent = dates.slice(-10);
   const offset = dates.length - recent.length;
   return head("รายชื่อและเช็กชื่อ", `${studs.length} คน แตะช่องเพื่อเปลี่ยนสถานะ บันทึกอัตโนมัติ`,
-    `<button class="btn" data-act="addDay">+ เช็กชื่อวันนี้</button><button class="btn ghost" data-add="students">+ เพิ่มนักเรียน</button>`) +
+    `<button class="btn" data-act="addDay">+ เช็กชื่อวันนี้</button><button class="btn ghost" data-add="students">+ เพิ่มนักเรียน</button><button class="btn ghost" data-act="importXlsx">นำเข้าจาก Excel</button>`) +
     `<p class="private-note">ข้อมูลนักเรียนเป็นข้อมูลส่วนบุคคล (PDPA) ระบบเก็บแบบส่วนตัวเสมอ ไม่แสดงในหน้าสาธารณะ</p>` +
     (studs.length ? `<div class="table-wrap"><table class="data att"><thead><tr><th class="num">เลขที่</th><th>ชื่อ</th>${recent.map((d) => `<th class="num">${thDate(d).replace(/ \d{4}$/, "")}</th>`).join("")}<th class="num">มาเรียน</th><th></th></tr></thead><tbody>
     ${studs.map((s) => {
