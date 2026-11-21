@@ -146,8 +146,11 @@ App.actions.importXlsx = () => {
   const inp = document.createElement("input");
   inp.type = "file";
   inp.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  inp.style.display = "none";
+  document.body.appendChild(inp); // iPhone/iPad ต้องอยู่ในหน้าจึงเปิดเลือกไฟล์ได้
   inp.onchange = async () => {
     const f = inp.files[0];
+    inp.remove();
     if (!f) return;
     let parsed;
     try { parsed = parseClassBook(await Xlsx.read(await f.arrayBuffer())); } catch (e) { return toast(e.message || "อ่านไฟล์ไม่สำเร็จ"); }
