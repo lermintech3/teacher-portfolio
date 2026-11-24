@@ -48,7 +48,21 @@ const HB = {
   },
   slideshow: {
     label: "สไลด์โชว์ภาพกิจกรรม", w: "full", empty: "ยังไม่มีรูป สร้างอัลบั้มแล้วเปิด \"แสดงในสไลด์โชว์\"",
-    render: () => App.slideshowHTML(),
+    // ค่าเริ่มต้น "สไลด์" = แบบเดิมทีละภาพ ครูที่ตั้งไว้แล้วจะไม่เปลี่ยนเอง
+    opts: [
+      { key: "mode", label: "รูปแบบ", choices: [["slide", "ทีละภาพ"], ["row1", "ไหล 1 แถว"], ["row2", "ไหล 2 แถวสวนกัน"], ["row3", "ไหล 3 แถว"]], def: "slide" },
+      { key: "n", label: "จำนวนรูปสูงสุด", choices: [15, 30, 60], def: 15 },
+      { key: "speed", label: "ความเร็ว", flow: true, choices: [["slow", "ช้า"], ["mid", "ปกติ"], ["fast", "เร็ว"]], def: "mid" },
+      { key: "size", label: "ความสูงแถว", flow: true, choices: [["s", "เล็ก"], ["m", "กลาง"], ["l", "ใหญ่"]], def: "m" },
+      { key: "shape", label: "ทรงรูป", flow: true, choices: [["wide", "แนวนอน 4:3"], ["square", "จัตุรัส"], ["tall", "แนวตั้ง 3:4"], ["auto", "ตามรูปจริง"]], def: "wide" },
+      { key: "dir", label: "แถวแรกไหลไป", flow: true, choices: [["left", "ซ้าย"], ["right", "ขวา"]], def: "left" },
+      { key: "gap", label: "ระยะห่างรูป", flow: true, choices: [["0", "ชิด"], ["8", "แคบ"], ["16", "กว้าง"]], def: "16" },
+      { key: "corner", label: "มุมรูป", flow: true, choices: [["0", "เหลี่ยม"], ["10", "มนนิด"], ["20", "มนมาก"]], def: "10" },
+      { key: "cap", label: "คำบรรยายบนรูป", choices: [["hover", "เมื่อชี้"], ["on", "แสดงตลอด"], ["off", "ไม่แสดง"]], def: "hover" },
+      { key: "fade", label: "ขอบจางซ้ายขวา", flow: true, choices: [["on", "มี"], ["off", "ไม่มี"]], def: "on" },
+      { key: "shuffle", label: "ลำดับรูป", choices: [["date", "ใหม่ก่อน"], ["mix", "สลับคละ"]], def: "date" },
+    ],
+    render: (o) => App.slideshowHTML(o),
   },
   featured: {
     label: "ผลงานและเกียรติบัตรเด่น", head: "ผลงานและเกียรติบัตรเด่น", w: "full", empty: "ยังไม่มีผลงานหรือเกียรติบัตรที่เป็นสาธารณะ",
@@ -340,7 +354,14 @@ const optsHTML = (b) => {
       return vs.length ? `<label class="hb-opt"><span>วิดีโอที่จะโชว์</span><select data-hb-opt="vid"><option value="">ล่าสุดเสมอ</option>
         ${vs.map((v) => `<option value="${v.id}" ${String(b.vid) === String(v.id) ? "selected" : ""}>${esc(v.title)}</option>`).join("")}</select></label>` : "";
     }
-    return `<div class="hb-opt"><span>${o.label}</span><div class="seg" role="group" aria-label="${o.label}">${o.choices.map((c) => `<button type="button" data-hb-opt="${o.key}" data-v="${c}" aria-pressed="${Number(b[o.key] ?? o.def) === c}">${c}</button>`).join("")}</div></div>`;
+    // choices: [ค่า] หรือ [[ค่า, ป้าย]] เก็บเป็นตัวเลขถ้าค่าเป็นตัวเลข นอกนั้นเก็บเป็นข้อความ
+    const cur = String(b[o.key] ?? o.def);
+    // ตัวเลือกเฉพาะแบบไหล ซ่อนไว้ตอนเลือก "ทีละภาพ"
+    const flow = o.flow ? ` data-flow${String(b.mode ?? "slide").startsWith("row") ? "" : " hidden"}` : "";
+    return `<div class="hb-opt"${flow}><span>${o.label}</span><div class="seg" role="group" aria-label="${o.label}">${o.choices.map((c) => {
+      const [v, l] = Array.isArray(c) ? c : [c, c];
+      return `<button type="button" data-hb-opt="${o.key}" data-v="${esc(String(v))}" data-num="${typeof v === "number" ? 1 : ""}" aria-pressed="${cur === String(v)}">${esc(String(l))}</button>`;
+    }).join("")}</div></div>`;
   });
   return [...common, ...own].join("");
 };
@@ -477,7 +498,8 @@ main.addEventListener("click", (e) => {
     btn.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-checked", String(x === btn)));
     hbRefresh(el); hbSave();
   } else if (btn.dataset.hbOpt) {
-    b[btn.dataset.hbOpt] = Number(btn.dataset.v);
+    b[btn.dataset.hbOpt] = btn.dataset.num ? Number(btn.dataset.v) : btn.dataset.v;
+    if (btn.dataset.hbOpt === "mode") el.querySelectorAll(".hb-opt[data-flow]").forEach((x) => (x.hidden = !b.mode.startsWith("row")));
     btn.parentElement.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === btn)));
     hbRefresh(el); hbSave();
   }

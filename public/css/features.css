@@ -54,6 +54,53 @@
 .ss-dots button[aria-current=true] { width: 22px; background: #fff; }
 @media (max-width: 860px) { .slideshow { aspect-ratio: 4 / 3; border-radius: 18px; } .ss-nav { display: none; } .ss-slide figcaption { padding: 30px 16px 34px; font-size: .95rem; } }
 
+/* ---------- สไลด์แบบไหลต่อเนื่อง (หลายแถวสวนกัน) ---------- */
+.mq { --mq-h: var(--mq-h0, 170px); position: relative; display: grid; gap: var(--mq-gap, 16px); overflow: hidden; }
+.mq-row { overflow: hidden; }
+.mq-fade .mq-row { -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.mq-track { display: flex; width: max-content; will-change: transform; }
+.mq.ready .mq-track { animation: mq-move var(--mq-dur, 40s) linear infinite; }
+.mq-row.rev .mq-track { animation-direction: reverse; }
+@keyframes mq-move { to { transform: translate3d(-50%, 0, 0); } }
+/* หยุด: ชี้เมาส์ โฟกัสด้วยคีย์บอร์ด กดปุ่มหยุด หรือเลื่อนพ้นจอ */
+.mq:hover .mq-track, .mq:focus-within .mq-track, .mq.paused .mq-track, .mq.offscreen .mq-track { animation-play-state: paused; }
+
+.mq-item {
+  position: relative; flex: none; height: var(--mq-h); aspect-ratio: var(--mq-ratio, 4 / 3); margin: 0 var(--mq-gap, 16px) 0 0; padding: 0; border: 0;
+  border-radius: var(--mq-r, 10px); overflow: hidden; background: var(--line, #e7e5f0); cursor: zoom-in; -webkit-tap-highlight-color: transparent;
+}
+.mq-item img { display: block; width: 100%; height: 100%; object-fit: cover; user-select: none; -webkit-user-drag: none; transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
+.mq-item:hover img { transform: scale(1.05); }
+.mq-item:focus-visible { outline: 3px solid var(--c, #6d4aff); outline-offset: -3px; }
+.shape-auto .mq-item { aspect-ratio: auto; }
+.shape-auto .mq-item img { width: auto; aspect-ratio: auto 4 / 3; }
+
+.mq-cap {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 26px 12px 9px; color: #fff; text-align: left; font-size: .85rem; font-weight: 500; line-height: 1.35;
+  background: linear-gradient(to top, rgba(0, 0, 0, .66), transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;
+}
+.cap-hover .mq-cap { opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s; }
+.cap-hover .mq-item:hover .mq-cap, .cap-hover .mq-item:focus-visible .mq-cap { opacity: 1; transform: none; }
+
+.mq-pause {
+  position: absolute; right: 10px; bottom: 10px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  display: grid; place-items: center; background: rgba(255, 255, 255, .82); color: var(--ink, #1d1a33); backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .15); opacity: .55; transition: opacity .2s;
+}
+.mq:hover .mq-pause, .mq-pause:focus-visible, .mq.paused .mq-pause { opacity: 1; }
+.mq-pause svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.mq-pause .i-play { display: none; fill: currentColor; stroke-width: 1.5; }
+.mq.paused .i-pause { display: none; } .mq.paused .i-play { display: inline; }
+
+@media (max-width: 860px) { .mq { --mq-h: calc(var(--mq-h0, 170px) * .7); } .mq-cap { font-size: .78rem; padding: 20px 9px 7px; } }
+/* ผู้ใช้ปิดภาพเคลื่อนไหว: ไม่เลื่อนเอง ปัดดูเองได้ */
+@media (prefers-reduced-motion: reduce) {
+  .mq.ready .mq-track { animation: none; }
+  .mq-row { overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .mq-item { scroll-snap-align: start; }
+  .mq-pause { display: none; }
+}
+
 /* ---------- อัลบั้มและรูป ---------- */
 .album-grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
 .album { background: var(--surface); border-radius: 20px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }

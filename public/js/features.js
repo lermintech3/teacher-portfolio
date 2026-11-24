@@ -198,23 +198,121 @@ App.heroStyle = () => {
   return { cls: `theme-${BANNER_THEMES[b.theme] || "violet"}`, style: "", img, slogan: b.slogan || "",
     cover: img ? `<img class="hero-cover" src="${esc(img)}" alt="แบนเนอร์" referrerpolicy="no-referrer" onerror="this.closest('.hero-wrap')?.classList.remove('has-cover');this.remove()">` : "" };
 };
-const slides = () => list("albums")
-  .filter((a) => a.slideshow !== "ไม่แสดง")
-  .sort(byDateDesc)
-  .flatMap((a) => (a.photos || []).map((p) => ({ img: p.img || p.url, caption: p.caption || a.title, album: a.title })))
-  .slice(0, 15);
-App.slideshowHTML = () => {
-  const s = slides();
+// n = จำนวนรูปสูงสุด, mix = สลับคละลำดับ (คละจากทุกรูปก่อนแล้วค่อยตัด จะได้รูปหลากหลาย)
+const slides = (n = 15, mix = false) => {
+  const all = list("albums")
+    .filter((a) => a.slideshow !== "ไม่แสดง")
+    .sort(byDateDesc)
+    .flatMap((a) => (a.photos || []).map((p) => ({ img: p.img || p.url, caption: p.caption || a.title, album: a.title })))
+    .filter((x) => x.img);
+  if (mix) for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+  return all.slice(0, n);
+};
+// รูปในบล็อกอ่านจากหน้าจอ (ลำดับตรงกับที่เห็น แม้จะสลับคละ)
+const galleryFrom = (box, sel) => {
+  const seen = new Map();
+  box.querySelectorAll(sel).forEach((el) => { if (!seen.has(el.dataset.i)) seen.set(el.dataset.i, { img: el.dataset.img, caption: el.dataset.cap }); });
+  return [...seen.entries()].sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+};
+
+// ---------- แบบไหลต่อเนื่อง (1–3 แถว แถวติดกันไหลสวนทาง) ----------
+const MQ_SPEED = { slow: 22, mid: 40, fast: 75 }; // พิกเซลต่อวินาที
+const MQ_H = { s: 120, m: 170, l: 240 };
+const MQ_RATIO = { wide: "4 / 3", square: "1 / 1", tall: "3 / 4", auto: "auto" };
+const marqueeHTML = (s, o) => {
+  const rows = Math.min(3, Math.max(1, Number(String(o.mode).slice(3)) || 2));
+  const shape = MQ_RATIO[o.shape] ? o.shape : "wide";
+  const cap = o.cap || "hover";
+  const firstLeft = o.dir !== "right";
+  // รูปพอ: แบ่งรูปให้แต่ละแถวไม่ซ้ำกัน  รูปน้อย: ทุกแถวใช้ทุกรูป แต่เริ่มคนละตำแหน่ง
+  const enough = s.length >= rows * 3;
+  const shown = new Set();
+  const rowHTML = (k) => {
+    let items = s.map((x, i) => ({ ...x, i }));
+    if (enough) items = items.filter((x) => x.i % rows === k);
+    else { const off = Math.floor((s.length / rows) * k); items = [...items.slice(off), ...items.slice(0, off)]; }
+    const left = (k % 2 === 0) === firstLeft;
+    return `<div class="mq-row${left ? "" : " rev"}"><div class="mq-track">${items.map((x) => {
+      const dup = shown.has(x.i); shown.add(x.i);
+      return `<button type="button" class="mq-item" data-i="${x.i}" data-img="${esc(x.img)}" data-cap="${esc(x.caption)}" ${dup ? 'aria-hidden="true" tabindex="-1"' : `aria-label="ดูภาพ ${esc(x.caption)}"`}>
+        <img src="${esc(x.img)}" alt="" loading="lazy" decoding="async" draggable="false" referrerpolicy="no-referrer">${cap !== "off" && x.caption ? `<span class="mq-cap">${esc(x.caption)}</span>` : ""}</button>`;
+    }).join("")}</div></div>`;
+  };
+  const style = `--mq-h0:${MQ_H[o.size] || MQ_H.m}px;--mq-gap:${Number(o.gap ?? 16)}px;--mq-r:${Number(o.corner ?? 10)}px;--mq-ratio:${MQ_RATIO[shape]}`;
+  return `<section class="mq shape-${shape} cap-${cap}${o.fade === "off" ? "" : " mq-fade"}" style="${style}" data-speed="${MQ_SPEED[o.speed] || MQ_SPEED.mid}" aria-label="ภาพกิจกรรม ${s.length} ภาพ เลื่อนอัตโนมัติ">
+    ${Array.from({ length: rows }, (_, k) => rowHTML(k)).join("")}
+    <button type="button" class="mq-pause" aria-pressed="false" aria-label="หยุดการเลื่อนภาพ" title="หยุด / เล่นต่อ"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-pause" d="M8 5v14M16 5v14"/><path class="i-play" d="M7 5l12 7-12 7z"/></svg></button>
+  </section>`;
+};
+
+App.slideshowHTML = (o = {}) => {
+  const s = slides(Number(o.n) || 15, o.shuffle === "mix");
   if (!s.length) return "";
+  if (String(o.mode || "").startsWith("row")) return marqueeHTML(s, o);
   return `<section class="slideshow" aria-roledescription="carousel" aria-label="ภาพกิจกรรม" tabindex="0">
-    <div class="ss-track">${s.map((x, i) => `<figure class="ss-slide" aria-roledescription="slide" aria-label="${i + 1} จาก ${s.length}">
-      <img src="${esc(x.img)}" alt="${esc(x.caption)}" ${i > 1 ? 'loading="lazy"' : ""}><figcaption>${esc(x.caption)}</figcaption></figure>`).join("")}</div>
+    <div class="ss-track">${s.map((x, i) => `<figure class="ss-slide" data-i="${i}" data-img="${esc(x.img)}" data-cap="${esc(x.caption)}" aria-roledescription="slide" aria-label="${i + 1} จาก ${s.length}">
+      <img src="${esc(x.img)}" alt="${esc(x.caption)}" ${i > 1 ? 'loading="lazy"' : ""}>${o.cap === "off" ? "" : `<figcaption>${esc(x.caption)}</figcaption>`}</figure>`).join("")}</div>
     ${s.length > 1 ? `<button class="ss-nav ss-prev" aria-label="ภาพก่อนหน้า">‹</button><button class="ss-nav ss-next" aria-label="ภาพถัดไป">›</button>
     <div class="ss-dots">${s.map((_, i) => `<button aria-label="ไปภาพที่ ${i + 1}" data-i="${i}"></button>`).join("")}</div>` : ""}
   </section>`;
 };
+
+// ต่อรูปซ้ำให้ยาวเกินความกว้างจอ แล้วทำสำเนาอีกชุด เลื่อน -50% จะวนต่อกันพอดีไม่มีรอยต่อ
+const wireMarquee = (mq) => {
+  mq.dataset.wired = "1";
+  const speed = Number(mq.dataset.speed) || 40;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const rows = [...mq.querySelectorAll(".mq-row")];
+  let lastW = -1, raf = 0;
+  const build = () => {
+    raf = 0;
+    if (!mq.isConnected) return ro?.disconnect(), io?.disconnect();
+    const W = mq.clientWidth;
+    rows.forEach((row) => {
+      const track = row.querySelector(".mq-track");
+      track.querySelectorAll("[data-clone]").forEach((x) => x.remove());
+      if (reduce) return;
+      const base = [...track.children];
+      const w = track.offsetWidth;
+      if (!w) return;
+      const reps = Math.min(30, Math.max(1, Math.ceil((W + 1) / w)));
+      const frag = document.createDocumentFragment();
+      for (let k = 0; k < reps * 2 - 1; k++) base.forEach((el) => {
+        const c = el.cloneNode(true);
+        c.dataset.clone = "";
+        c.setAttribute("aria-hidden", "true"); c.removeAttribute("aria-label"); c.tabIndex = -1;
+        frag.append(c);
+      });
+      track.append(frag);
+      track.style.setProperty("--mq-dur", `${((w * reps) / speed).toFixed(2)}s`);
+    });
+    mq.classList.add("ready");
+  };
+  const later = () => { if (!raf) raf = requestAnimationFrame(build); };
+  // สร้างใหม่เมื่อความกว้างเปลี่ยน หรือรูปโหลดเสร็จ (ทรง "ตามรูปจริง" ความกว้างเปลี่ยนตามรูป)
+  const ro = "ResizeObserver" in window ? new ResizeObserver(() => { if (mq.clientWidth !== lastW) { lastW = mq.clientWidth; later(); } }) : null;
+  ro ? ro.observe(mq) : later();
+  if (mq.classList.contains("shape-auto")) mq.querySelectorAll(".mq-track > :not([data-clone]) img").forEach((img) => img.complete || img.addEventListener("load", later, { once: true }));
+  // หยุดเมื่อเลื่อนพ้นจอ ประหยัดแบตมือถือ
+  const io = "IntersectionObserver" in window ? new IntersectionObserver(([en]) => mq.classList.toggle("offscreen", !en.isIntersecting)) : null;
+  io?.observe(mq);
+  const pause = mq.querySelector(".mq-pause");
+  pause.addEventListener("click", () => {
+    const p = mq.classList.toggle("paused");
+    pause.setAttribute("aria-pressed", String(p));
+    pause.setAttribute("aria-label", p ? "เล่นการเลื่อนภาพต่อ" : "หยุดการเลื่อนภาพ");
+  });
+  mq.addEventListener("click", (e) => {
+    const it = e.target.closest(".mq-item");
+    if (!it) return;
+    const items = galleryFrom(mq, ".mq-item");
+    App.openGallery(items, Math.max(0, items.findIndex((x) => x.img === it.dataset.img && x.caption === it.dataset.cap)));
+  });
+};
+
 let ssTimer;
 App.wireSlideshow = () => {
+  main.querySelectorAll(".mq:not([data-wired])").forEach(wireMarquee);
   clearInterval(ssTimer);
   const ss = main.querySelector(".slideshow");
   if (!ss) return;
@@ -241,7 +339,7 @@ App.wireSlideshow = () => {
   const end = () => {
     if (x0 === null) return;
     track.style.transition = "";
-    if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); else if (Math.abs(dx) < 6) App.openGallery(slides(), i); else go(i);
+    if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1)); else if (Math.abs(dx) < 6) App.openGallery(galleryFrom(ss, ".ss-slide"), i); else go(i);
     x0 = null; auto();
   };
   track.addEventListener("pointerup", end);
