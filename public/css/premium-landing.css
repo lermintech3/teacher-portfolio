@@ -1,0 +1,86 @@
+/* ==========================================================================
+   Premium — หน้าแรก (โหลดหลัง landing.css)
+   พื้นหลังออโรราสามสี, หัวข้อไล่สี, การ์ดกระจกขอบไล่สี มีแสงวาบเมื่อชี้
+   ========================================================================== */
+@media screen {
+html { background: var(--paper); }
+body { background: transparent; -webkit-font-smoothing: antialiased; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(42vw 46vh at 12% 8%, color-mix(in srgb, var(--him) 26%, transparent), transparent 70%),
+    radial-gradient(42vw 46vh at 90% 14%, color-mix(in srgb, var(--her) 22%, transparent), transparent 70%),
+    radial-gradient(60vw 50vh at 50% 105%, color-mix(in srgb, var(--gold) 20%, transparent), transparent 70%),
+    radial-gradient(color-mix(in srgb, var(--dot) 80%, transparent) 1px, transparent 1.3px) 0 0 / 24px 24px;
+}
+
+/* หัวข้อ */
+.intro { position: relative; }
+.intro::before {
+  content: "Teacher Portfolio"; display: inline-block; margin-bottom: 14px; padding: 6px 16px; border-radius: 999px;
+  font-family: var(--display); font-size: .78rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--him) 70%, #14112b);
+  background: rgba(255, 255, 255, .7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .9), 0 8px 20px -12px color-mix(in srgb, var(--him) 60%, transparent);
+}
+.intro h1 {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--him) 80%, #14112b) 10%, var(--him) 38%, var(--her) 68%, color-mix(in srgb, var(--gold) 80%, var(--her)) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent; padding-bottom: .08em;
+}
+.intro p { color: color-mix(in srgb, var(--muted) 85%, var(--him)); }
+
+/* การ์ด: กระจก + ขอบไล่สี ไม่เอียง ไม่มีเทป */
+.card {
+  transform: none; border: 2px solid transparent; padding: 12px 12px 24px; border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .96) 50%, color-mix(in srgb, var(--c) 9%, #fff)) padding-box,
+    linear-gradient(150deg, color-mix(in srgb, var(--c) 70%, #fff), color-mix(in srgb, var(--c) 20%, #fff) 45%, color-mix(in srgb, var(--gold) 55%, #fff)) border-box;
+  box-shadow: 0 2px 4px rgba(22, 20, 46, .04), 0 34px 60px -34px color-mix(in srgb, var(--c) 75%, transparent);
+}
+.card::before { display: none; }
+.card:hover, .card:focus-visible {
+  transform: translateY(-8px);
+  box-shadow: 0 2px 4px rgba(22, 20, 46, .05), 0 44px 70px -30px color-mix(in srgb, var(--c) 85%, transparent);
+}
+
+.photo { position: relative; border-radius: 20px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .25); text-shadow: 0 6px 24px rgba(0, 0, 0, .18); }
+.photo::after { /* แสงวาบ */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .38) 50%, transparent 65%);
+  transform: translateX(-120%); transition: transform .9s cubic-bezier(.2, .8, .2, 1);
+}
+.card:hover .photo::after { transform: translateX(120%); }
+
+.role { color: color-mix(in srgb, var(--c) 80%, #14112b); }
+.chips span { background: color-mix(in srgb, var(--c) 14%, #fff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 22%, transparent); }
+.open {
+  background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 55%, #14112b));
+  box-shadow: 0 12px 24px -12px var(--c), inset 0 1px 0 rgba(255, 255, 255, .3);
+  padding: 11px 26px; transition: transform .2s ease, box-shadow .2s ease;
+}
+.open::after { content: "→"; display: inline-block; margin-left: 8px; transition: transform .2s ease; }
+.card:hover .open::after { transform: translateX(4px); }
+
+/* หัวใจ */
+.heart {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--him) 18%, #fff), color-mix(in srgb, var(--her) 22%, #fff));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .9), 0 14px 30px -12px color-mix(in srgb, var(--her) 70%, transparent);
+}
+.heart::before { background: linear-gradient(135deg, var(--him), var(--her)); }
+@media (prefers-reduced-motion: no-preference) {
+  .pair.ready .heart::before { animation: beat 2.4s 1.2s ease-in-out infinite; }
+  @keyframes beat { 0%, 60%, 100% { transform: scale(1); } 30% { transform: scale(1.18); } 45% { transform: scale(.96); } }
+}
+
+.skeleton {
+  background: linear-gradient(100deg, rgba(255, 255, 255, .6) 30%, rgba(255, 255, 255, .95) 50%, rgba(255, 255, 255, .6) 70%) 0 0 / 300% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { to { background-position: -150% 0; } }
+
+.admin-btn {
+  background: rgba(255, 255, 255, .7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .9), 0 8px 20px -14px color-mix(in srgb, var(--him) 70%, transparent);
+  color: color-mix(in srgb, var(--him) 65%, #14112b);
+}
+}
